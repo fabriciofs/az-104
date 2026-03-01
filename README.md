@@ -36,26 +36,29 @@ az-104/
 │
 └── labs/                               # Pratica hands-on
     ├── 1-iam-gov-net/                  # IAM, Governance e Networking (Labs 01-06)
-    │   ├── lab-cenario-contoso.md       # Cenario interconectado
-    │   ├── lab-iac-powershell.md        # Variante PowerShell
-    │   ├── lab-iac-arm.md               # Variante ARM Templates
-    │   ├── lab-iac-bicep.md             # Variante Bicep
+    │   ├── cenario-contoso.md           # Cenario interconectado
+    │   ├── IaC/
+    │   │   ├── powershell.md            # Variante PowerShell
+    │   │   ├── arm.md                   # Variante ARM Templates
+    │   │   └── bicep.md                 # Variante Bicep
     │   ├── simulado-iam-gov-net.md      # 18 questoes (sem respostas)
     │   └── simulado-iam-gov-net-solucao.md  # Gabarito comentado
     │
     ├── 2-storage-compute/              # Storage e Compute (Labs 07-09c)
-    │   ├── lab-cenario-contoso.md       # Cenario interconectado
-    │   ├── lab-iac-powershell.md        # Variante PowerShell
-    │   ├── lab-iac-arm.md               # Variante ARM Templates
-    │   ├── lab-iac-bicep.md             # Variante Bicep
+    │   ├── cenario-contoso.md           # Cenario interconectado
+    │   ├── IaC/
+    │   │   ├── powershell.md            # Variante PowerShell
+    │   │   ├── arm.md                   # Variante ARM Templates
+    │   │   └── bicep.md                 # Variante Bicep
     │   ├── simulado-storage-compute.md  # 18 questoes (sem respostas)
     │   └── simulado-storage-compute-solucao.md  # Gabarito comentado
     │
     └── 3-backup-monitoring/            # Backup, Recovery e Monitoring (Labs 10-11)
-        ├── lab-cenario-contoso.md       # Cenario interconectado
-        ├── lab-iac-powershell.md        # Variante PowerShell
-        ├── lab-iac-arm.md               # Variante ARM Templates
-        ├── lab-iac-bicep.md             # Variante Bicep
+        ├── cenario-contoso.md           # Cenario interconectado
+        ├── IaC/
+        │   ├── powershell.md            # Variante PowerShell
+        │   ├── arm.md                   # Variante ARM Templates
+        │   └── bicep.md                 # Variante Bicep
         ├── simulado-backup-monitoring.md      # 18 questoes (sem respostas)
         └── simulado-backup-monitoring-solucao.md  # Gabarito comentado
 ```
@@ -93,11 +96,11 @@ az-104/
 
 ```
 Bloco 1: 1-iam-gov-net (Dominios 1 e 4)
-  1. lab-cenario-contoso.md         → Cenario interconectado Contoso Corp
-  2. lab-iac-powershell.md  ─┐
-  3. lab-iac-bicep.md        ├──── Escolha 1+ para praticar IaC
-  4. lab-iac-arm.md         ─┘
-  5. simulado-iam-gov-net.md       → Validacao final
+  1. cenario-contoso.md              → Cenario interconectado Contoso Corp
+  2. IaC/powershell.md       ─┐
+  3. IaC/bicep.md             ├──── Escolha 1+ para praticar IaC
+  4. IaC/arm.md              ─┘
+  5. simulado-iam-gov-net.md         → Validacao final
 
 Bloco 2: 2-storage-compute (Dominios 2 e 3)
   1-5. Mesma sequencia acima com arquivos do 2-storage-compute/

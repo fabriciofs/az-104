@@ -19,19 +19,19 @@ A CTO, Fernanda Lima, contratou Diego Santos como **Azure Administrator** para c
 
 ## Personas
 
-| Persona                      | Funcao               | Necessidade                          |
-| ---------------------------- | -------------------- | ------------------------------------ |
-| Diego Santos (`nt-admin`)    | Azure Administrator  | Full access                          |
-| Fernanda Lima                | CTO                  | Reports de custos e compliance       |
-| Time DevOps (5 membros)      | Equipe de DevOps     | Deploy de containers e web apps      |
-| Time Backend (8 membros)     | Equipe de Backend    | Acesso a storage e VMs               |
+| Persona                   | Funcao              | Necessidade                     |
+| ------------------------- | ------------------- | ------------------------------- |
+| Diego Santos (`nt-admin`) | Azure Administrator | Full access                     |
+| Fernanda Lima             | CTO                 | Reports de custos e compliance  |
+| Time DevOps (5 membros)   | Equipe de DevOps    | Deploy de containers e web apps |
+| Time Backend (8 membros)  | Equipe de Backend   | Acesso a storage e VMs          |
 
 ---
 
 ## Arquitetura da NovaTech
 
 ```
-                    ┌──────────────────────────────────────────────────────────────┐
+                    ┌───────────────────────────────────────────────────────────────┐
                     │                    AZURE — East US (Primary)                  │
                     │                                                               │
                     │  ┌─────────────────────────────────────────────────────────┐  │
@@ -43,9 +43,9 @@ A CTO, Fernanda Lima, contratou Diego Santos como **Azure Administrator** para c
                     │  │  │  10.0.1.0/24     │     │  10.0.2.0/24             │  │  │
                     │  │  │                  │     │                          │  │  │
                     │  │  │  ┌────────────┐  │     │  ┌────────────────────┐  │  │  │
-                    │  │  │  │ VM-Win01   │  │     │  │ ntprodsa (Blob)   │  │  │  │
-                    │  │  │  │ VM-Linux01 │  │     │  │ ntfilessa (Files) │  │  │  │
-                    │  │  │  │ VMSS-Web   │  │     │  │ Private Endpoints │  │  │  │
+                    │  │  │  │ VM-Win01   │  │     │  │ ntprodsa (Blob)    │  │  │  │
+                    │  │  │  │ VM-Linux01 │  │     │  │ ntfilessa (Files)  │  │  │  │
+                    │  │  │  │ VMSS-Web   │  │     │  │ Private Endpoints  │  │  │  │
                     │  │  │  └────────────┘  │     │  └────────────────────┘  │  │  │
                     │  │  └──────────────────┘     └──────────────────────────┘  │  │
                     │  │                                                         │  │
@@ -54,10 +54,10 @@ A CTO, Fernanda Lima, contratou Diego Santos como **Azure Administrator** para c
                     │  │  │  10.0.3.0/24     │     │  10.0.4.0/24             │  │  │
                     │  │  │                  │     │                          │  │  │
                     │  │  │  ┌────────────┐  │     │  ┌────────────────────┐  │  │  │
-                    │  │  │  │ App Svc    │  │     │  │ ACI (batch jobs)  │  │  │  │
-                    │  │  │  │ (prod)     │  │     │  │ Container Apps    │  │  │  │
-                    │  │  │  │ (staging)  │  │     │  │ (APIs + traffic   │  │  │  │
-                    │  │  │  └────────────┘  │     │  │  splitting)       │  │  │  │
+                    │  │  │  │ App Svc    │  │     │  │ ACI (batch jobs)   │  │  │  │
+                    │  │  │  │ (prod)     │  │     │  │ Container Apps     │  │  │  │
+                    │  │  │  │ (staging)  │  │     │  │ (APIs + traffic    │  │  │  │
+                    │  │  │  └────────────┘  │     │  │  splitting)        │  │  │  │
                     │  │  └──────────────────┘     │  └────────────────────┘  │  │  │
                     │  │                           └──────────────────────────┘  │  │
                     │  └─────────────────────────────────────────────────────────┘  │
@@ -70,7 +70,7 @@ A CTO, Fernanda Lima, contratou Diego Santos como **Azure Administrator** para c
                     ├───────────────────────────────────────────────────────────────┤
                     │                    AZURE — West US (DR)                       │
                     │    ntdrsa        — Blob replication target (RA-GRS)           │
-                    └──────────────────────────────────────────────────────────────┘
+                    └───────────────────────────────────────────────────────────────┘
 ```
 
 ---

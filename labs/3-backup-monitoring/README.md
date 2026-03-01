@@ -6,12 +6,12 @@ Labs e simulado cobrindo os dominios 2 e 5 do AZ-104: Backup de VMs e File Share
 
 ### Labs
 
-| Arquivo                                          | Descricao                                         | Ferramenta               |
-| ------------------------------------------------ | ------------------------------------------------- | ------------------------ |
-| [lab-cenario-contoso.md](lab-cenario-contoso.md) | Cenario Contoso Corp — exercicios interconectados | Portal                   |
-| [lab-iac-powershell.md](lab-iac-powershell.md)   | Reproduz o lab inteiro via PowerShell             | Cloud Shell (PowerShell) |
-| [lab-iac-arm.md](lab-iac-arm.md)                 | Reproduz o lab inteiro via ARM Templates JSON     | Cloud Shell (Bash) + CLI |
-| [lab-iac-bicep.md](lab-iac-bicep.md)             | Reproduz o lab inteiro via Bicep                  | Cloud Shell (Bash) + CLI |
+| Arquivo                                            | Descricao                                         | Ferramenta               |
+| -------------------------------------------------- | ------------------------------------------------- | ------------------------ |
+| [cenario-contoso.md](cenario-contoso.md)           | Cenario Contoso Corp — exercicios interconectados | Portal                   |
+| [IaC/powershell.md](IaC/powershell.md)             | Reproduz o lab inteiro via PowerShell             | Cloud Shell (PowerShell) |
+| [IaC/arm.md](IaC/arm.md)                           | Reproduz o lab inteiro via ARM Templates JSON     | Cloud Shell (Bash) + CLI |
+| [IaC/bicep.md](IaC/bicep.md)                       | Reproduz o lab inteiro via Bicep                  | Cloud Shell (Bash) + CLI |
 
 ### Simulado
 
@@ -23,10 +23,10 @@ Labs e simulado cobrindo os dominios 2 e 5 do AZ-104: Backup de VMs e File Share
 ## Ordem sugerida
 
 ```
-1. lab-cenario-contoso.md       Cenario interconectado Contoso Corp
-2. lab-iac-powershell.md  ─┐
-3. lab-iac-bicep.md        ├─  Escolha 1 ou mais para praticar IaC
-4. lab-iac-arm.md         ─┘
+1. cenario-contoso.md          Cenario interconectado Contoso Corp
+2. IaC/powershell.md     ─┐
+3. IaC/bicep.md           ├─  Escolha 1 ou mais para praticar IaC
+4. IaC/arm.md            ─┘
 5. simulado-backup-monitoring.md  Validacao final (sem consultar labs)
 ```
 
