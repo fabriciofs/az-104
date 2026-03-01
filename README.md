@@ -92,14 +92,14 @@ az-104/
 
 ## Material Disponivel
 
-| Recurso                  | Quantidade   |
-| ------------------------ | ------------ |
-| Video-aulas documentadas | 22 videos    |
-| MS Learn - Roteiros      | 6 roteiros   |
-| MS Learn - Modulos       | 28 modulos   |
-| Labs praticos            | 14 labs      |
+| Recurso                  | Quantidade                                    |
+| ------------------------ | --------------------------------------------- |
+| Video-aulas documentadas | 22 videos                                     |
+| MS Learn - Roteiros      | 6 roteiros                                    |
+| MS Learn - Modulos       | 28 modulos                                    |
+| Labs praticos            | 14 labs                                       |
 | Estudos de caso          | 5 casos (38 questoes) + 2 exercicios praticos |
-| Guias de estudo          | 22 notas de video |
+| Guias de estudo          | 22 notas de video                             |
 
 ## Cobertura por Dominio
 
@@ -156,10 +156,10 @@ Bloco 3: 3-backup-monitoring (Dominios 2 e 5)
 
 ## Links Uteis
 
-| Recurso               | URL                                                                                                  |
-| --------------------- | ---------------------------------------------------------------------------------------------------- |
-| Guia oficial do exame | https://learn.microsoft.com/pt-br/credentials/certifications/resources/study-guides/az-104           |
-| Curso AZ-104T00       | https://learn.microsoft.com/pt-br/training/courses/az-104t00                                         |
+| Recurso               | URL                                                                                                                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Guia oficial do exame | https://learn.microsoft.com/pt-br/credentials/certifications/resources/study-guides/az-104                                                                                           |
+| Curso AZ-104T00       | https://learn.microsoft.com/pt-br/training/courses/az-104t00                                                                                                                         |
 | Simulado oficial      | https://learn.microsoft.com/pt-br/credentials/certifications/azure-administrator/practice/assessment?assessment-type=practice&assessmentId=21&practice-assessment-type=certification |
-| Agendar exame         | https://learn.microsoft.com/pt-br/credentials/certifications/azure-administrator/                    |
-| Area restrita (demo)  | https://aka.ms/examdemo                                                                              |
+| Agendar exame         | https://learn.microsoft.com/pt-br/credentials/certifications/azure-administrator/                                                                                                    |
+| Area restrita (demo)  | https://aka.ms/examdemo                                                                                                                                                              |

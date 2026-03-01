@@ -177,8 +177,10 @@
 
 | Conteúdo                           | Duração | Link                                                                 |
 | ---------------------------------- | ------- | -------------------------------------------------------------------- |
-| 🧪 **Lab 1.1 (1ª vez):** Identity   | 40 min  | [bloco1-identity](labs/1-iam-gov-net/cenario/bloco1-identity.md)     |
-| 🧪 **Lab 1.2 (1ª vez):** Governance | 40 min  | [bloco2-governance](labs/1-iam-gov-net/cenario/bloco2-governance.md) |
+| 🧪 **Lab 1.1 (1ª vez):** Identity                     | 40 min  | [bloco1-identity](labs/1-iam-gov-net/cenario/bloco1-identity.md)     |
+| 🧪 **Lab 1.2 (1ª vez):** Governance                   | 40 min  | [bloco2-governance](labs/1-iam-gov-net/cenario/bloco2-governance.md) |
+| 📄 Revisão: notas vídeos 03-06 (Identity/Governance)  | 40 min  | [guias/](guias/)                                                     |
+| 📄 Estudo direcionado: pontos fracos do Assessment #0  | 30 min  |                                                                      |
 
 ---
 
@@ -195,8 +197,10 @@
 
 | Conteúdo                           | Duração | Link                                                                 |
 | ---------------------------------- | ------- | -------------------------------------------------------------------- |
-| 🧪 **Lab 1.3 (1ª vez):** IaC        | 50 min  | [bloco3-iac](labs/1-iam-gov-net/cenario/bloco3-iac.md)               |
-| 🧪 **Lab 1.4 (1ª vez):** Networking | 60 min  | [bloco4-networking](labs/1-iam-gov-net/cenario/bloco4-networking.md) |
+| 🧪 **Lab 1.3 (1ª vez):** IaC                          | 50 min  | [bloco3-iac](labs/1-iam-gov-net/cenario/bloco3-iac.md)              |
+| 🧪 **Lab 1.4 (1ª vez):** Networking                   | 60 min  | [bloco4-networking](labs/1-iam-gov-net/cenario/bloco4-networking.md) |
+| 📄 Revisão: notas vídeos 08-10 (Virtual Networking)   | 30 min  | [guias/](guias/)                                                     |
+| 📄 Revisão: notas vídeos 11-13 (Connectivity/Traffic) | 30 min  | [guias/](guias/)                                                     |
 
 ---
 
@@ -303,7 +307,9 @@
 
 | Conteúdo                                 | Duração | Link                                       |
 | ---------------------------------------- | ------- | ------------------------------------------ |
-| 📄 Criar resumo pessoal dos pontos fracos | 20 min  |                                            |
+| 📄 Criar resumo pessoal dos pontos fracos                 | 20 min | |
+| 📋 Revisão soluções Caso 1 e Caso 2                      | 1h     | [sol1](estudos_de_caso/caso1-startup-cloud-solucao.md) / [sol2](estudos_de_caso/caso2-escola-monitoramento-solucao.md) |
+| 📄 Estudo direcionado: tópicos fracos (Assessments #0-2) | 1h     | |
 
 ---
 
@@ -449,9 +455,11 @@
 
 | Conteúdo                                        | Duração | Link                                       |
 | ----------------------------------------------- | ------- | ------------------------------------------ |
-| 📝 Análise de erros Assessment #10               | 30 min  |                                            |
-| 📄 Revisão: notas de vídeo (áreas fracas)        | 1h30    | [guias/](guias/)                           |
-| 📄 Revisão do resumo pessoal                     | 50 min  |                                            |
+| 📝 Análise de erros Assessment #10               | 30 min  |                                                                                                                                                                                                   |
+| 📄 Revisão: notas de vídeo (áreas fracas)        | 1h30    | [guias/](guias/)                                                                                                                                                                                  |
+| 📄 Revisão do resumo pessoal                     | 50 min  |                                                                                                                                                                                                   |
+| 📝 **MS Learn Assessment #11**                   | 50 min  | [Assessment](https://learn.microsoft.com/pt-br/credentials/certifications/azure-administrator/practice/assessment?assessment-type=practice&assessmentId=21&practice-assessment-type=certification) |
+| 📝 Análise de erros #11                          | 30 min  |                                                                                                                                                                                                   |
 
 ### Noite (18:30-22:00) — 3h30
 
