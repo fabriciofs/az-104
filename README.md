@@ -27,11 +27,6 @@ Repositorio de estudo para a certificacao **Microsoft Certified: Azure Administr
 ```
 az-104/
 ├── guias/                              # Teoria e notas de estudo
-│   ├── guia_estudo_az-104.md           # Topicos oficiais do exame
-│   ├── treinamento_az-104t00.md        # Curso AZ-104T00 (6 roteiros, 28 modulos)
-│   ├── analise-cobertura-az104.md      # Mapeamento material vs exame
-│   ├── guia-complementar-az104.md      # Material complementar
-│   ├── laboratorios_az-104.md          # Lista de labs oficiais
 │   └── video-01 a video-22.md         # Notas de 22 video-aulas
 │
 ├── estudos_de_caso/                    # Estudos de caso multi-dominio
@@ -104,7 +99,7 @@ az-104/
 | MS Learn - Modulos       | 28 modulos   |
 | Labs praticos            | 14 labs      |
 | Estudos de caso          | 5 casos (38 questoes) + 2 exercicios praticos |
-| Guias de estudo          | 3 documentos |
+| Guias de estudo          | 22 notas de video |
 
 ## Cobertura por Dominio
 
@@ -165,6 +160,6 @@ Bloco 3: 3-backup-monitoring (Dominios 2 e 5)
 | --------------------- | ---------------------------------------------------------------------------------------------------- |
 | Guia oficial do exame | https://learn.microsoft.com/pt-br/credentials/certifications/resources/study-guides/az-104           |
 | Curso AZ-104T00       | https://learn.microsoft.com/pt-br/training/courses/az-104t00                                         |
-| Simulado oficial      | https://learn.microsoft.com/pt-br/credentials/certifications/azure-administrator/practice/assessment |
+| Simulado oficial      | https://learn.microsoft.com/pt-br/credentials/certifications/azure-administrator/practice/assessment?assessment-type=practice&assessmentId=21&practice-assessment-type=certification |
 | Agendar exame         | https://learn.microsoft.com/pt-br/credentials/certifications/azure-administrator/                    |
 | Area restrita (demo)  | https://aka.ms/examdemo                                                                              |
