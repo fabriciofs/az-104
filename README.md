@@ -34,9 +34,25 @@ az-104/
 │   ├── laboratorios_az-104.md          # Lista de labs oficiais
 │   └── video-01 a video-22.md         # Notas de 22 video-aulas
 │
+├── estudos_de_caso/                    # Estudos de caso multi-dominio
+│   ├── README.md                       # Indice e ordem sugerida
+│   ├── caso1-startup-cloud.md          # Facil: Identity + Storage (6 questoes)
+│   ├── caso2-escola-monitoramento.md   # Facil: Compute + Monitoring (6 questoes)
+│   ├── caso3-hospital-compliance.md    # Medio: Governance + Networking + Storage (8 questoes)
+│   ├── caso4-ecommerce-scaling.md      # Medio: Compute + Networking + Storage (8 questoes)
+│   ├── caso5-banco-migracao.md         # Dificil: Todos os 5 dominios (10 questoes)
+│   └── *-solucao.md                    # Gabaritos com explicacoes e [GOTCHA]
+│
 └── labs/                               # Pratica hands-on
     ├── 1-iam-gov-net/                  # IAM, Governance e Networking (Labs 01-06)
-    │   ├── cenario-contoso.md           # Cenario interconectado
+    │   ├── README.md                    # Indice do bloco
+    │   ├── cenario-contoso.md           # Cenario interconectado (visao geral)
+    │   ├── cenario/                     # Blocos individuais do cenario
+    │   │   ├── bloco1-identity.md       # Identidade e Entra ID
+    │   │   ├── bloco2-governance.md     # RBAC, Policy, Locks
+    │   │   ├── bloco3-iac.md            # ARM Templates e Bicep
+    │   │   ├── bloco4-networking.md     # VNets, Subnets, NSGs, DNS
+    │   │   └── bloco5-connectivity.md   # Peering, VPN, Routing
     │   ├── IaC/
     │   │   ├── powershell.md            # Variante PowerShell
     │   │   ├── arm.md                   # Variante ARM Templates
@@ -45,7 +61,14 @@ az-104/
     │   └── simulado-iam-gov-net-solucao.md  # Gabarito comentado
     │
     ├── 2-storage-compute/              # Storage e Compute (Labs 07-09c)
-    │   ├── cenario-contoso.md           # Cenario interconectado
+    │   ├── README.md                    # Indice do bloco
+    │   ├── cenario-contoso.md           # Cenario interconectado (visao geral)
+    │   ├── cenario/                     # Blocos individuais do cenario
+    │   │   ├── bloco1-storage.md        # Storage Accounts, Blobs, Files
+    │   │   ├── bloco2-vms.md            # Virtual Machines, VMSS
+    │   │   ├── bloco3-webapps.md        # App Service, Deployment Slots
+    │   │   ├── bloco4-aci.md            # Azure Container Instances
+    │   │   └── bloco5-container-apps.md # Azure Container Apps
     │   ├── IaC/
     │   │   ├── powershell.md            # Variante PowerShell
     │   │   ├── arm.md                   # Variante ARM Templates
@@ -54,7 +77,14 @@ az-104/
     │   └── simulado-storage-compute-solucao.md  # Gabarito comentado
     │
     └── 3-backup-monitoring/            # Backup, Recovery e Monitoring (Labs 10-11)
-        ├── cenario-contoso.md           # Cenario interconectado
+        ├── README.md                    # Indice do bloco
+        ├── cenario-contoso.md           # Cenario interconectado (visao geral)
+        ├── cenario/                     # Blocos individuais do cenario
+        │   ├── bloco1-vm-backup.md      # Backup de VMs
+        │   ├── bloco2-file-blob.md      # Backup de Files e Blobs
+        │   ├── bloco3-site-recovery.md  # Azure Site Recovery
+        │   ├── bloco4-monitor.md        # Azure Monitor e Alertas
+        │   └── bloco5-log-analytics.md  # Log Analytics e KQL
         ├── IaC/
         │   ├── powershell.md            # Variante PowerShell
         │   ├── arm.md                   # Variante ARM Templates
@@ -71,6 +101,7 @@ az-104/
 | MS Learn - Roteiros      | 6 roteiros   |
 | MS Learn - Modulos       | 28 modulos   |
 | Labs praticos            | 14 labs      |
+| Estudos de caso          | 5 casos (38 questoes) |
 | Guias de estudo          | 3 documentos |
 
 ## Cobertura por Dominio
@@ -91,24 +122,39 @@ az-104/
 2. **MS Learn** — Completar os modulos do roteiro de aprendizagem
 3. **Labs** — Praticar no Portal, depois repetir com IaC (PowerShell/ARM/Bicep)
 4. **Simulado** — Fazer as questoes sem consultar, depois conferir o gabarito
+5. **Estudos de caso** — Resolver cenarios multi-dominio (do facil ao dificil)
 
 ### Ordem dos labs
 
 ```
 Bloco 1: 1-iam-gov-net (Dominios 1 e 4)
-  1. cenario-contoso.md              → Cenario interconectado Contoso Corp
-  2. IaC/powershell.md       ─┐
-  3. IaC/bicep.md             ├──── Escolha 1+ para praticar IaC
-  4. IaC/arm.md              ─┘
-  5. simulado-iam-gov-net.md         → Validacao final
+  1. cenario/bloco1-identity.md      → Identity e Entra ID
+  2. cenario/bloco2-governance.md    → RBAC, Policy, Locks
+  3. cenario/bloco3-iac.md           → ARM Templates e Bicep
+  4. cenario/bloco4-networking.md    → VNets, Subnets, NSGs, DNS
+  5. cenario/bloco5-connectivity.md  → Peering, VPN, Routing
+  6. IaC/powershell.md       ─┐
+  7. IaC/bicep.md             ├──── Escolha 1+ para praticar IaC
+  8. IaC/arm.md              ─┘
+  9. simulado-iam-gov-net.md         → Validacao final
 
 Bloco 2: 2-storage-compute (Dominios 2 e 3)
-  1-5. Mesma sequencia acima com arquivos do 2-storage-compute/
-  6. simulado-storage-compute.md   → Validacao final
+  1. cenario/bloco1-storage.md       → Storage Accounts, Blobs, Files
+  2. cenario/bloco2-vms.md           → Virtual Machines, VMSS
+  3. cenario/bloco3-webapps.md       → App Service, Deployment Slots
+  4. cenario/bloco4-aci.md           → Azure Container Instances
+  5. cenario/bloco5-container-apps.md → Azure Container Apps
+  6-8. IaC/ (mesma sequencia)
+  9. simulado-storage-compute.md     → Validacao final
 
 Bloco 3: 3-backup-monitoring (Dominios 2 e 5)
-  1-5. Mesma sequencia acima com arquivos do 3-backup-monitoring/
-  6. simulado-backup-monitoring.md → Validacao final
+  1. cenario/bloco1-vm-backup.md     → Backup de VMs
+  2. cenario/bloco2-file-blob.md     → Backup de Files e Blobs
+  3. cenario/bloco3-site-recovery.md → Azure Site Recovery
+  4. cenario/bloco4-monitor.md       → Azure Monitor e Alertas
+  5. cenario/bloco5-log-analytics.md → Log Analytics e KQL
+  6-8. IaC/ (mesma sequencia)
+  9. simulado-backup-monitoring.md   → Validacao final
 ```
 
 ## Links Uteis
