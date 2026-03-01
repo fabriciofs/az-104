@@ -35,14 +35,32 @@ az-104/
 │   └── video-01 a video-22.md         # Notas de 22 video-aulas
 │
 └── labs/                               # Pratica hands-on
-    └── iam-gov-net/                    # IAM, Governance e Networking
+    ├── iam-gov-net/                    # IAM, Governance e Networking (Labs 01-06)
+    │   ├── lab-blocos-independentes.md  # Conceitos via Portal
+    │   ├── lab-cenario-contoso.md       # Cenario interconectado
+    │   ├── lab-iac-powershell.md        # Variante PowerShell
+    │   ├── lab-iac-arm.md               # Variante ARM Templates
+    │   ├── lab-iac-bicep.md             # Variante Bicep
+    │   ├── simulado-iam-gov-net.md      # 18 questoes (sem respostas)
+    │   └── simulado-iam-gov-net-solucao.md  # Gabarito comentado
+    │
+    ├── storage-compute/                # Storage e Compute (Labs 07-09c)
+    │   ├── lab-blocos-independentes.md  # Conceitos via Portal
+    │   ├── lab-cenario-contoso.md       # Cenario interconectado
+    │   ├── lab-iac-powershell.md        # Variante PowerShell
+    │   ├── lab-iac-arm.md               # Variante ARM Templates
+    │   ├── lab-iac-bicep.md             # Variante Bicep
+    │   ├── simulado-storage-compute.md  # 18 questoes (sem respostas)
+    │   └── simulado-storage-compute-solucao.md  # Gabarito comentado
+    │
+    └── backup-monitoring/              # Backup, Recovery e Monitoring (Labs 10-11)
         ├── lab-blocos-independentes.md  # Conceitos via Portal
         ├── lab-cenario-contoso.md       # Cenario interconectado
         ├── lab-iac-powershell.md        # Variante PowerShell
         ├── lab-iac-arm.md               # Variante ARM Templates
         ├── lab-iac-bicep.md             # Variante Bicep
-        ├── simulado-iam-gov-net.md      # 18 questoes (sem respostas)
-        └── simulado-iam-gov-net-solucao.md  # Gabarito comentado
+        ├── simulado-backup-monitoring.md      # 18 questoes (sem respostas)
+        └── simulado-backup-monitoring-solucao.md  # Gabarito comentado
 ```
 
 ## Material Disponivel
@@ -74,15 +92,24 @@ az-104/
 3. **Labs** — Praticar no Portal, depois repetir com IaC (PowerShell/ARM/Bicep)
 4. **Simulado** — Fazer as questoes sem consultar, depois conferir o gabarito
 
-### Ordem dos labs (bloco IAM/Gov/Net)
+### Ordem dos labs
 
 ```
-1. lab-blocos-independentes.md    → Primeira passagem (conceitos via Portal)
-2. lab-cenario-contoso.md         → Segunda passagem (cenario interconectado)
-3. lab-iac-powershell.md  ─┐
-4. lab-iac-bicep.md        ├──── Escolha 1+ para praticar IaC
-5. lab-iac-arm.md         ─┘
-6. simulado-iam-gov-net.md       → Validacao final (sem consultar labs)
+Bloco 1: iam-gov-net (Dominios 1 e 4)
+  1. lab-blocos-independentes.md    → Primeira passagem (conceitos via Portal)
+  2. lab-cenario-contoso.md         → Segunda passagem (cenario interconectado)
+  3. lab-iac-powershell.md  ─┐
+  4. lab-iac-bicep.md        ├──── Escolha 1+ para praticar IaC
+  5. lab-iac-arm.md         ─┘
+  6. simulado-iam-gov-net.md       → Validacao final
+
+Bloco 2: storage-compute (Dominios 2 e 3)
+  1-6. Mesma sequencia acima com arquivos do storage-compute/
+  7. simulado-storage-compute.md   → Validacao final
+
+Bloco 3: backup-monitoring (Dominios 2 e 5)
+  1-6. Mesma sequencia acima com arquivos do backup-monitoring/
+  7. simulado-backup-monitoring.md → Validacao final
 ```
 
 ## Links Uteis

@@ -6,13 +6,13 @@ Labs e simulado cobrindo os 5 dominios fundamentais do AZ-104: Identity, Governa
 
 ### Labs
 
-| Arquivo                                        | Descricao                                                    | Ferramenta               |
-| ---------------------------------------------- | ------------------------------------------------------------ | ------------------------ |
-| [lab-blocos-independentes.md](lab-blocos-independentes.md) | Blocos independentes — conceitos via Portal                  | Portal                   |
-| [lab-cenario-contoso.md](lab-cenario-contoso.md)           | Cenario Contoso Corp — exercicios interconectados            | Portal                   |
-| [lab-iac-powershell.md](lab-iac-powershell.md) | Reproduz o lab v2 inteiro via PowerShell                     | Cloud Shell (PowerShell) |
-| [lab-iac-arm.md](lab-iac-arm.md)               | Reproduz o lab v2 inteiro via ARM Templates JSON             | Cloud Shell (Bash) + CLI |
-| [lab-iac-bicep.md](lab-iac-bicep.md)           | Reproduz o lab v2 inteiro via Bicep                          | Cloud Shell (Bash) + CLI |
+| Arquivo                                                    | Descricao                                         | Ferramenta               |
+| ---------------------------------------------------------- | ------------------------------------------------- | ------------------------ |
+| [lab-blocos-independentes.md](lab-blocos-independentes.md) | Blocos independentes — conceitos via Portal       | Portal                   |
+| [lab-cenario-contoso.md](lab-cenario-contoso.md)           | Cenario Contoso Corp — exercicios interconectados | Portal                   |
+| [lab-iac-powershell.md](lab-iac-powershell.md)             | Reproduz o lab v2 inteiro via PowerShell          | Cloud Shell (PowerShell) |
+| [lab-iac-arm.md](lab-iac-arm.md)                           | Reproduz o lab v2 inteiro via ARM Templates JSON  | Cloud Shell (Bash) + CLI |
+| [lab-iac-bicep.md](lab-iac-bicep.md)                       | Reproduz o lab v2 inteiro via Bicep               | Cloud Shell (Bash) + CLI |
 
 ### Simulado
 

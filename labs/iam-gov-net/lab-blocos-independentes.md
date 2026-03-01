@@ -1935,6 +1935,10 @@ VPN Gateway:
 ## Via CLI (alternativa rapida)
 
 ```bash
+# Resolver IDs dinamicamente (evita placeholders)
+SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+RG2_SCOPE="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/az104-rg2"
+
 # Deletar RGs (o mais importante - para de gerar custos)
 az group delete --name az104-rg5 --yes --no-wait
 az group delete --name az104-rg4 --yes --no-wait
@@ -1945,16 +1949,24 @@ az lock delete --name rg-lock --resource-group az104-rg2
 az group delete --name az104-rg2 --yes --no-wait
 
 # Deletar Management Group
+az account management-group subscription remove --name az104-mg1 --subscription "$SUBSCRIPTION_ID" 2>/dev/null
 az account management-group delete --name az104-mg1
 
-# Deletar policy assignments (ajuste os nomes se necessario)
-az policy assignment delete --name "Inherit the Cost Center tag and its value 000 from the resource group if missing" --scope "/subscriptions/<subscription-id>/resourceGroups/az104-rg2"
+# Deletar policy assignments do RG2 por ID (mais robusto), filtrando os do lab
+for ASSIGN_ID in $(az policy assignment list --scope "$RG2_SCOPE" --query "[?contains(displayName, 'Cost Center')].id" -o tsv); do
+  az policy assignment delete --ids "$ASSIGN_ID"
+done
 
 # Deletar custom role
 az role definition delete --name "Custom Support Request"
 
 # Deletar usuarios e grupos do Entra ID
-az ad user delete --id az104-user1@<seu-dominio>.onmicrosoft.com
+USER1_ID=$(az ad user list --filter "startsWith(userPrincipalName, 'az104-user1@')" --query "[0].id" -o tsv)
+if [ -n "$USER1_ID" ]; then
+  az ad user delete --id "$USER1_ID"
+fi
+# Guest users: listar e remover manualmente o ID correto (evita apagar guest indevido)
+az ad user list --filter "userType eq 'Guest'" --query "[].{id:id,mail:mail,displayName:displayName}" -o table
 az ad group delete --group "IT Lab Administrators"
 az ad group delete --group "helpdesk"
 ```
@@ -1964,6 +1976,9 @@ az ad group delete --group "helpdesk"
 ## Via PowerShell (alternativa)
 
 ```powershell
+$subscriptionId = (Get-AzContext).Subscription.Id
+$rg2Scope = "/subscriptions/$subscriptionId/resourceGroups/az104-rg2"
+
 # Deletar RGs
 Remove-AzResourceGroup -Name az104-rg5 -Force -AsJob
 Remove-AzResourceGroup -Name az104-rg4 -Force -AsJob
@@ -1974,16 +1989,25 @@ Remove-AzResourceLock -LockName rg-lock -ResourceGroupName az104-rg2
 Remove-AzResourceGroup -Name az104-rg2 -Force -AsJob
 
 # Deletar Management Group
+Remove-AzManagementGroupSubscription -GroupName az104-mg1 -SubscriptionId $subscriptionId -ErrorAction SilentlyContinue
 Remove-AzManagementGroup -GroupName az104-mg1
 
-# Deletar policy assignments
-Remove-AzPolicyAssignment -Name "Inherit the Cost Center tag and its value 000 from the resource group if missing" -Scope "/subscriptions/<subscription-id>/resourceGroups/az104-rg2"
+# Deletar policy assignments do RG2
+Get-AzPolicyAssignment -Scope $rg2Scope |
+Where-Object {
+    $_.DisplayName -match 'Cost Center' -or $_.Properties.DisplayName -match 'Cost Center'
+} | ForEach-Object {
+    Remove-AzPolicyAssignment -Name $_.Name -Scope $rg2Scope -ErrorAction SilentlyContinue
+}
 
 # Deletar custom role
 Remove-AzRoleDefinition -Name "Custom Support Request" -Force
 
 # Deletar usuarios e grupos do Entra ID
-Remove-AzADUser -UserPrincipalName az104-user1@<seu-dominio>.onmicrosoft.com
+$user1 = Get-AzADUser -Filter "startsWith(userPrincipalName,'az104-user1@')" | Select-Object -First 1
+if ($user1) { Remove-AzADUser -ObjectId $user1.Id }
+# Guest users: listar e remover manualmente o ID correto (evita apagar guest indevido)
+Get-AzADUser -Filter "userType eq 'Guest'" | Select-Object Id, Mail, DisplayName | Format-Table
 Remove-AzADGroup -DisplayName "IT Lab Administrators"
 Remove-AzADGroup -DisplayName "helpdesk"
 ```

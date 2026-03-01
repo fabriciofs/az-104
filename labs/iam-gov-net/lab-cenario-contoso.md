@@ -2133,11 +2133,19 @@ Private DNS Zones resolvem nomes **apenas** para VNets que possuem um Virtual Ne
 > **Nota:** Execute os comandos de policy e lock **antes** de deletar os RGs. Use `az policy assignment list --query "[].{name:name, scope:scope}" -o table` para encontrar os nomes reais das assignments (o portal gera nomes internos que podem diferir do display name).
 
 ```bash
+# Resolver IDs dinamicamente (evita placeholders)
+SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+RG2_SCOPE="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/az104-rg2"
+RG3_SCOPE="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/az104-rg3"
+
 # 1. Deletar policy assignments ANTES dos RGs
-#    Use 'az policy assignment list' para confirmar os nomes exatos
-az policy assignment delete --name "Inherit Cost Center tag on az104-rg3 resources" --scope "/subscriptions/<subscription-id>/resourceGroups/az104-rg3"
-az policy assignment delete --name "Inherit the Cost Center tag and its value 000 from the resource group if missing" --scope "/subscriptions/<subscription-id>/resourceGroups/az104-rg2"
-az policy assignment delete --name "Restrict resources to East US only" --scope "/subscriptions/<subscription-id>/resourceGroups/az104-rg3"
+#    Removemos por ID (mais robusto que nome/displayName), filtrando apenas os do lab
+for ASSIGN_ID in $(az policy assignment list --scope "$RG2_SCOPE" --query "[?contains(displayName, 'Cost Center')].id" -o tsv); do
+  az policy assignment delete --ids "$ASSIGN_ID"
+done
+for ASSIGN_ID in $(az policy assignment list --scope "$RG3_SCOPE" --query "[?contains(displayName, 'Cost Center') || contains(displayName, 'East US')].id" -o tsv); do
+  az policy assignment delete --ids "$ASSIGN_ID"
+done
 
 # 2. Remover lock antes de deletar az104-rg2
 az lock delete --name rg-lock --resource-group az104-rg2
@@ -2149,15 +2157,19 @@ az group delete --name az104-rg3 --yes --no-wait
 az group delete --name az104-rg2 --yes --no-wait
 
 # 4. Remover subscription do MG antes de deletar
-az account management-group subscription remove --name az104-mg1 --subscription "<subscription-id>"
+az account management-group subscription remove --name az104-mg1 --subscription "$SUBSCRIPTION_ID"
 az account management-group delete --name az104-mg1
 
 # 5. Deletar custom role
 az role definition delete --name "Custom Support Request"
 
 # 6. Deletar usuarios e grupos
-az ad user delete --id az104-user1@<seu-dominio>.onmicrosoft.com
-az ad user delete --id <guest-user-object-id>  # Use: az ad user list --filter "userType eq 'Guest'" --query "[].{id:id,mail:mail}" -o table
+USER1_ID=$(az ad user list --filter "startsWith(userPrincipalName, 'az104-user1@')" --query "[0].id" -o tsv)
+if [ -n "$USER1_ID" ]; then
+  az ad user delete --id "$USER1_ID"
+fi
+# Guest users: listar e remover manualmente o ID correto (evita apagar guest indevido)
+az ad user list --filter "userType eq 'Guest'" --query "[].{id:id,mail:mail,displayName:displayName}" -o table
 az ad group delete --group "IT Lab Administrators"
 az ad group delete --group "helpdesk"
 ```
@@ -2167,10 +2179,24 @@ az ad group delete --group "helpdesk"
 > **Nota:** Execute os comandos de policy e lock **antes** de deletar os RGs.
 
 ```powershell
+# Resolver IDs dinamicamente (evita placeholders)
+$subscriptionId = (Get-AzContext).Subscription.Id
+$rg2Scope = "/subscriptions/$subscriptionId/resourceGroups/az104-rg2"
+$rg3Scope = "/subscriptions/$subscriptionId/resourceGroups/az104-rg3"
+
 # 1. Deletar policy assignments
-Remove-AzPolicyAssignment -Name "Inherit Cost Center tag on az104-rg3 resources" -Scope "/subscriptions/<subscription-id>/resourceGroups/az104-rg3"
-Remove-AzPolicyAssignment -Name "Inherit the Cost Center tag and its value 000 from the resource group if missing" -Scope "/subscriptions/<subscription-id>/resourceGroups/az104-rg2"
-Remove-AzPolicyAssignment -Name "Restrict resources to East US only" -Scope "/subscriptions/<subscription-id>/resourceGroups/az104-rg3"
+Get-AzPolicyAssignment -Scope $rg2Scope |
+Where-Object {
+    $_.DisplayName -match 'Cost Center' -or $_.Properties.DisplayName -match 'Cost Center'
+} | ForEach-Object {
+    Remove-AzPolicyAssignment -Name $_.Name -Scope $rg2Scope -ErrorAction SilentlyContinue
+}
+Get-AzPolicyAssignment -Scope $rg3Scope |
+Where-Object {
+    $_.DisplayName -match 'Cost Center|East US' -or $_.Properties.DisplayName -match 'Cost Center|East US'
+} | ForEach-Object {
+    Remove-AzPolicyAssignment -Name $_.Name -Scope $rg3Scope -ErrorAction SilentlyContinue
+}
 
 # 2. Remover lock e deletar RGs
 Remove-AzResourceLock -LockName rg-lock -ResourceGroupName az104-rg2 -Force
@@ -2180,14 +2206,15 @@ Remove-AzResourceGroup -Name az104-rg3 -Force -AsJob
 Remove-AzResourceGroup -Name az104-rg2 -Force -AsJob
 
 # 3. Remover subscription do MG e deletar
-Remove-AzManagementGroupSubscription -GroupName az104-mg1 -SubscriptionId "<subscription-id>"
+Remove-AzManagementGroupSubscription -GroupName az104-mg1 -SubscriptionId $subscriptionId
 Remove-AzManagementGroup -GroupName az104-mg1
 
 # 4. Custom role, usuarios e grupos
 Remove-AzRoleDefinition -Name "Custom Support Request" -Force
-Remove-AzADUser -UserPrincipalName az104-user1@<seu-dominio>.onmicrosoft.com
-# Para o guest user, use: Get-AzADUser -Filter "userType eq 'Guest'" | Select Id,Mail
-Remove-AzADUser -ObjectId <guest-user-object-id>
+$user1 = Get-AzADUser -Filter "startsWith(userPrincipalName,'az104-user1@')" | Select-Object -First 1
+if ($user1) { Remove-AzADUser -ObjectId $user1.Id }
+# Guest users: listar e remover manualmente o ID correto (evita apagar guest indevido)
+Get-AzADUser -Filter "userType eq 'Guest'" | Select-Object Id, Mail, DisplayName | Format-Table
 Remove-AzADGroup -DisplayName "IT Lab Administrators"
 Remove-AzADGroup -DisplayName "helpdesk"
 ```

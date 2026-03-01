@@ -235,6 +235,27 @@
 
 ---
 
+## Mapeamento Labs Oficiais → Labs Hands-on do Repositorio
+
+| Lab Oficial | Descricao                        | Bloco do Repositorio           | Diretorio              |
+| ----------- | -------------------------------- | ------------------------------ | ---------------------- |
+| Lab 01      | Manage Entra ID Identities       | Bloco 1 - Identity             | `labs/iam-gov-net/`    |
+| Lab 02a     | Manage Subscriptions and RBAC    | Bloco 2 - Governance           | `labs/iam-gov-net/`    |
+| Lab 02b     | Manage Governance via Policy     | Bloco 2 - Governance           | `labs/iam-gov-net/`    |
+| Lab 03      | Manage Azure Resources (IaC)     | Bloco 3 - IaC                  | `labs/iam-gov-net/`    |
+| Lab 04      | Manage Virtual Networking        | Bloco 4 - Networking           | `labs/iam-gov-net/`    |
+| Lab 05      | Manage Intersite Connectivity    | Bloco 5 - Connectivity         | `labs/iam-gov-net/`    |
+| Lab 06      | Manage Network Traffic           | Bloco 5 - Connectivity         | `labs/iam-gov-net/`    |
+| Lab 07      | Manage Azure Storage             | Bloco 1 - Storage              | `labs/storage-compute/`|
+| Lab 08      | Manage Virtual Machines          | Bloco 2 - VMs                  | `labs/storage-compute/`|
+| Lab 09a     | Manage Web Apps                  | Bloco 3 - Web Apps             | `labs/storage-compute/`|
+| Lab 09b     | Manage Container Instances       | Bloco 4 - ACI                  | `labs/storage-compute/`|
+| Lab 09c     | Manage Container Apps            | Bloco 5 - Container Apps       | `labs/storage-compute/`|
+| Lab 10      | Manage Data Protection           | Blocos 1-3 - Backup/Recovery   | `labs/backup-monitoring/`|
+| Lab 11      | Manage Monitoring                | Blocos 4-5 - Monitor/Analytics | `labs/backup-monitoring/`|
+
+---
+
 ## Recursos Adicionais Recomendados
 
 ### Para Aprofundamento
