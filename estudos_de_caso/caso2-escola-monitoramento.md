@@ -21,51 +21,51 @@ O instituto tem orcamento limitado e precisa escalar durante periodos de pico (p
 
 ### Equipe
 
-| Persona | Funcao | Responsabilidade |
-|---------|--------|------------------|
-| Lucas Ferreira (`isd-admin`) | Azure Administrator | Gerenciar toda a infraestrutura |
-| Prof. Marcia Lima | Coordenadora de EAD | Reportar problemas de performance |
-| Equipe de TI (3 pessoas) | Suporte tecnico | Receber alertas e agir em incidentes |
+| Persona                      | Funcao              | Responsabilidade                     |
+| ---------------------------- | ------------------- | ------------------------------------ |
+| Lucas Ferreira (`isd-admin`) | Azure Administrator | Gerenciar toda a infraestrutura      |
+| Prof. Marcia Lima            | Coordenadora de EAD | Reportar problemas de performance    |
+| Equipe de TI (3 pessoas)     | Suporte tecnico     | Receber alertas e agir em incidentes |
 
 ### Infraestrutura Planejada
 
 ```
-                    ┌──────────────────────────────────────────────────┐
-                    │             AZURE — Brazil South                  │
-                    │                                                  │
-                    │  ┌────────────────────────────────────────────┐  │
-                    │  │  RG: isd-ead-rg                           │  │
-                    │  │                                            │  │
-                    │  │  ┌──────────────┐  ┌──────────────────┐    │  │
-                    │  │  │  VM: ead-db  │  │  App Service:    │    │  │
-                    │  │  │  SQL Server  │  │  ead-webapp      │    │  │
-                    │  │  │  Standard_D4s│  │  (plataforma EAD)│    │  │
-                    │  │  └──────────────┘  └──────────────────┘    │  │
-                    │  │                                            │  │
-                    │  │  ┌──────────────┐  ┌──────────────────┐    │  │
-                    │  │  │  VM: ead-    │  │  Storage Account │    │  │
-                    │  │  │  fileserver  │  │  (video-aulas)   │    │  │
-                    │  │  │  Standard_B2s│  │                  │    │  │
-                    │  │  └──────────────┘  └──────────────────┘    │  │
-                    │  └────────────────────────────────────────────┘  │
-                    │                                                  │
-                    │  ┌────────────────────────────────────────────┐  │
-                    │  │  RG: isd-monitoring-rg                    │  │
-                    │  │                                            │  │
-                    │  │  - Log Analytics Workspace                 │  │
-                    │  │  - Action Group: EquipeTI-AlertGroup       │  │
-                    │  │  - Alert Rules (CPU, Memory, HTTP 5xx)     │  │
-                    │  └────────────────────────────────────────────┘  │
-                    └──────────────────────────────────────────────────┘
+                    ┌────────────────────────────────────────────────┐
+                    │             AZURE — Brazil South               │
+                    │                                                │
+                    │  ┌──────────────────────────────────────────┐  │
+                    │  │  RG: isd-ead-rg                          │  │
+                    │  │                                          │  │
+                    │  │  ┌──────────────┐  ┌──────────────────┐  │  │
+                    │  │  │  VM: ead-db  │  │  App Service:    │  │  │
+                    │  │  │  SQL Server  │  │  ead-webapp      │  │  │
+                    │  │  │  Standard_D4s│  │  (plataforma EAD)│  │  │
+                    │  │  └──────────────┘  └──────────────────┘  │  │
+                    │  │                                          │  │
+                    │  │  ┌──────────────┐  ┌──────────────────┐  │  │
+                    │  │  │  VM: ead-    │  │  Storage Account │  │  │
+                    │  │  │  fileserver  │  │  (video-aulas)   │  │  │
+                    │  │  │  Standard_B2s│  │                  │  │  │
+                    │  │  └──────────────┘  └──────────────────┘  │  │
+                    │  └──────────────────────────────────────────┘  │
+                    │                                                │
+                    │  ┌──────────────────────────────────────────┐  │
+                    │  │  RG: isd-monitoring-rg                   │  │
+                    │  │                                          │  │
+                    │  │  - Log Analytics Workspace               │  │
+                    │  │  - Action Group: EquipeTI-AlertGroup     │  │
+                    │  │  - Alert Rules (CPU, Memory, HTTP 5xx)   │  │
+                    │  └──────────────────────────────────────────┘  │
+                    └────────────────────────────────────────────────┘
 ```
 
 ### Padroes de Uso
 
-| Periodo | Usuarios Simultaneos | Duracao |
-|---------|----------------------|---------|
-| Aulas normais | 200-400 | 10 meses/ano |
-| Periodo de provas | 1.500-2.000 | 4 semanas/ano |
-| Ferias | < 50 | 6 semanas/ano |
+| Periodo           | Usuarios Simultaneos | Duracao       |
+| ----------------- | -------------------- | ------------- |
+| Aulas normais     | 200-400              | 10 meses/ano  |
+| Periodo de provas | 1.500-2.000          | 4 semanas/ano |
+| Ferias            | < 50                 | 6 semanas/ano |
 
 ---
 
@@ -182,17 +182,17 @@ A query retorna dados, mas Lucas percebe que a **media de CPU esta normal** (45%
 
 ## Pontuacao
 
-| Secao | Questoes | Pontos por Questao | Total |
-|-------|----------|--------------------|-------|
-| 1 — Computacao | 3 | 5 | 15 |
-| 2 — Monitoramento | 3 | 5 | 15 |
-| **Total** | **6** | — | **30** |
+| Secao             | Questoes | Pontos por Questao | Total  |
+| ----------------- | -------- | ------------------ | ------ |
+| 1 — Computacao    | 3        | 5                  | 15     |
+| 2 — Monitoramento | 3        | 5                  | 15     |
+| **Total**         | **6**    | —                  | **30** |
 
 ### Classificacao
 
-| Faixa | Nivel | Acao Sugerida |
-|-------|-------|---------------|
-| 26-30 | Excelente | Avance para o Caso 3 |
-| 20-25 | Bom | Revisar questoes erradas nos labs |
-| 12-19 | Regular | Refazer blocos com dificuldade |
-| < 12 | Insuficiente | Revisar labs 2-storage-compute e 3-backup-monitoring |
+| Faixa | Nivel        | Acao Sugerida                                        |
+| ----- | ------------ | ---------------------------------------------------- |
+| 26-30 | Excelente    | Avance para o Caso 3                                 |
+| 20-25 | Bom          | Revisar questoes erradas nos labs                    |
+| 12-19 | Regular      | Refazer blocos com dificuldade                       |
+| < 12  | Insuficiente | Revisar labs 2-storage-compute e 3-backup-monitoring |

@@ -16,12 +16,12 @@
 
 SQL Server e um workload **memory-intensive**. O cache de dados em RAM e fundamental para performance de queries. A serie Esv5 oferece alta relacao memoria/vCPU, que e ideal para bancos de dados relacionais.
 
-| Serie | Foco | RAM/vCPU | Ideal Para |
-|-------|------|----------|------------|
-| B | Burstable | Variavel | Dev/test, cargas leves e imprevisiveis |
-| Dsv5 | General Purpose | ~4 GB/vCPU | Aplicacoes gerais, web servers |
-| **Esv5** | **Memory Optimized** | **~8 GB/vCPU** | **SQL Server, caches, analytics** |
-| Fsv2 | Compute Optimized | ~2 GB/vCPU | Batch processing, gaming servers |
+| Serie    | Foco                 | RAM/vCPU       | Ideal Para                             |
+| -------- | -------------------- | -------------- | -------------------------------------- |
+| B        | Burstable            | Variavel       | Dev/test, cargas leves e imprevisiveis |
+| Dsv5     | General Purpose      | ~4 GB/vCPU     | Aplicacoes gerais, web servers         |
+| **Esv5** | **Memory Optimized** | **~8 GB/vCPU** | **SQL Server, caches, analytics**      |
+| Fsv2     | Compute Optimized    | ~2 GB/vCPU     | Batch processing, gaming servers       |
 
 **Por que os outros estao errados:**
 - **A) Serie B (Burstable)** — Inadequada para SQL Server em producao. VMs burstable tem CPU variavel e acumulam creditos quando ociosas. Em periodo de provas com carga constante, os creditos se esgotam e a CPU e **throttled** para o baseline (20-30%).
@@ -42,12 +42,12 @@ SQL Server e um workload **memory-intensive**. O cache de dados em RAM e fundame
 
 Analise por tier:
 
-| Recurso Necessario | Free (F1) | Basic (B1) | Standard (S1) | Premium (P1v3) |
-|--------------------|-----------|------------|----------------|----------------|
-| Custom domain | Nao | Sim | Sim | Sim |
-| SSL/TLS | Nao | Sim | Sim | Sim |
-| Deployment slots | Nao | Nao | **Sim (5)** | Sim (20) |
-| Auto-scale out | Nao | Nao | **Sim (10 inst.)** | Sim (30 inst.) |
+| Recurso Necessario | Free (F1) | Basic (B1) | Standard (S1)      | Premium (P1v3) |
+| ------------------ | --------- | ---------- | ------------------ | -------------- |
+| Custom domain      | Nao       | Sim        | Sim                | Sim            |
+| SSL/TLS            | Nao       | Sim        | Sim                | Sim            |
+| Deployment slots   | Nao       | Nao        | **Sim (5)**        | Sim (20)       |
+| Auto-scale out     | Nao       | Nao        | **Sim (10 inst.)** | Sim (30 inst.) |
 
 O **Standard** e o tier minimo que suporta **deployment slots** e **auto-scale out**. Free e Basic nao suportam nenhum dos dois. Premium atende mas e mais caro sem necessidade.
 
@@ -57,13 +57,13 @@ Se deployment slots nao fossem necessarios, o **Basic** atenderia custom domain 
 
 **3. Scale up vs Scale out:**
 
-| Aspecto | Scale Up (Vertical) | Scale Out (Horizontal) |
-|---------|---------------------|------------------------|
-| O que faz | Muda para um plano **mais potente** (mais CPU/RAM) | Adiciona **mais instancias** do mesmo plano |
-| Exemplo | B1 → S1 → P1v3 | 1 instancia → 5 instancias → 10 instancias |
-| Downtime | Pode haver breve reinicio | Sem downtime (novas instancias sao adicionadas) |
-| Limite | Tamanho maximo do plano | Maximo de instancias do tier |
-| Automatizacao | Manual | Auto-scale baseado em regras (CPU, requests, etc.) |
+| Aspecto       | Scale Up (Vertical)                                | Scale Out (Horizontal)                             |
+| ------------- | -------------------------------------------------- | -------------------------------------------------- |
+| O que faz     | Muda para um plano **mais potente** (mais CPU/RAM) | Adiciona **mais instancias** do mesmo plano        |
+| Exemplo       | B1 → S1 → P1v3                                     | 1 instancia → 5 instancias → 10 instancias         |
+| Downtime      | Pode haver breve reinicio                          | Sem downtime (novas instancias sao adicionadas)    |
+| Limite        | Tamanho maximo do plano                            | Maximo de instancias do tier                       |
+| Automatizacao | Manual                                             | Auto-scale baseado em regras (CPU, requests, etc.) |
 
 No contexto do Instituto Saber Digital, **scale out** e mais adequado: durante periodos de prova, adicionar mais instancias; durante ferias, reduzir para 1 instancia. Scale up seria mudar para uma maquina mais potente, que e menos flexivel.
 
@@ -77,13 +77,13 @@ No contexto do Instituto Saber Digital, **scale out** e mais adequado: durante p
 
 **Resposta: B) Availability Set distribui VMs entre fault domains e update domains dentro de um datacenter; Availability Zone distribui VMs entre datacenters fisicamente separados na mesma regiao**
 
-| Aspecto | Availability Set | Availability Zone |
-|---------|------------------|-------------------|
-| Escopo | Dentro de **um datacenter** | Entre **datacenters** da mesma regiao |
-| Protecao | Falha de rack (fault domain) e manutencao (update domain) | Falha de datacenter inteiro |
-| SLA | **99.95%** | **99.99%** |
-| Fault Domains | 2-3 por set | Cada zona = 1 fault domain |
-| Custo | Sem custo adicional | Sem custo adicional (mas trafego entre zonas tem custo) |
+| Aspecto       | Availability Set                                          | Availability Zone                                       |
+| ------------- | --------------------------------------------------------- | ------------------------------------------------------- |
+| Escopo        | Dentro de **um datacenter**                               | Entre **datacenters** da mesma regiao                   |
+| Protecao      | Falha de rack (fault domain) e manutencao (update domain) | Falha de datacenter inteiro                             |
+| SLA           | **99.95%**                                                | **99.99%**                                              |
+| Fault Domains | 2-3 por set                                               | Cada zona = 1 fault domain                              |
+| Custo         | Sem custo adicional                                       | Sem custo adicional (mas trafego entre zonas tem custo) |
 
 **Por que os outros estao errados:**
 - **A) Invertido** — A descricao esta trocada. Availability Set protege dentro do datacenter; Availability Zone protege entre datacenters.
@@ -138,12 +138,12 @@ Justificativa: Prof. Marcia so deve receber alertas de **indisponibilidade da pl
 
 **2. Action Types:**
 
-| Action Group | Destinatario | Action Type |
-|--------------|-------------|-------------|
-| EquipeTI-AlertGroup | Lucas Ferreira | Email + SMS |
-| EquipeTI-AlertGroup | Equipe de TI (3 pessoas) | Email |
-| EquipeTI-AlertGroup | Automation Runbook | Automation Runbook (scale up VM) |
-| EAD-Disponibilidade-AlertGroup | Prof. Marcia Lima | Email |
+| Action Group                   | Destinatario             | Action Type                      |
+| ------------------------------ | ------------------------ | -------------------------------- |
+| EquipeTI-AlertGroup            | Lucas Ferreira           | Email + SMS                      |
+| EquipeTI-AlertGroup            | Equipe de TI (3 pessoas) | Email                            |
+| EquipeTI-AlertGroup            | Automation Runbook       | Automation Runbook (scale up VM) |
+| EAD-Disponibilidade-AlertGroup | Prof. Marcia Lima        | Email                            |
 
 **3. Notificacao seletiva para Prof. Marcia:**
 
@@ -221,24 +221,24 @@ Notas:
 
 ## Mapa de Dominios AZ-104
 
-| Questao | Dominio AZ-104 | Subtopico |
-|---------|----------------|-----------|
-| Q1.1 | D3 — Deploy and manage compute resources | VM sizing |
-| Q1.2 | D3 — Deploy and manage compute resources | App Service Plans |
-| Q1.3 | D3 — Deploy and manage compute resources | Availability Sets vs Zones |
-| Q2.1 | D5 — Monitor and maintain resources | Alert types |
-| Q2.2 | D5 — Monitor and maintain resources | Action Groups |
-| Q2.3 | D5 — Monitor and maintain resources | KQL, Log Analytics |
+| Questao | Dominio AZ-104                           | Subtopico                  |
+| ------- | ---------------------------------------- | -------------------------- |
+| Q1.1    | D3 — Deploy and manage compute resources | VM sizing                  |
+| Q1.2    | D3 — Deploy and manage compute resources | App Service Plans          |
+| Q1.3    | D3 — Deploy and manage compute resources | Availability Sets vs Zones |
+| Q2.1    | D5 — Monitor and maintain resources      | Alert types                |
+| Q2.2    | D5 — Monitor and maintain resources      | Action Groups              |
+| Q2.3    | D5 — Monitor and maintain resources      | KQL, Log Analytics         |
 
 ---
 
 ## Top Gotchas — Caso 2
 
-| # | Gotcha | Questao |
-|---|--------|---------|
-| 1 | SQL Server = **Memory Optimized** (serie E), nao General Purpose | Q1.1 |
-| 2 | Deployment slots e auto-scale exigem tier **Standard** ou superior | Q1.2 |
-| 3 | Availability Set = 99.95%; Availability Zone = 99.99% | Q1.3 |
-| 4 | Se a metrica existe nativamente, use **Metric Alert**, nao Log Alert | Q2.1 |
-| 5 | Action Groups controlam **quem** recebe **qual** alerta | Q2.2 |
-| 6 | `Perf` para metricas de VM; `AppServiceHTTPLogs` para HTTP; `TimeTaken` em ms | Q2.3 |
+| #   | Gotcha                                                                        | Questao |
+| --- | ----------------------------------------------------------------------------- | ------- |
+| 1   | SQL Server = **Memory Optimized** (serie E), nao General Purpose              | Q1.1    |
+| 2   | Deployment slots e auto-scale exigem tier **Standard** ou superior            | Q1.2    |
+| 3   | Availability Set = 99.95%; Availability Zone = 99.99%                         | Q1.3    |
+| 4   | Se a metrica existe nativamente, use **Metric Alert**, nao Log Alert          | Q2.1    |
+| 5   | Action Groups controlam **quem** recebe **qual** alerta                       | Q2.2    |
+| 6   | `Perf` para metricas de VM; `AppServiceHTTPLogs` para HTTP; `TimeTaken` em ms | Q2.3    |

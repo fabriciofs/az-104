@@ -128,21 +128,21 @@ O erro *"necessary permissions to perform wrap/unwrap"* indica que a Managed Ide
 
 **1. Redundancia por storage account:**
 
-| Storage Account | Redundancia | Justificativa |
-|-----------------|-------------|---------------|
-| `bhdatastorage` | **RA-GZRS** | Dados criticos de clientes: ZRS para alta disponibilidade local (3 zonas) + replicacao para regiao secundaria + **leitura** na regiao secundaria para RPO near-zero. RA permite verificar dados na secundaria sem failover. |
-| `bhappstorage` | **GRS** | Binarios de aplicacao: nao requerem leitura na regiao secundaria (failover manual aceitavel). GRS e suficiente e mais economico que RA-GRS. |
-| `bhlogs` | **GRS** + Immutable storage | Logs de auditoria precisam de redundancia geografica (sobreviver a desastre regional) e imutabilidade (retencao legal). GRS garante a copia na regiao pareada; immutability policy garante que logs nao sejam alterados/deletados. |
+| Storage Account | Redundancia                 | Justificativa                                                                                                                                                                                                                      |
+| --------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bhdatastorage` | **RA-GZRS**                 | Dados criticos de clientes: ZRS para alta disponibilidade local (3 zonas) + replicacao para regiao secundaria + **leitura** na regiao secundaria para RPO near-zero. RA permite verificar dados na secundaria sem failover.        |
+| `bhappstorage`  | **GRS**                     | Binarios de aplicacao: nao requerem leitura na regiao secundaria (failover manual aceitavel). GRS e suficiente e mais economico que RA-GRS.                                                                                        |
+| `bhlogs`        | **GRS** + Immutable storage | Logs de auditoria precisam de redundancia geografica (sobreviver a desastre regional) e imutabilidade (retencao legal). GRS garante a copia na regiao pareada; immutability policy garante que logs nao sejam alterados/deletados. |
 
 **2. GRS vs RA-GRS:**
 
-| Aspecto | GRS | RA-GRS |
-|---------|-----|--------|
-| Replicacao para regiao secundaria | Sim | Sim |
-| **Leitura** na regiao secundaria | **Nao** (so apos failover) | **Sim** (endpoint `-secondary`) |
-| Endpoint secundario | Nao acessivel | `accountname-secondary.blob.core.windows.net` |
-| Custo | Menor | Maior |
-| Uso tipico | DR com failover manual | DR + leitura ativa para verificacao/backup |
+| Aspecto                           | GRS                        | RA-GRS                                        |
+| --------------------------------- | -------------------------- | --------------------------------------------- |
+| Replicacao para regiao secundaria | Sim                        | Sim                                           |
+| **Leitura** na regiao secundaria  | **Nao** (so apos failover) | **Sim** (endpoint `-secondary`)               |
+| Endpoint secundario               | Nao acessivel              | `accountname-secondary.blob.core.windows.net` |
+| Custo                             | Menor                      | Maior                                         |
+| Uso tipico                        | DR com failover manual     | DR + leitura ativa para verificacao/backup    |
 
 RA-GRS permite que aplicacoes **leiam** da regiao secundaria sem precisar de failover. Util para cenarios onde voce quer verificar se os dados estao la, ou para distribuir leitura geograficamente.
 
@@ -193,13 +193,13 @@ A connection string da aplicacao tem o IP `10.2.1.4` (IP do SQL Server na produc
 
 **3. Test Failover vs Failover:**
 
-| Aspecto | Test Failover | Failover |
-|---------|---------------|----------|
-| **Impacto na producao** | **Nenhum** — VMs de producao continuam rodando | VMs de producao sao **desligadas** |
-| **Replicacao** | Continua normalmente | Interrompida (precisa re-proteger) |
-| **VNet** | Criada em VNet de **teste isolada** | Usa VNet de **DR real** |
-| **Finalidade** | Validar que o failover funciona | Failover real em caso de desastre |
-| **Cleanup** | **Obrigatorio** — deve limpar as VMs de teste | Nao tem cleanup (e o novo ambiente) |
+| Aspecto                 | Test Failover                                  | Failover                            |
+| ----------------------- | ---------------------------------------------- | ----------------------------------- |
+| **Impacto na producao** | **Nenhum** — VMs de producao continuam rodando | VMs de producao sao **desligadas**  |
+| **Replicacao**          | Continua normalmente                           | Interrompida (precisa re-proteger)  |
+| **VNet**                | Criada em VNet de **teste isolada**            | Usa VNet de **DR real**             |
+| **Finalidade**          | Validar que o failover funciona                | Failover real em caso de desastre   |
+| **Cleanup**             | **Obrigatorio** — deve limpar as VMs de teste  | Nao tem cleanup (e o novo ambiente) |
 
 Test Failover **nao afeta a producao** porque cria VMs em uma rede isolada. E recomendado executar test failover periodicamente para validar o plano de DR.
 
@@ -213,11 +213,11 @@ Test Failover **nao afeta a producao** porque cria VMs em uma rede isolada. E re
 
 **Resposta: C) Rolling — atualiza em lotes configuraveis, com pausa entre lotes e rollback em caso de falha**
 
-| Policy | Comportamento | Downtime | Controle |
-|--------|---------------|----------|----------|
-| **Manual** | Nada acontece automaticamente. Admin precisa chamar `Update-AzVmssInstance` em cada VM | Depende do admin | Total |
-| **Automatic** | Atualiza todas as instancias assim que possivel | Pode causar downtime total | Nenhum |
-| **Rolling** | Atualiza em **lotes** (ex: 2 VMs por vez), com pausa entre lotes | **Minimo** — sempre ha instancias saudaveis | Configuravel |
+| Policy        | Comportamento                                                                          | Downtime                                    | Controle     |
+| ------------- | -------------------------------------------------------------------------------------- | ------------------------------------------- | ------------ |
+| **Manual**    | Nada acontece automaticamente. Admin precisa chamar `Update-AzVmssInstance` em cada VM | Depende do admin                            | Total        |
+| **Automatic** | Atualiza todas as instancias assim que possivel                                        | Pode causar downtime total                  | Nenhum       |
+| **Rolling**   | Atualiza em **lotes** (ex: 2 VMs por vez), com pausa entre lotes                       | **Minimo** — sempre ha instancias saudaveis | Configuravel |
 
 **Parametros do Rolling upgrade:**
 
@@ -249,9 +249,9 @@ Camila deve criar **UDRs (User-Defined Routes)** nas subnets dos spokes (AppVNet
 
 **Route Table nos spokes:**
 
-| Nome | Address Prefix | Next Hop Type | Next Hop IP |
-|------|---------------|---------------|-------------|
-| forced-tunnel | 0.0.0.0/0 | Virtual Appliance | 10.0.2.4 (Azure Firewall) |
+| Nome          | Address Prefix | Next Hop Type     | Next Hop IP               |
+| ------------- | -------------- | ----------------- | ------------------------- |
+| forced-tunnel | 0.0.0.0/0      | Virtual Appliance | 10.0.2.4 (Azure Firewall) |
 
 E no Azure Firewall, configurar uma rota para 0.0.0.0/0 com next hop **VirtualNetworkGateway** (ExpressRoute), que encaminha o trafego para o on-premises.
 
@@ -314,12 +314,12 @@ Failover:   On-premises ←→ VPN Gateway (ate 1.25 Gbps, AS Path longo)
 
 **3. ExpressRoute Private Peering vs Microsoft Peering:**
 
-| Aspecto | Private Peering | Microsoft Peering |
-|---------|-----------------|-------------------|
-| **Conecta a** | VNets do Azure (IPs privados) | Servicos PaaS publicos (Storage, SQL, M365) |
-| **IPs** | Privados (10.x, 172.x, 192.168.x) | IPs publicos da Microsoft |
-| **Uso** | Acesso a VMs, Private Endpoints, VNets | Acesso a Azure Storage, Office 365, Dynamics |
-| **Necessario para** | Comunicacao com VNets | Acessar PaaS sem internet |
+| Aspecto             | Private Peering                        | Microsoft Peering                            |
+| ------------------- | -------------------------------------- | -------------------------------------------- |
+| **Conecta a**       | VNets do Azure (IPs privados)          | Servicos PaaS publicos (Storage, SQL, M365)  |
+| **IPs**             | Privados (10.x, 172.x, 192.168.x)      | IPs publicos da Microsoft                    |
+| **Uso**             | Acesso a VMs, Private Endpoints, VNets | Acesso a Azure Storage, Office 365, Dynamics |
+| **Necessario para** | Comunicacao com VNets                  | Acessar PaaS sem internet                    |
 
 Para acessar Azure PaaS (Storage, Key Vault) **sem** Private Endpoints, Camila precisa de **Microsoft Peering**. Porem, se usar **Private Endpoints** para esses servicos, o trafego vai por **Private Peering** (porque os Private Endpoints tem IPs privados na VNet).
 
@@ -337,20 +337,20 @@ Para acessar Azure PaaS (Storage, Key Vault) **sem** Private Endpoints, Camila p
 
 **1. Action Groups — criar 3:**
 
-| Action Group | Destinatarios | Action Types |
-|--------------|--------------|--------------|
-| `AG-CloudOps-Critical` | CloudOps (8 pessoas) | SMS + Email |
-| `AG-SecOps-Alert` | SecOps (4 pessoas) + Camila | Email (Camila tambem SMS para Sev 0) |
-| `AG-CloudOps-Standard` | CloudOps (8 pessoas) | Email (sem SMS) |
+| Action Group           | Destinatarios               | Action Types                         |
+| ---------------------- | --------------------------- | ------------------------------------ |
+| `AG-CloudOps-Critical` | CloudOps (8 pessoas)        | SMS + Email                          |
+| `AG-SecOps-Alert`      | SecOps (4 pessoas) + Camila | Email (Camila tambem SMS para Sev 0) |
+| `AG-CloudOps-Standard` | CloudOps (8 pessoas)        | Email (sem SMS)                      |
 
 Mapeamento de alertas para Action Groups:
 
-| Alerta | Action Groups |
-|--------|--------------|
-| CPU critica (Sev 0) | AG-CloudOps-Critical + AG-SecOps-Alert |
-| Disk space (Sev 1) | AG-CloudOps-Standard |
-| Key Vault denied (Sev 0) | AG-SecOps-Alert |
-| Policy non-compliance (Sev 2) | AG-SecOps-Alert |
+| Alerta                        | Action Groups                          |
+| ----------------------------- | -------------------------------------- |
+| CPU critica (Sev 0)           | AG-CloudOps-Critical + AG-SecOps-Alert |
+| Disk space (Sev 1)            | AG-CloudOps-Standard                   |
+| Key Vault denied (Sev 0)      | AG-SecOps-Alert                        |
+| Policy non-compliance (Sev 2) | AG-SecOps-Alert                        |
 
 **2. Alert rule para todas as VMs de producao:**
 
@@ -463,35 +463,35 @@ Camila deve usar **Workbooks** do Azure Monitor combinados com **Logic Apps** ou
 
 ## Mapa de Dominios AZ-104
 
-| Questao | Dominio AZ-104 | Subtopico |
-|---------|----------------|-----------|
-| Q1.1 | D1 — Manage identities and governance | Management Groups, Policy inheritance, exemptions |
-| Q1.2 | D1 — Manage identities and governance | RBAC multi-scope, peering permissions |
-| Q2.1 | D2 — Implement and manage storage | CMK, Key Vault, Managed Identity |
-| Q2.2 | D2 — Implement and manage storage | GRS/GZRS, failover, RA-GRS |
-| Q3.1 | D3 — Deploy and manage compute resources | ASR, test failover, IP resolution |
-| Q3.2 | D3 — Deploy and manage compute resources | VMSS Rolling upgrade |
-| Q4.1 | D4 — Implement and manage virtual networking | Forced tunneling, Private Endpoints, AzFW Management subnet |
-| Q4.2 | D4 — Implement and manage virtual networking | ExpressRoute vs VPN, peering types |
-| Q5.1 | D5 — Monitor and maintain resources | Multi-resource alerts, Action Groups |
-| Q5.2 | D5 — Monitor and maintain resources | KQL, AuditLogs, AzureDiagnostics |
+| Questao | Dominio AZ-104                               | Subtopico                                                   |
+| ------- | -------------------------------------------- | ----------------------------------------------------------- |
+| Q1.1    | D1 — Manage identities and governance        | Management Groups, Policy inheritance, exemptions           |
+| Q1.2    | D1 — Manage identities and governance        | RBAC multi-scope, peering permissions                       |
+| Q2.1    | D2 — Implement and manage storage            | CMK, Key Vault, Managed Identity                            |
+| Q2.2    | D2 — Implement and manage storage            | GRS/GZRS, failover, RA-GRS                                  |
+| Q3.1    | D3 — Deploy and manage compute resources     | ASR, test failover, IP resolution                           |
+| Q3.2    | D3 — Deploy and manage compute resources     | VMSS Rolling upgrade                                        |
+| Q4.1    | D4 — Implement and manage virtual networking | Forced tunneling, Private Endpoints, AzFW Management subnet |
+| Q4.2    | D4 — Implement and manage virtual networking | ExpressRoute vs VPN, peering types                          |
+| Q5.1    | D5 — Monitor and maintain resources          | Multi-resource alerts, Action Groups                        |
+| Q5.2    | D5 — Monitor and maintain resources          | KQL, AuditLogs, AzureDiagnostics                            |
 
 ---
 
 ## Top Gotchas — Caso 5
 
-| # | Gotcha | Questao |
-|---|--------|---------|
-| 1 | Policy Deny no MG **nao pode** ser sobrescrito por policy na subscription — use **Exemption** | Q1.1 |
-| 2 | VNet peering requer permissao em **ambos os lados** (peer/action) | Q1.2 |
-| 3 | CMK = Managed Identity + **Key Vault permissions** (wrap/unwrap) | Q2.1 |
-| 4 | Apos failover de storage, a conta vira **LRS** — reconfigurar GRS manualmente | Q2.2 |
-| 5 | IP **hardcoded** = falha em DR — usar DNS ou automacao | Q3.1 |
-| 6 | VMSS Rolling upgrade = **zero downtime**, atualiza em lotes | Q3.2 |
-| 7 | Azure Firewall com forced tunneling requer **AzureFirewallManagementSubnet** | Q4.1 |
-| 8 | ExpressRoute failover para VPN requer **BGP** habilitado em ambos | Q4.2 |
-| 9 | Multi-resource metric alerts monitoram **todas as VMs** no escopo com uma unica regra | Q5.1 |
-| 10 | `AuditLogs` = Entra ID; `AzureDiagnostics` = recursos Azure (Key Vault, Storage) | Q5.2 |
+| #   | Gotcha                                                                                        | Questao |
+| --- | --------------------------------------------------------------------------------------------- | ------- |
+| 1   | Policy Deny no MG **nao pode** ser sobrescrito por policy na subscription — use **Exemption** | Q1.1    |
+| 2   | VNet peering requer permissao em **ambos os lados** (peer/action)                             | Q1.2    |
+| 3   | CMK = Managed Identity + **Key Vault permissions** (wrap/unwrap)                              | Q2.1    |
+| 4   | Apos failover de storage, a conta vira **LRS** — reconfigurar GRS manualmente                 | Q2.2    |
+| 5   | IP **hardcoded** = falha em DR — usar DNS ou automacao                                        | Q3.1    |
+| 6   | VMSS Rolling upgrade = **zero downtime**, atualiza em lotes                                   | Q3.2    |
+| 7   | Azure Firewall com forced tunneling requer **AzureFirewallManagementSubnet**                  | Q4.1    |
+| 8   | ExpressRoute failover para VPN requer **BGP** habilitado em ambos                             | Q4.2    |
+| 9   | Multi-resource metric alerts monitoram **todas as VMs** no escopo com uma unica regra         | Q5.1    |
+| 10  | `AuditLogs` = Entra ID; `AzureDiagnostics` = recursos Azure (Key Vault, Storage)              | Q5.2    |
 
 ---
 

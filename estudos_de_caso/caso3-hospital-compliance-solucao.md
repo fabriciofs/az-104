@@ -142,10 +142,10 @@ Notas:
 - `Storage Blob Data Reader` — para ler conteudo
 - `Storage Blob Data Contributor` — para ler e gravar conteudo
 
-| Plano | O que ve | Roles |
-|-------|----------|-------|
-| Management Plane | Recurso existe, propriedades, metricas | Reader, Contributor, Owner |
-| Data Plane | Conteudo dentro do recurso (blobs, filas, tabelas) | Storage Blob Data Reader/Contributor |
+| Plano            | O que ve                                           | Roles                                |
+| ---------------- | -------------------------------------------------- | ------------------------------------ |
+| Management Plane | Recurso existe, propriedades, metricas             | Reader, Contributor, Owner           |
+| Data Plane       | Conteudo dentro do recurso (blobs, filas, tabelas) | Storage Blob Data Reader/Contributor |
 
 **[GOTCHA]** Management plane vs data plane e uma das distincoes mais testadas no AZ-104. Reader nunca da acesso ao conteudo de dados. Para acessar dados, sempre e necessario um role de data plane especifico.
 
@@ -208,9 +208,9 @@ Se VMs em Hosp2 conseguem acessar VMs em Hosp1 diretamente, as causas possiveis 
 
 Fernanda deve criar **Route Tables** em cada subnet dos spokes com uma UDR:
 
-| Nome | Address Prefix | Next Hop Type | Next Hop IP |
-|------|---------------|---------------|-------------|
-| to-spoke-via-fw | 10.0.0.0/8 | Virtual Appliance | 10.0.2.4 (IP do Azure Firewall) |
+| Nome            | Address Prefix | Next Hop Type     | Next Hop IP                     |
+| --------------- | -------------- | ----------------- | ------------------------------- |
+| to-spoke-via-fw | 10.0.0.0/8     | Virtual Appliance | 10.0.2.4 (IP do Azure Firewall) |
 
 Essa rota forca todo trafego com destino `10.0.0.0/8` (que inclui todas as VNets) a passar pelo Azure Firewall. O Firewall entao decide se permite ou bloqueia com base nas regras de rede/aplicacao.
 
@@ -250,16 +250,16 @@ A regra `DenyAllInbound` so bloqueia **novas conexoes** iniciadas de fora. Respo
 
 Fernanda deve adicionar uma regra **outbound** no NSG da subnet Data:
 
-| Prioridade | Nome | Direcao | Acao | Porta | Origem | Destino |
-|------------|------|---------|------|-------|--------|---------|
-| 100 | DenyToAppSubnet | Outbound | Deny | * | 10.1.2.0/24 | 10.1.1.0/24 |
-| 4096 | AllowInternetOut | Outbound | Allow | * | * | Internet |
+| Prioridade | Nome             | Direcao  | Acao  | Porta | Origem      | Destino     |
+| ---------- | ---------------- | -------- | ----- | ----- | ----------- | ----------- |
+| 100        | DenyToAppSubnet  | Outbound | Deny  | *     | 10.1.2.0/24 | 10.1.1.0/24 |
+| 4096       | AllowInternetOut | Outbound | Allow | *     | *           | Internet    |
 
 Ou, alternativamente, adicionar essa regra no NSG da subnet App como regra de **inbound**:
 
-| Prioridade | Nome | Direcao | Acao | Porta | Origem | Destino |
-|------------|------|---------|------|-------|--------|---------|
-| 100 | DenyFromDataSubnet | Inbound | Deny | * | 10.1.2.0/24 | 10.1.1.0/24 |
+| Prioridade | Nome               | Direcao | Acao | Porta | Origem      | Destino     |
+| ---------- | ------------------ | ------- | ---- | ----- | ----------- | ----------- |
+| 100        | DenyFromDataSubnet | Inbound | Deny | *     | 10.1.2.0/24 | 10.1.1.0/24 |
 
 **[GOTCHA]** NSG e **stateful** — essa e uma informacao testada com frequencia no exame. Respostas de conexoes estabelecidas sao permitidas automaticamente. DenyAllInbound nao bloqueia respostas de trafego que a VM iniciou.
 
@@ -275,11 +275,11 @@ Ou, alternativamente, adicionar essa regra no NSG da subnet App como regra de **
 
 Todos os tres mecanismos de immutable storage impedem **alteracao** e **delecao** de blobs:
 
-| Mecanismo | Alteracao | Delecao | Diferenca Principal |
-|-----------|-----------|---------|---------------------|
-| Time-based Locked | Bloqueada | Bloqueada ate o fim do periodo | Periodo de retencao nao pode ser reduzido |
-| Time-based Unlocked | Bloqueada | Bloqueada ate o fim do periodo | Periodo pode ser ajustado ou policy removida |
-| Legal Hold | Bloqueada | Bloqueada enquanto hold estiver ativo | Sem periodo definido, removido manualmente |
+| Mecanismo           | Alteracao | Delecao                               | Diferenca Principal                          |
+| ------------------- | --------- | ------------------------------------- | -------------------------------------------- |
+| Time-based Locked   | Bloqueada | Bloqueada ate o fim do periodo        | Periodo de retencao nao pode ser reduzido    |
+| Time-based Unlocked | Bloqueada | Bloqueada ate o fim do periodo        | Periodo pode ser ajustado ou policy removida |
+| Legal Hold          | Bloqueada | Bloqueada enquanto hold estiver ativo | Sem periodo definido, removido manualmente   |
 
 **Detalhes importantes:**
 
@@ -331,28 +331,28 @@ Fernanda deve escolher uma das opcoes:
 
 ## Mapa de Dominios AZ-104
 
-| Questao | Dominio AZ-104 | Subtopico |
-|---------|----------------|-----------|
-| Q1.1 | D1 — Manage identities and governance | Policy Initiatives |
-| Q1.2 | D1 — Manage identities and governance | Management Groups, RBAC scoping |
-| Q1.3 | D1 — Manage identities and governance | Custom RBAC roles, management vs data plane |
-| Q2.1 | D4 — Implement and manage virtual networking | Private Endpoints, DNS |
-| Q2.2 | D4 — Implement and manage virtual networking | Hub-spoke, UDR, peering |
-| Q2.3 | D4 — Implement and manage virtual networking | NSG stateful, subnet isolation |
-| Q3.1 | D2 — Implement and manage storage | Immutable storage (WORM) |
-| Q3.2 | D2 — Implement and manage storage | Storage firewall + Private Endpoint |
+| Questao | Dominio AZ-104                               | Subtopico                                   |
+| ------- | -------------------------------------------- | ------------------------------------------- |
+| Q1.1    | D1 — Manage identities and governance        | Policy Initiatives                          |
+| Q1.2    | D1 — Manage identities and governance        | Management Groups, RBAC scoping             |
+| Q1.3    | D1 — Manage identities and governance        | Custom RBAC roles, management vs data plane |
+| Q2.1    | D4 — Implement and manage virtual networking | Private Endpoints, DNS                      |
+| Q2.2    | D4 — Implement and manage virtual networking | Hub-spoke, UDR, peering                     |
+| Q2.3    | D4 — Implement and manage virtual networking | NSG stateful, subnet isolation              |
+| Q3.1    | D2 — Implement and manage storage            | Immutable storage (WORM)                    |
+| Q3.2    | D2 — Implement and manage storage            | Storage firewall + Private Endpoint         |
 
 ---
 
 ## Top Gotchas — Caso 3
 
-| # | Gotcha | Questao |
-|---|--------|---------|
-| 1 | Policy Initiative = **gerenciamento unificado**, nao capacidades exclusivas | Q1.1 |
-| 2 | Management Groups herdam policies para **subscriptions futuras** automaticamente | Q1.2 |
-| 3 | Reader (management plane) **nunca** da acesso a dados (data plane) | Q1.3 |
-| 4 | Private Endpoint sem **Private DNS Zone** = DNS resolve para IP publico | Q2.1 |
-| 5 | Hub-spoke requer **UDRs** para forcar trafego pelo Firewall/NVA | Q2.2 |
-| 6 | NSG e **stateful** — respostas de conexoes iniciadas sao permitidas automaticamente | Q2.3 |
-| 7 | Immutable storage: **nenhuma** opcao permite alterar blobs existentes | Q3.1 |
-| 8 | Storage firewall e Private Endpoint sao **independentes** — ambos devem estar configurados | Q3.2 |
+| #   | Gotcha                                                                                     | Questao |
+| --- | ------------------------------------------------------------------------------------------ | ------- |
+| 1   | Policy Initiative = **gerenciamento unificado**, nao capacidades exclusivas                | Q1.1    |
+| 2   | Management Groups herdam policies para **subscriptions futuras** automaticamente           | Q1.2    |
+| 3   | Reader (management plane) **nunca** da acesso a dados (data plane)                         | Q1.3    |
+| 4   | Private Endpoint sem **Private DNS Zone** = DNS resolve para IP publico                    | Q2.1    |
+| 5   | Hub-spoke requer **UDRs** para forcar trafego pelo Firewall/NVA                            | Q2.2    |
+| 6   | NSG e **stateful** — respostas de conexoes iniciadas sao permitidas automaticamente        | Q2.3    |
+| 7   | Immutable storage: **nenhuma** opcao permite alterar blobs existentes                      | Q3.1    |
+| 8   | Storage firewall e Private Endpoint sao **independentes** — ambos devem estar configurados | Q3.2    |

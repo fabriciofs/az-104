@@ -21,44 +21,44 @@ A MegaStore esta migrando de um datacenter on-premises para o Azure e precisa re
 
 ### Equipe
 
-| Persona | Funcao | Responsabilidade |
-|---------|--------|------------------|
-| Thiago Almeida (`ms-admin`) | Azure Administrator | Infraestrutura e operacoes |
-| Juliana Campos | Lider de Desenvolvimento | Deployments e CI/CD |
-| Equipe de Infra (6 pessoas) | Operacoes | Monitorar e manter recursos |
+| Persona                     | Funcao                   | Responsabilidade            |
+| --------------------------- | ------------------------ | --------------------------- |
+| Thiago Almeida (`ms-admin`) | Azure Administrator      | Infraestrutura e operacoes  |
+| Juliana Campos              | Lider de Desenvolvimento | Deployments e CI/CD         |
+| Equipe de Infra (6 pessoas) | Operacoes                | Monitorar e manter recursos |
 
 ### Arquitetura
 
 ```
                     ┌──────────────────────────────────────────────────────────────┐
-                    │                    AZURE — Brazil South                       │
+                    │                    AZURE — Brazil South                      │
                     │                                                              │
                     │  ┌────────────────────────────────────────────────────────┐  │
-                    │  │  RG: ms-frontend-rg                                   │  │
+                    │  │  RG: ms-frontend-rg                                    │  │
                     │  │                                                        │  │
                     │  │  ┌─────────────────────┐  ┌────────────────────────┐   │  │
                     │  │  │ Application Gateway │  │ App Service:           │   │  │
                     │  │  │ (WAF + Load Balance)│  │ ms-webapp              │   │  │
                     │  │  │                     │──│ (website principal)    │   │  │
-                    │  │  │ Subnet: AppGw       │  │ Plan: Standard S2     │   │  │
-                    │  │  │ 10.0.1.0/24         │  │ Slots: prod + staging │   │  │
+                    │  │  │ Subnet: AppGw       │  │ Plan: Standard S2      │   │  │
+                    │  │  │ 10.0.1.0/24         │  │ Slots: prod + staging  │   │  │
                     │  │  └─────────────────────┘  └────────────────────────┘   │  │
                     │  └────────────────────────────────────────────────────────┘  │
                     │                                                              │
                     │  ┌────────────────────────────────────────────────────────┐  │
-                    │  │  RG: ms-backend-rg                                    │  │
+                    │  │  RG: ms-backend-rg                                     │  │
                     │  │                                                        │  │
                     │  │  ┌─────────────────────┐  ┌────────────────────────┐   │  │
-                    │  │  │ VMSS: ms-api-vmss   │  │ Container Apps:       │   │  │
-                    │  │  │ (API de pedidos)    │  │ ms-workers            │   │  │
-                    │  │  │ 2-20 instancias     │  │ (processamento async) │   │  │
+                    │  │  │ VMSS: ms-api-vmss   │  │ Container Apps:        │   │  │
+                    │  │  │ (API de pedidos)    │  │ ms-workers             │   │  │
+                    │  │  │ 2-20 instancias     │  │ (processamento async)  │   │  │
                     │  │  │ Subnet: Backend     │  │                        │   │  │
                     │  │  │ 10.0.2.0/24         │  │                        │   │  │
                     │  │  └─────────────────────┘  └────────────────────────┘   │  │
                     │  └────────────────────────────────────────────────────────┘  │
                     │                                                              │
                     │  ┌────────────────────────────────────────────────────────┐  │
-                    │  │  RG: ms-data-rg                                       │  │
+                    │  │  RG: ms-data-rg                                        │  │
                     │  │                                                        │  │
                     │  │  ┌─────────────────────┐  ┌────────────────────────┐   │  │
                     │  │  │ Storage Account:    │  │ SQL Database (PaaS)    │   │  │
@@ -74,12 +74,12 @@ A MegaStore esta migrando de um datacenter on-premises para o Azure e precisa re
 
 ### Requisitos de Performance
 
-| Componente | Normal | Black Friday |
-|------------|--------|-------------|
-| API (VMSS) | 2 instancias | 20 instancias |
-| Web App | 1 instancia S2 | 5 instancias S2 |
-| Storage | 10 TB imagens | 10 TB (mesmo) |
-| Pedidos/dia | 50.000 | 500.000 |
+| Componente  | Normal         | Black Friday    |
+| ----------- | -------------- | --------------- |
+| API (VMSS)  | 2 instancias   | 20 instancias   |
+| Web App     | 1 instancia S2 | 5 instancias S2 |
+| Storage     | 10 TB imagens  | 10 TB (mesmo)   |
+| Pedidos/dia | 50.000         | 500.000         |
 
 ---
 
@@ -161,11 +161,11 @@ Thiago configurou o Application Gateway na subnet `AppGw` (10.0.1.0/24). Apos o 
 
 Thiago verifica que criou um NSG na subnet `AppGw` com a seguinte configuracao:
 
-| Prioridade | Nome | Direcao | Acao | Porta | Origem | Destino |
-|------------|------|---------|------|-------|--------|---------|
-| 100 | AllowHTTP | Inbound | Allow | 80 | * | * |
-| 110 | AllowHTTPS | Inbound | Allow | 443 | * | * |
-| 200 | DenyAll | Inbound | Deny | * | * | * |
+| Prioridade | Nome       | Direcao | Acao  | Porta | Origem | Destino |
+| ---------- | ---------- | ------- | ----- | ----- | ------ | ------- |
+| 100        | AllowHTTP  | Inbound | Allow | 80    | *      | *       |
+| 110        | AllowHTTPS | Inbound | Allow | 443   | *      | *       |
+| 200        | DenyAll    | Inbound | Deny  | *     | *      | *       |
 
 1. Por que o Application Gateway esta Unhealthy, mesmo com HTTP/HTTPS permitidos?
 2. Quais portas **adicionais** sao obrigatorias para a subnet do Application Gateway?
@@ -219,18 +219,18 @@ Responda:
 
 ## Pontuacao
 
-| Secao | Questoes | Pontos por Questao | Total |
-|-------|----------|--------------------|-------|
-| 1 — Computacao | 3 | 5 | 15 |
-| 2 — Networking | 3 | 6 | 18 |
-| 3 — Armazenamento | 2 | 6 | 12 |
-| **Total** | **8** | — | **45** |
+| Secao             | Questoes | Pontos por Questao | Total  |
+| ----------------- | -------- | ------------------ | ------ |
+| 1 — Computacao    | 3        | 5                  | 15     |
+| 2 — Networking    | 3        | 6                  | 18     |
+| 3 — Armazenamento | 2        | 6                  | 12     |
+| **Total**         | **8**    | —                  | **45** |
 
 ### Classificacao
 
-| Faixa | Nivel | Acao Sugerida |
-|-------|-------|---------------|
-| 38-45 | Excelente | Avance para o Caso 5 |
-| 28-37 | Bom | Revisar questoes erradas nos labs |
-| 18-27 | Regular | Refazer blocos com dificuldade |
-| < 18 | Insuficiente | Revisar labs 2-storage-compute e 1-iam-gov-net |
+| Faixa | Nivel        | Acao Sugerida                                  |
+| ----- | ------------ | ---------------------------------------------- |
+| 38-45 | Excelente    | Avance para o Caso 5                           |
+| 28-37 | Bom          | Revisar questoes erradas nos labs              |
+| 18-27 | Regular      | Refazer blocos com dificuldade                 |
+| < 18  | Insuficiente | Revisar labs 2-storage-compute e 1-iam-gov-net |

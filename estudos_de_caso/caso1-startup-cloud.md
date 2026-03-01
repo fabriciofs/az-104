@@ -21,50 +21,50 @@ A ByteWave trabalha frequentemente com **freelancers externos** para projetos es
 
 ### Equipe
 
-| Persona | Funcao | Acesso Necessario |
-|---------|--------|--------------------|
-| Renata Oliveira (`bw-admin`) | Azure Administrator / Co-fundadora | Owner na subscription |
-| Pedro Santos | Freelancer de design (externo) | Acesso temporario a arquivos de design |
-| Ana Costa | Auditora contabil (empresa externa) | Somente leitura em relatorios financeiros |
-| Grupo **Devs** | Time de desenvolvimento (8 pessoas) | Contributor em RGs de desenvolvimento |
-| Grupo **Marketing** | Time de marketing (5 pessoas) | Acesso a blobs publicos de marketing |
+| Persona                      | Funcao                              | Acesso Necessario                         |
+| ---------------------------- | ----------------------------------- | ----------------------------------------- |
+| Renata Oliveira (`bw-admin`) | Azure Administrator / Co-fundadora  | Owner na subscription                     |
+| Pedro Santos                 | Freelancer de design (externo)      | Acesso temporario a arquivos de design    |
+| Ana Costa                    | Auditora contabil (empresa externa) | Somente leitura em relatorios financeiros |
+| Grupo **Devs**               | Time de desenvolvimento (8 pessoas) | Contributor em RGs de desenvolvimento     |
+| Grupo **Marketing**          | Time de marketing (5 pessoas)       | Acesso a blobs publicos de marketing      |
 
 ### Infraestrutura
 
 ```
-                    ┌──────────────────────────────────────────┐
+                    ┌───────────────────────────────────────────┐
                     │          AZURE — Brazil South             │
-                    │                                          │
-                    │  Subscription: ByteWave-Prod             │
-                    │                                          │
-                    │  ┌────────────────────────────────────┐  │
-                    │  │  RG: bw-dev-rg                     │  │
+                    │                                           │
+                    │  Subscription: ByteWave-Prod              │
+                    │                                           │
+                    │  ┌─────────────────────────────────────┐  │
+                    │  │  RG: bw-dev-rg                      │  │
                     │  │  - Storage Account (codigo-fonte)   │  │
                     │  │  - App Service (dev environment)    │  │
-                    │  └────────────────────────────────────┘  │
-                    │                                          │
-                    │  ┌────────────────────────────────────┐  │
-                    │  │  RG: bw-marketing-rg               │  │
+                    │  └─────────────────────────────────────┘  │
+                    │                                           │
+                    │  ┌─────────────────────────────────────┐  │
+                    │  │  RG: bw-marketing-rg                │  │
                     │  │  - Storage Account (assets publicos)│  │
                     │  │  - CDN Profile                      │  │
-                    │  └────────────────────────────────────┘  │
-                    │                                          │
-                    │  ┌────────────────────────────────────┐  │
-                    │  │  RG: bw-finance-rg                 │  │
+                    │  └─────────────────────────────────────┘  │
+                    │                                           │
+                    │  ┌─────────────────────────────────────┐  │
+                    │  │  RG: bw-finance-rg                  │  │
                     │  │  - Storage Account (relatorios)     │  │
-                    │  └────────────────────────────────────┘  │
-                    │                                          │
-                    │  Tags obrigatorias: Project, CostCenter  │
-                    └──────────────────────────────────────────┘
+                    │  └─────────────────────────────────────┘  │
+                    │                                           │
+                    │  Tags obrigatorias: Project, CostCenter   │
+                    └───────────────────────────────────────────┘
 ```
 
 ### Requisitos de Storage
 
-| Storage Account | Container | Finalidade | Acesso |
-|-----------------|-----------|------------|--------|
-| `bwdevstorage` | `source-code` | Backups de codigo | Privado — apenas Devs |
-| `bwmarketing` | `public-assets` | Imagens, videos de marketing | Publico — CDN |
-| `bwfinance` | `reports` | Relatorios financeiros | Privado — apenas auditora |
+| Storage Account | Container       | Finalidade                   | Acesso                    |
+| --------------- | --------------- | ---------------------------- | ------------------------- |
+| `bwdevstorage`  | `source-code`   | Backups de codigo            | Privado — apenas Devs     |
+| `bwmarketing`   | `public-assets` | Imagens, videos de marketing | Publico — CDN             |
+| `bwfinance`     | `reports`       | Relatorios financeiros       | Privado — apenas auditora |
 
 ---
 
@@ -169,17 +169,17 @@ Qual abordagem Renata deveria ter usado desde o inicio para permitir revogacao?
 
 ## Pontuacao
 
-| Secao | Questoes | Pontos por Questao | Total |
-|-------|----------|--------------------|-------|
-| 1 — Identidade e Governanca | 3 | 5 | 15 |
-| 2 — Armazenamento | 3 | 5 | 15 |
-| **Total** | **6** | — | **30** |
+| Secao                       | Questoes | Pontos por Questao | Total  |
+| --------------------------- | -------- | ------------------ | ------ |
+| 1 — Identidade e Governanca | 3        | 5                  | 15     |
+| 2 — Armazenamento           | 3        | 5                  | 15     |
+| **Total**                   | **6**    | —                  | **30** |
 
 ### Classificacao
 
-| Faixa | Nivel | Acao Sugerida |
-|-------|-------|---------------|
-| 26-30 | Excelente | Avance para o Caso 2 |
-| 20-25 | Bom | Revisar questoes erradas nos labs |
-| 12-19 | Regular | Refazer blocos com dificuldade |
-| < 12 | Insuficiente | Revisar labs 1-iam-gov-net e 2-storage-compute |
+| Faixa | Nivel        | Acao Sugerida                                  |
+| ----- | ------------ | ---------------------------------------------- |
+| 26-30 | Excelente    | Avance para o Caso 2                           |
+| 20-25 | Bom          | Revisar questoes erradas nos labs              |
+| 12-19 | Regular      | Refazer blocos com dificuldade                 |
+| < 12  | Insuficiente | Revisar labs 1-iam-gov-net e 2-storage-compute |

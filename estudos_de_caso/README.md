@@ -20,6 +20,20 @@ Estudos de caso no estilo do exame AZ-104, com cenarios realistas que cruzam **m
 
 ---
 
+## Exercicios Praticos
+
+Exercicios hands-on para planejar e documentar arquiteturas completas no portal Azure.
+
+| # | Exercicio | Duracao | Dominios |
+|---|-----------|---------|----------|
+| P1 | [Migracao de Datacenter](pratico1-migracao-datacenter.md) | ~3h | D2 Storage + D3 Compute + D4 Networking + D5 Monitoring |
+| P2 | [Governanca Corporativa](pratico2-governanca-corporativa.md) | ~3h | D1 Identity & Governance |
+
+> **Diferenca:** Os estudos de caso (1-5) testam **raciocinio** com questoes estilo exame.
+> Os exercicios praticos (P1-P2) treinam **execucao** — voce desenha, planeja e documenta.
+
+---
+
 ## Legenda de Dificuldade
 
 | Nivel | Descricao |
@@ -58,6 +72,8 @@ Estudos de caso no estilo do exame AZ-104, com cenarios realistas que cruzam **m
 3. **Caso 3** (Medio) — Integra Governance, Networking e Storage
 4. **Caso 4** (Medio) — Integra Compute, Networking e Storage
 5. **Caso 5** (Dificil) — Revisao completa de todos os dominios
+6. **Pratico 1** — Migracao de datacenter (apos labs blocos 2 e 3)
+7. **Pratico 2** — Governanca corporativa (apos labs bloco 1)
 
 ---
 

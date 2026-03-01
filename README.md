@@ -41,7 +41,9 @@ az-104/
 │   ├── caso3-hospital-compliance.md    # Medio: Governance + Networking + Storage (8 questoes)
 │   ├── caso4-ecommerce-scaling.md      # Medio: Compute + Networking + Storage (8 questoes)
 │   ├── caso5-banco-migracao.md         # Dificil: Todos os 5 dominios (10 questoes)
-│   └── *-solucao.md                    # Gabaritos com explicacoes e [GOTCHA]
+│   ├── *-solucao.md                    # Gabaritos com explicacoes e [GOTCHA]
+│   ├── pratico1-migracao-datacenter.md # Hands-on: migracao de datacenter (~3h)
+│   └── pratico2-governanca-corporativa.md # Hands-on: governanca corporativa (~3h)
 │
 └── labs/                               # Pratica hands-on
     ├── 1-iam-gov-net/                  # IAM, Governance e Networking (Labs 01-06)
@@ -101,7 +103,7 @@ az-104/
 | MS Learn - Roteiros      | 6 roteiros   |
 | MS Learn - Modulos       | 28 modulos   |
 | Labs praticos            | 14 labs      |
-| Estudos de caso          | 5 casos (38 questoes) |
+| Estudos de caso          | 5 casos (38 questoes) + 2 exercicios praticos |
 | Guias de estudo          | 3 documentos |
 
 ## Cobertura por Dominio

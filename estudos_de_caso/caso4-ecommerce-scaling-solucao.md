@@ -66,12 +66,12 @@ O processo de swap funciona assim:
 
 Algumas configuracoes acompanham o slot (slot-specific) e outras acompanham o conteudo:
 
-| Acompanha o CONTEUDO (swapped) | Acompanha o SLOT (nao swapped) |
-|-------------------------------|-------------------------------|
-| Codigo da aplicacao | Connection strings (quando marcadas como slot setting) |
-| Versao do framework | Custom domains |
-| Configuracoes gerais | SSL certificates |
-| Handler mappings | Configuracoes de scale |
+| Acompanha o CONTEUDO (swapped) | Acompanha o SLOT (nao swapped)                         |
+| ------------------------------ | ------------------------------------------------------ |
+| Codigo da aplicacao            | Connection strings (quando marcadas como slot setting) |
+| Versao do framework            | Custom domains                                         |
+| Configuracoes gerais           | SSL certificates                                       |
+| Handler mappings               | Configuracoes de scale                                 |
 
 **[GOTCHA]** No exame, swap = troca de virtual IPs, zero downtime, staging permanece como rollback. Configuracoes marcadas como "slot settings" (deployment slot settings) NAO sao swapped — ficam com o slot.
 
@@ -125,13 +125,13 @@ Container Apps e a escolha ideal para workloads **event-driven** que precisam de
 
 O Application Gateway e um load balancer **Layer 7 (HTTP/HTTPS)** que atende todos os requisitos:
 
-| Requisito | Load Balancer | **App Gateway** | Front Door | Traffic Manager |
-|-----------|---------------|-----------------|------------|----------------|
-| HTTP/HTTPS | Nao (Layer 4) | **Sim (Layer 7)** | Sim | Nao (DNS-based) |
-| SSL termination | Nao | **Sim** | Sim | Nao |
-| WAF | Nao | **Sim (WAF v2)** | Sim | Nao |
-| Path-based routing | Nao | **Sim** | Sim | Nao |
-| Regional | Sim | **Sim** | Global | Global |
+| Requisito          | Load Balancer | **App Gateway**   | Front Door | Traffic Manager |
+| ------------------ | ------------- | ----------------- | ---------- | --------------- |
+| HTTP/HTTPS         | Nao (Layer 4) | **Sim (Layer 7)** | Sim        | Nao (DNS-based) |
+| SSL termination    | Nao           | **Sim**           | Sim        | Nao             |
+| WAF                | Nao           | **Sim (WAF v2)**  | Sim        | Nao             |
+| Path-based routing | Nao           | **Sim**           | Sim        | Nao             |
+| Regional           | Sim           | **Sim**           | Global     | Global          |
 
 **Por que os outros estao errados:**
 - **A) Azure Load Balancer** — Opera na **Layer 4** (TCP/UDP). Nao entende HTTP, nao faz SSL termination, nao tem WAF, nao faz path-based routing.
@@ -154,20 +154,20 @@ A subnet do Application Gateway requer portas adicionais para o Azure gerenciar 
 
 **2. Portas adicionais obrigatorias:**
 
-| Porta(s) | Direcao | Finalidade |
-|----------|---------|------------|
-| **65503-65534** (v1) ou **65200-65535** (v2) | Inbound | **Health probes e gerenciamento** do Azure Infrastructure |
-| **80, 443** | Inbound | Trafego de clientes (ja configurado) |
-| **8080** (se backend health) | Outbound | Health probes para backends |
+| Porta(s)                                     | Direcao  | Finalidade                                                |
+| -------------------------------------------- | -------- | --------------------------------------------------------- |
+| **65503-65534** (v1) ou **65200-65535** (v2) | Inbound  | **Health probes e gerenciamento** do Azure Infrastructure |
+| **80, 443**                                  | Inbound  | Trafego de clientes (ja configurado)                      |
+| **8080** (se backend health)                 | Outbound | Health probes para backends                               |
 
 A regra NSG correta deve incluir:
 
-| Prioridade | Nome | Direcao | Acao | Porta | Origem | Destino |
-|------------|------|---------|------|-------|--------|---------|
-| 100 | AllowHTTP | Inbound | Allow | 80 | * | * |
-| 110 | AllowHTTPS | Inbound | Allow | 443 | * | * |
-| 120 | AllowAzureInfra | Inbound | Allow | 65200-65535 | **GatewayManager** | * |
-| 200 | DenyAll | Inbound | Deny | * | * | * |
+| Prioridade | Nome            | Direcao | Acao  | Porta       | Origem             | Destino |
+| ---------- | --------------- | ------- | ----- | ----------- | ------------------ | ------- |
+| 100        | AllowHTTP       | Inbound | Allow | 80          | *                  | *       |
+| 110        | AllowHTTPS      | Inbound | Allow | 443         | *                  | *       |
+| 120        | AllowAzureInfra | Inbound | Allow | 65200-65535 | **GatewayManager** | *       |
+| 200        | DenyAll         | Inbound | Deny  | *           | *                  | *       |
 
 **3. Source tag para health probes:**
 
@@ -202,10 +202,10 @@ Internet ──► App Service (IP publico) ──► VNet Integration ──►
 
 **Resumo:**
 
-| Direcao | Recurso | O que faz |
-|---------|---------|-----------|
-| **Outbound** (App → VNet) | VNet Integration | App Service acessa recursos na VNet |
-| **Inbound** (VNet → App) | Private Endpoint | App Service recebe IP privado na VNet |
+| Direcao                   | Recurso          | O que faz                             |
+| ------------------------- | ---------------- | ------------------------------------- |
+| **Outbound** (App → VNet) | VNet Integration | App Service acessa recursos na VNet   |
+| **Inbound** (VNet → App)  | Private Endpoint | App Service recebe IP privado na VNet |
 
 **[GOTCHA]** VNet Integration = saida (App Service acessa a VNet). Private Endpoint = entrada (VNet acessa o App Service). No exame, se a questao fala em "acessar SQL dentro da VNet", a resposta e VNet Integration. Se fala em "acessar App Service sem IP publico", a resposta e Private Endpoint.
 
@@ -221,11 +221,11 @@ Internet ──► App Service (IP publico) ──► VNet Integration ──►
 
 Analise custo-beneficio:
 
-| Faixa | % | Padrao de Acesso | Tier | Justificativa |
-|-------|---|-------------------|------|---------------|
-| Produtos ativos | 70% | Acesso constante | **Hot** | Custo de acesso baixo, custo de armazenamento maior |
-| Descont. < 6 meses | 20% | Acesso raro | **Cool** | Economia no armazenamento, penalidade de acesso moderada |
-| Descont. > 1 ano | 10% | Quase nunca | **Cold** | Economia maxima viavel, acesso eventual possivel |
+| Faixa              | %   | Padrao de Acesso | Tier     | Justificativa                                            |
+| ------------------ | --- | ---------------- | -------- | -------------------------------------------------------- |
+| Produtos ativos    | 70% | Acesso constante | **Hot**  | Custo de acesso baixo, custo de armazenamento maior      |
+| Descont. < 6 meses | 20% | Acesso raro      | **Cool** | Economia no armazenamento, penalidade de acesso moderada |
+| Descont. > 1 ano   | 10% | Quase nunca      | **Cold** | Economia maxima viavel, acesso eventual possivel         |
 
 **Por que os outros estao errados:**
 - **A) Hot para 100%** — Desperdicaria dinheiro armazenando 30% dos dados (raramente acessados) no tier mais caro.
@@ -280,11 +280,11 @@ Para retomar apos interrupcao: AzCopy suporta **journal files** que permitem con
 
 **Azure Data Box** — um dispositivo fisico que a Microsoft envia para o datacenter do cliente:
 
-| Variante | Capacidade | Cenario |
-|----------|------------|---------|
-| Data Box Disk | Ate 35 TB (5 discos SSD de 8 TB) | Transferencias de 10-35 TB |
-| Data Box | Ate 80 TB | Transferencias de 40-500 TB |
-| Data Box Heavy | Ate 1 PB | Transferencias massivas |
+| Variante       | Capacidade                       | Cenario                     |
+| -------------- | -------------------------------- | --------------------------- |
+| Data Box Disk  | Ate 35 TB (5 discos SSD de 8 TB) | Transferencias de 10-35 TB  |
+| Data Box       | Ate 80 TB                        | Transferencias de 40-500 TB |
+| Data Box Heavy | Ate 1 PB                         | Transferencias massivas     |
 
 Para 10 TB, o **Data Box Disk** seria adequado:
 1. Microsoft envia discos SSD criptografados
@@ -303,28 +303,28 @@ Tempo total: **7-10 dias** (incluindo envio) — similar a VPN, mas sem impacto 
 
 ## Mapa de Dominios AZ-104
 
-| Questao | Dominio AZ-104 | Subtopico |
-|---------|----------------|-----------|
-| Q1.1 | D3 — Deploy and manage compute resources | VMSS autoscale |
-| Q1.2 | D3 — Deploy and manage compute resources | App Service deployment slots |
-| Q1.3 | D3 — Deploy and manage compute resources | Container services comparison |
-| Q2.1 | D4 — Implement and manage virtual networking | Application Gateway vs Load Balancer |
-| Q2.2 | D4 — Implement and manage virtual networking | NSG + Application Gateway |
-| Q2.3 | D4 — Implement and manage virtual networking | VNet Integration |
-| Q3.1 | D2 — Implement and manage storage | Blob access tiers |
-| Q3.2 | D2 — Implement and manage storage | AzCopy, Data Box |
+| Questao | Dominio AZ-104                               | Subtopico                            |
+| ------- | -------------------------------------------- | ------------------------------------ |
+| Q1.1    | D3 — Deploy and manage compute resources     | VMSS autoscale                       |
+| Q1.2    | D3 — Deploy and manage compute resources     | App Service deployment slots         |
+| Q1.3    | D3 — Deploy and manage compute resources     | Container services comparison        |
+| Q2.1    | D4 — Implement and manage virtual networking | Application Gateway vs Load Balancer |
+| Q2.2    | D4 — Implement and manage virtual networking | NSG + Application Gateway            |
+| Q2.3    | D4 — Implement and manage virtual networking | VNet Integration                     |
+| Q3.1    | D2 — Implement and manage storage            | Blob access tiers                    |
+| Q3.2    | D2 — Implement and manage storage            | AzCopy, Data Box                     |
 
 ---
 
 ## Top Gotchas — Caso 4
 
-| # | Gotcha | Questao |
-|---|--------|---------|
-| 1 | Autoscale: scale out agressivo + scale in conservador = **best practice** | Q1.1 |
-| 2 | Swap = troca de IPs, **zero downtime**, staging vira rollback | Q1.2 |
-| 3 | ACI = simples; Container Apps = **event-driven + scale-to-zero**; AKS = complexo | Q1.3 |
-| 4 | Layer 4 = Load Balancer; Layer 7 = **Application Gateway** (regional) ou Front Door (global) | Q2.1 |
-| 5 | Application Gateway requer portas **65200-65535** abertas + service tag GatewayManager | Q2.2 |
-| 6 | VNet Integration = **outbound** (App → VNet); Private Endpoint = **inbound** (VNet → App) | Q2.3 |
-| 7 | Archive = reidratacao de horas, **inaceitavel** para acesso interativo | Q3.1 |
-| 8 | 100 Mbps = 12,5 MB/s; 10 TB / 12,5 MB/s = **~233 horas** | Q3.2 |
+| #   | Gotcha                                                                                       | Questao |
+| --- | -------------------------------------------------------------------------------------------- | ------- |
+| 1   | Autoscale: scale out agressivo + scale in conservador = **best practice**                    | Q1.1    |
+| 2   | Swap = troca de IPs, **zero downtime**, staging vira rollback                                | Q1.2    |
+| 3   | ACI = simples; Container Apps = **event-driven + scale-to-zero**; AKS = complexo             | Q1.3    |
+| 4   | Layer 4 = Load Balancer; Layer 7 = **Application Gateway** (regional) ou Front Door (global) | Q2.1    |
+| 5   | Application Gateway requer portas **65200-65535** abertas + service tag GatewayManager       | Q2.2    |
+| 6   | VNet Integration = **outbound** (App → VNet); Private Endpoint = **inbound** (VNet → App)    | Q2.3    |
+| 7   | Archive = reidratacao de horas, **inaceitavel** para acesso interativo                       | Q3.1    |
+| 8   | 100 Mbps = 12,5 MB/s; 10 TB / 12,5 MB/s = **~233 horas**                                     | Q3.2    |

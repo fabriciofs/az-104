@@ -24,79 +24,79 @@ A **Rede VidaSaude** opera 4 hospitais em **Brasilia** e regiao, com 3.000 funci
 
 ### Equipe
 
-| Persona | Funcao | Acesso Necessario |
-|---------|--------|--------------------|
-| Fernanda Rocha (`vs-admin`) | Azure Administrator | Owner na subscription |
-| Dr. Ricardo Mendes | CISO | Visualizar compliance e auditorias |
-| Grupo **MedTech** | TI dos hospitais (12 pessoas) | Gerenciar VMs e storage dos sistemas medicos |
-| Grupo **Auditoria** | Auditores externos | Somente leitura em recursos e logs especificos |
-| Grupo **AdminHospital** | Administradores de cada hospital (4 pessoas) | Gerenciar recursos do proprio hospital |
+| Persona                     | Funcao                                       | Acesso Necessario                              |
+| --------------------------- | -------------------------------------------- | ---------------------------------------------- |
+| Fernanda Rocha (`vs-admin`) | Azure Administrator                          | Owner na subscription                          |
+| Dr. Ricardo Mendes          | CISO                                         | Visualizar compliance e auditorias             |
+| Grupo **MedTech**           | TI dos hospitais (12 pessoas)                | Gerenciar VMs e storage dos sistemas medicos   |
+| Grupo **Auditoria**         | Auditores externos                           | Somente leitura em recursos e logs especificos |
+| Grupo **AdminHospital**     | Administradores de cada hospital (4 pessoas) | Gerenciar recursos do proprio hospital         |
 
 ### Estrutura Organizacional
 
 ```
-                    ┌─────────────────────────────────────────────────┐
-                    │            Management Group: VidaSaude-MG       │
-                    │                                                 │
-                    │  ┌──────────────────────────────────────────┐   │
-                    │  │       Subscription: VidaSaude-Prod       │   │
-                    │  │                                          │   │
-                    │  │  ┌──────────┐  ┌──────────┐             │   │
-                    │  │  │ RG:      │  │ RG:      │             │   │
-                    │  │  │ vs-hub-rg│  │ vs-hosp1 │             │   │
-                    │  │  │ (rede    │  │ -rg      │             │   │
-                    │  │  │ central) │  │          │             │   │
-                    │  │  └──────────┘  └──────────┘             │   │
-                    │  │                                          │   │
-                    │  │  ┌──────────┐  ┌──────────┐             │   │
-                    │  │  │ RG:      │  │ RG:      │             │   │
-                    │  │  │ vs-hosp2 │  │ vs-hosp3 │             │   │
-                    │  │  │ -rg      │  │ -rg      │             │   │
-                    │  │  └──────────┘  └──────────┘             │   │
-                    │  │                                          │   │
-                    │  │  ┌──────────┐  ┌──────────┐             │   │
-                    │  │  │ RG:      │  │ RG:      │             │   │
-                    │  │  │ vs-hosp4 │  │ vs-shared│             │   │
-                    │  │  │ -rg      │  │ -rg      │             │   │
-                    │  │  └──────────┘  └──────────┘             │   │
-                    │  └──────────────────────────────────────────┘   │
-                    └─────────────────────────────────────────────────┘
+                    ┌────────────────────────────────────────┐
+                    │    Management Group: VidaSaude-MG      │
+                    │                                        │
+                    │  ┌─────────────────────────────────┐   │
+                    │  │  Subscription: VidaSaude-Prod   │   │
+                    │  │                                 │   │
+                    │  │   ┌──────────┐  ┌──────────┐    │   │
+                    │  │   │ RG:      │  │ RG:      │    │   │
+                    │  │   │ vs-hub-rg│  │ vs-hosp1 │    │   │
+                    │  │   │ (rede    │  │ -rg      │    │   │
+                    │  │   │ central) │  │          │    │   │
+                    │  │   └──────────┘  └──────────┘    │   │
+                    │  │                                 │   │
+                    │  │   ┌──────────┐  ┌──────────┐    │   │
+                    │  │   │ RG:      │  │ RG:      │    │   │
+                    │  │   │ vs-hosp2 │  │ vs-hosp3 │    │   │
+                    │  │   │ -rg      │  │ -rg      │    │   │
+                    │  │   └──────────┘  └──────────┘    │   │
+                    │  │                                 │   │
+                    │  │   ┌──────────┐  ┌──────────┐    │   │
+                    │  │   │ RG:      │  │ RG:      │    │   │
+                    │  │   │ vs-hosp4 │  │ vs-shared│    │   │
+                    │  │   │ -rg      │  │ -rg      │    │   │
+                    │  │   └──────────┘  └──────────┘    │   │
+                    │  └─────────────────────────────────┘   │
+                    └────────────────────────────────────────┘
 ```
 
 ### Topologia de Rede
 
 ```
-                    ┌─────────────────────────────────────────────────┐
+                    ┌──────────────────────────────────────────────────┐
                     │              AZURE — Brazil South                │
                     │                                                  │
                     │  ┌────────────────────────────────────────────┐  │
                     │  │         HubVNet (10.0.0.0/16)              │  │
                     │  │                                            │  │
-                    │  │  ┌──────────────┐  ┌──────────────────┐    │  │
-                    │  │  │  GatewaySubnet│  │  SharedServices  │    │  │
-                    │  │  │ 10.0.0.0/27  │  │ 10.0.1.0/24      │    │  │
-                    │  │  └──────────────┘  └──────────────────┘    │  │
+                    │  │  ┌───────────────┐  ┌──────────────────┐   │  │
+                    │  │  │  GatewaySubnet│  │  SharedServices  │   │  │
+                    │  │  │ 10.0.0.0/27   │  │ 10.0.1.0/24      │   │  │
+                    │  │  └───────────────┘  └──────────────────┘   │  │
                     │  │                                            │  │
                     │  │  ┌──────────────────────────────────────┐  │  │
-                    │  │  │  AzureFirewallSubnet 10.0.2.0/24    │  │  │
+                    │  │  │  AzureFirewallSubnet 10.0.2.0/24     │  │  │
                     │  │  └──────────────────────────────────────┘  │  │
                     │  └───────────────────┬────────────────────────┘  │
                     │            Peering   │   Peering                 │
-                    │     ┌───────────────┼───────────────┐           │
-                    │     │               │               │           │
-                    │  ┌──┴───────┐  ┌────┴──────┐  ┌────┴──────┐    │
-                    │  │Hosp1VNet │  │Hosp2VNet  │  │Hosp3VNet  │    │
-                    │  │10.1.0/16 │  │10.2.0/16  │  │10.3.0/16  │    │
-                    │  │          │  │           │  │           │    │
-                    │  │┌────────┐│  │┌─────────┐│  │┌─────────┐│    │
-                    │  ││App     ││  ││App      ││  ││App      ││    │
-                    │  ││10.1.1/24│  ││10.2.1/24││  ││10.3.1/24││    │
-                    │  │└────────┘│  │└─────────┘│  │└─────────┘│    │
-                    │  │┌────────┐│  │┌─────────┐│  │┌─────────┐│    │
-                    │  ││Data    ││  ││Data     ││  ││Data     ││    │
-                    │  ││10.1.2/24│  ││10.2.2/24││  ││10.3.2/24││    │
-                    │  │└────────┘│  │└─────────┘│  │└─────────┘│    │
-                    │  └──────────┘  └───────────┘  └───────────┘    │
+                    │     ┌────────────────┼──────────────┐            │
+                    │     │                │              │            │
+                    │  ┌──┴───────┐  ┌─────┴─────┐  ┌─────┴─────┐      │
+                    │  │Hosp1VNet │  │Hosp2VNet  │  │Hosp3VNet  │      │
+                    │  │10.1.0/16 │  │10.2.0/16  │  │10.3.0/16  │      │
+                    │  │          │  │           │  │           │      │
+                    │  │┌────────┐│  │┌─────────┐│  │┌─────────┐│      │
+                    │  ││App     ││  ││App      ││  ││App      ││      │
+                    │  ││10.1.1/24│  ││10.2.1/24││  ││10.3.1/24││      │
+                    │  │└────────┘│  │└─────────┘│  │└─────────┘│      │
+                    │  │┌────────┐│  │┌─────────┐│  │┌─────────┐│      │
+                    │  ││Data    ││  ││Data     ││  ││Data     ││      │
+                    │  ││10.1.2/24│  ││10.2.2/24││  ││10.3.2/24││      │
+                    │  │└────────┘│  │└─────────┘│  │└─────────┘│      │
+                    │  └──────────┘  └───────────┘  └───────────┘      │
                     │                                                  │
                     │  Storage: vsprontuarios (Private Endpoint)       │
                     └──────────────────────────────────────────────────┘
@@ -205,10 +205,10 @@ Dentro de cada hospital VNet, Fernanda precisa isolar a subnet **App** da subnet
 
 Fernanda cria o seguinte NSG na subnet **Data** do Hospital 1:
 
-| Prioridade | Nome | Direcao | Acao | Porta | Origem | Destino |
-|------------|------|---------|------|-------|--------|---------|
-| 100 | AllowSQL | Inbound | Allow | 1433 | 10.1.1.0/24 | 10.1.2.0/24 |
-| 200 | DenyAllInbound | Inbound | Deny | * | * | * |
+| Prioridade | Nome           | Direcao | Acao  | Porta | Origem      | Destino     |
+| ---------- | -------------- | ------- | ----- | ----- | ----------- | ----------- |
+| 100        | AllowSQL       | Inbound | Allow | 1433  | 10.1.1.0/24 | 10.1.2.0/24 |
+| 200        | DenyAllInbound | Inbound | Deny  | *     | *           | *           |
 
 1. Essa configuracao de NSG atende os requisitos? Se nao, o que esta faltando?
 2. A regra `DenyAllInbound` na prioridade 200 vai bloquear as **respostas** de trafego que a subnet Data iniciou para a internet (ex: atualizacoes)? Explique.
@@ -253,18 +253,18 @@ Uma VM na **Hosp1VNet** (10.1.1.4) resolve `vsprontuarios.blob.core.windows.net`
 
 ## Pontuacao
 
-| Secao | Questoes | Pontos por Questao | Total |
-|-------|----------|--------------------|-------|
-| 1 — Governanca | 3 | 5 | 15 |
-| 2 — Networking | 3 | 6 | 18 |
-| 3 — Armazenamento | 2 | 6 | 12 |
-| **Total** | **8** | — | **45** |
+| Secao             | Questoes | Pontos por Questao | Total  |
+| ----------------- | -------- | ------------------ | ------ |
+| 1 — Governanca    | 3        | 5                  | 15     |
+| 2 — Networking    | 3        | 6                  | 18     |
+| 3 — Armazenamento | 2        | 6                  | 12     |
+| **Total**         | **8**    | —                  | **45** |
 
 ### Classificacao
 
-| Faixa | Nivel | Acao Sugerida |
-|-------|-------|---------------|
-| 38-45 | Excelente | Avance para o Caso 4 |
-| 28-37 | Bom | Revisar questoes erradas nos labs |
-| 18-27 | Regular | Refazer blocos com dificuldade |
-| < 18 | Insuficiente | Revisar labs 1-iam-gov-net e 2-storage-compute |
+| Faixa | Nivel        | Acao Sugerida                                  |
+| ----- | ------------ | ---------------------------------------------- |
+| 38-45 | Excelente    | Avance para o Caso 4                           |
+| 28-37 | Bom          | Revisar questoes erradas nos labs              |
+| 18-27 | Regular      | Refazer blocos com dificuldade                 |
+| < 18  | Insuficiente | Revisar labs 1-iam-gov-net e 2-storage-compute |

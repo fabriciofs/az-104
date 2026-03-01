@@ -95,11 +95,11 @@ A Initiative facilita o gerenciamento — atribuir uma unica Initiative em vez d
 
 A analise custo-beneficio:
 
-| Storage Account | Criticidade | Redundancia | Justificativa |
-|-----------------|-------------|-------------|---------------|
-| `bwdevstorage` | Baixa (backup existe no GitHub) | **LRS** | 3 copias no mesmo datacenter, mais barato. Perda toleravel. |
-| `bwfinance` | Alta (relatorios financeiros criticos) | **GRS** | 6 copias: 3 local + 3 na regiao pareada. Sobrevive a desastre regional. |
-| `bwmarketing` | Baixa (facilmente recriavel) | **LRS** | 3 copias locais, mais barato. Assets podem ser recriados. |
+| Storage Account | Criticidade                            | Redundancia | Justificativa                                                           |
+| --------------- | -------------------------------------- | ----------- | ----------------------------------------------------------------------- |
+| `bwdevstorage`  | Baixa (backup existe no GitHub)        | **LRS**     | 3 copias no mesmo datacenter, mais barato. Perda toleravel.             |
+| `bwfinance`     | Alta (relatorios financeiros criticos) | **GRS**     | 6 copias: 3 local + 3 na regiao pareada. Sobrevive a desastre regional. |
+| `bwmarketing`   | Baixa (facilmente recriavel)           | **LRS**     | 3 copias locais, mais barato. Assets podem ser recriados.               |
 
 **Por que os outros estao errados:**
 - **A) LRS para todos** — Inadequado para `bwfinance`. Relatorios financeiros criticos precisam de redundancia geografica.
@@ -108,12 +108,12 @@ A analise custo-beneficio:
 
 **Resumo dos niveis de redundancia:**
 
-| Tipo | Copias | Protecao | Custo Relativo |
-|------|--------|----------|----------------|
-| LRS | 3 (mesmo datacenter) | Falha de disco/rack | $ |
-| ZRS | 3 (datacenters diferentes na mesma regiao) | Falha de datacenter | $$ |
-| GRS | 6 (3 local + 3 regiao pareada) | Falha regional | $$$ |
-| GZRS | 6 (3 em zonas + 3 regiao pareada) | Falha regional + datacenter | $$$$ |
+| Tipo | Copias                                     | Protecao                    | Custo Relativo |
+| ---- | ------------------------------------------ | --------------------------- | -------------- |
+| LRS  | 3 (mesmo datacenter)                       | Falha de disco/rack         | $              |
+| ZRS  | 3 (datacenters diferentes na mesma regiao) | Falha de datacenter         | $$             |
+| GRS  | 6 (3 local + 3 regiao pareada)             | Falha regional              | $$$            |
+| GZRS | 6 (3 em zonas + 3 regiao pareada)          | Falha regional + datacenter | $$$$           |
 
 **[GOTCHA]** No exame, sempre analise a criticidade dos dados antes de escolher a redundancia. A pergunta frequentemente testa se voce aplica o principio de custo-beneficio em vez de sempre escolher a opcao mais cara.
 
@@ -127,12 +127,12 @@ A analise custo-beneficio:
 
 **1. Access tier por faixa de tempo:**
 
-| Faixa | Access Tier | Justificativa |
-|-------|-------------|---------------|
-| Mes atual (acesso diario) | **Hot** | Custo de armazenamento maior, mas acesso gratuito/barato |
-| Ultimos 3 meses (acesso eventual) | **Cool** | Custo de armazenamento menor, custo de acesso moderado |
-| Mais de 6 meses (acesso raro) | **Cold** | Custo de armazenamento ainda menor, custo de acesso alto |
-| Mais de 5 anos (nunca acessado) | **Archive** | Custo de armazenamento minimo, custo de reidratacao alto |
+| Faixa                             | Access Tier | Justificativa                                            |
+| --------------------------------- | ----------- | -------------------------------------------------------- |
+| Mes atual (acesso diario)         | **Hot**     | Custo de armazenamento maior, mas acesso gratuito/barato |
+| Ultimos 3 meses (acesso eventual) | **Cool**    | Custo de armazenamento menor, custo de acesso moderado   |
+| Mais de 6 meses (acesso raro)     | **Cold**    | Custo de armazenamento ainda menor, custo de acesso alto |
+| Mais de 5 anos (nunca acessado)   | **Archive** | Custo de armazenamento minimo, custo de reidratacao alto |
 
 **2. Automatizar a transicao:**
 
@@ -222,24 +222,24 @@ A unica forma de revogar um SAS token nao associado a uma policy e **regenerar a
 
 ## Mapa de Dominios AZ-104
 
-| Questao | Dominio AZ-104 | Subtopico |
-|---------|----------------|-----------|
-| Q1.1 | D1 — Manage identities and governance | Guest user access |
-| Q1.2 | D1 — Manage identities and governance | RBAC scoping, least privilege |
-| Q1.3 | D1 — Manage identities and governance | Azure Policy, Initiatives |
-| Q2.1 | D2 — Implement and manage storage | Storage redundancy |
-| Q2.2 | D2 — Implement and manage storage | Blob access tiers, lifecycle management |
-| Q2.3 | D2 — Implement and manage storage | SAS tokens, Stored Access Policies |
+| Questao | Dominio AZ-104                        | Subtopico                               |
+| ------- | ------------------------------------- | --------------------------------------- |
+| Q1.1    | D1 — Manage identities and governance | Guest user access                       |
+| Q1.2    | D1 — Manage identities and governance | RBAC scoping, least privilege           |
+| Q1.3    | D1 — Manage identities and governance | Azure Policy, Initiatives               |
+| Q2.1    | D2 — Implement and manage storage     | Storage redundancy                      |
+| Q2.2    | D2 — Implement and manage storage     | Blob access tiers, lifecycle management |
+| Q2.3    | D2 — Implement and manage storage     | SAS tokens, Stored Access Policies      |
 
 ---
 
 ## Top Gotchas — Caso 1
 
-| # | Gotcha | Questao |
-|---|--------|---------|
-| 1 | Guest user precisa acessar o **tenant correto** no portal | Q1.1 |
-| 2 | **Reader** (management plane) ≠ **Blob Data Reader** (data plane) | Q1.2 |
-| 3 | Cada policy avalia **uma condicao**; multiplas tags = multiplas policies ou initiative | Q1.3 |
-| 4 | Redundancia deve ser proporcional a **criticidade** dos dados | Q2.1 |
-| 5 | Archive = acesso **offline**, reidratacao pode levar ate 15h | Q2.2 |
-| 6 | SAS token so pode ser revogado individualmente via **Stored Access Policy** | Q2.3 |
+| #   | Gotcha                                                                                 | Questao |
+| --- | -------------------------------------------------------------------------------------- | ------- |
+| 1   | Guest user precisa acessar o **tenant correto** no portal                              | Q1.1    |
+| 2   | **Reader** (management plane) ≠ **Blob Data Reader** (data plane)                      | Q1.2    |
+| 3   | Cada policy avalia **uma condicao**; multiplas tags = multiplas policies ou initiative | Q1.3    |
+| 4   | Redundancia deve ser proporcional a **criticidade** dos dados                          | Q2.1    |
+| 5   | Archive = acesso **offline**, reidratacao pode levar ate 15h                           | Q2.2    |
+| 6   | SAS token so pode ser revogado individualmente via **Stored Access Policy**            | Q2.3    |

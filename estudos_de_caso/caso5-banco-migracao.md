@@ -25,14 +25,14 @@ O **Banco Horizonte Digital** e um banco medio com sede em **Sao Paulo**, regula
 
 ### Equipe
 
-| Persona | Funcao | Acesso Necessario |
-|---------|--------|--------------------|
-| Camila Duarte (`bh-admin`) | Azure Administrator Senior | Owner na subscription de Producao |
-| Marcos Vieira | CTO | Visualizar tudo, aprovar mudancas criticas |
-| Grupo **CloudOps** | Operacoes cloud (8 pessoas) | Gerenciar VMs e networking em Producao |
-| Grupo **SecOps** | Seguranca (4 pessoas) | Monitorar compliance e alertas de seguranca |
-| Grupo **DevTeam** | Desenvolvimento (30 pessoas) | Contributor em Dev, Reader em Homologacao |
-| Grupo **AuditoriaInterna** | Auditoria do banco | Somente leitura em tudo + logs detalhados |
+| Persona                    | Funcao                       | Acesso Necessario                           |
+| -------------------------- | ---------------------------- | ------------------------------------------- |
+| Camila Duarte (`bh-admin`) | Azure Administrator Senior   | Owner na subscription de Producao           |
+| Marcos Vieira              | CTO                          | Visualizar tudo, aprovar mudancas criticas  |
+| Grupo **CloudOps**         | Operacoes cloud (8 pessoas)  | Gerenciar VMs e networking em Producao      |
+| Grupo **SecOps**           | Seguranca (4 pessoas)        | Monitorar compliance e alertas de seguranca |
+| Grupo **DevTeam**          | Desenvolvimento (30 pessoas) | Contributor em Dev, Reader em Homologacao   |
+| Grupo **AuditoriaInterna** | Auditoria do banco           | Somente leitura em tudo + logs detalhados   |
 
 ### Estrutura Organizacional
 
@@ -68,41 +68,41 @@ Root Management Group
 │                                                                              │
 │  Brazil South (Primaria)                   South Central US (DR)             │
 │  ┌──────────────────────────────────┐      ┌──────────────────────────┐      │
-│  │  HubVNet (10.0.0.0/16)          │      │  DR-HubVNet              │      │
-│  │  ┌────────────┐ ┌────────────┐  │      │  (10.100.0.0/16)         │      │
-│  │  │GatewaySubnet│ │AzFirewall  │  │      │  ┌────────────────────┐  │      │
-│  │  │10.0.0.0/27 │ │10.0.2.0/24 │  │      │  │ DR VMs (standby)   │  │      │
-│  │  └────────────┘ └────────────┘  │      │  └────────────────────┘  │      │
+│  │  HubVNet (10.0.0.0/16)           │      │  DR-HubVNet              │      │
+│  │  ┌────────────┐ ┌────────────┐   │      │  (10.100.0.0/16)         │      │
+│  │  │GatewaySubnet│ │AzFirewall │   │      │  ┌────────────────────┐  │      │
+│  │  │10.0.0.0/27 │ │10.0.2.0/24 │   │      │  │ DR VMs (standby)   │  │      │
+│  │  └────────────┘ └────────────┘   │      │  └────────────────────┘  │      │
 │  └────────────┬─────────────────────┘      └──────────────────────────┘      │
 │               │ Peering                                                      │
 │  ┌────────────┴─────────────────────┐                                        │
-│  │  AppVNet (10.1.0.0/16)          │                                        │
-│  │  ┌──────────────┐ ┌──────────┐  │                                        │
-│  │  │ WebApp       │ │ API      │  │                                        │
-│  │  │ 10.1.1.0/24  │ │10.1.2/24 │  │                                        │
-│  │  └──────────────┘ └──────────┘  │                                        │
+│  │  AppVNet (10.1.0.0/16)           │                                        │
+│  │  ┌──────────────┐ ┌──────────┐   │                                        │
+│  │  │ WebApp       │ │ API      │   │                                        │
+│  │  │ 10.1.1.0/24  │ │10.1.2/24 │   │                                        │
+│  │  └──────────────┘ └──────────┘   │                                        │
 │  └────────────┬─────────────────────┘                                        │
 │               │ Peering                                                      │
 │  ┌────────────┴─────────────────────┐                                        │
-│  │  DataVNet (10.2.0.0/16)         │                                        │
-│  │  ┌──────────────┐ ┌──────────┐  │                                        │
-│  │  │ SQL VMs      │ │ Storage  │  │                                        │
-│  │  │ 10.2.1.0/24  │ │10.2.2/24 │  │                                        │
-│  │  └──────────────┘ └──────────┘  │                                        │
+│  │  DataVNet (10.2.0.0/16)          │                                        │
+│  │  ┌──────────────┐ ┌──────────┐   │                                        │
+│  │  │ SQL VMs      │ │ Storage  │   │                                        │
+│  │  │ 10.2.1.0/24  │ │10.2.2/24 │   │                                        │
+│  │  └──────────────┘ └──────────┘   │                                        │
 │  └──────────────────────────────────┘                                        │
 │                                                                              │
-│  On-premises (Datacenter SP): 192.168.0.0/16                                │
-│  Conexao: ExpressRoute (1 Gbps) + VPN Gateway (backup)                      │
+│  On-premises (Datacenter SP): 192.168.0.0/16                                 │
+│  Conexao: ExpressRoute (1 Gbps) + VPN Gateway (backup)                       │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Requisitos de DR
 
-| Componente | Regiao Primaria | Regiao DR | RTO | RPO |
-|------------|-----------------|-----------|-----|-----|
-| VMs (aplicacoes) | Brazil South | South Central US | 4h | 1h |
-| Storage (dados criticos) | Brazil South | South Central US | 2h | RPO near-zero |
-| SQL VMs | Brazil South | South Central US | 4h | 1h |
+| Componente               | Regiao Primaria | Regiao DR        | RTO | RPO           |
+| ------------------------ | --------------- | ---------------- | --- | ------------- |
+| VMs (aplicacoes)         | Brazil South    | South Central US | 4h  | 1h            |
+| Storage (dados criticos) | Brazil South    | South Central US | 2h  | RPO near-zero |
+| SQL VMs                  | Brazil South    | South Central US | 4h  | 1h            |
 
 ---
 
@@ -131,13 +131,13 @@ Responda:
 
 Camila configurou o seguinte RBAC:
 
-| Grupo | Role | Escopo |
-|-------|------|--------|
-| CloudOps | Virtual Machine Contributor | BH-Producao-Sub |
-| CloudOps | Network Contributor | bh-network-rg |
-| DevTeam | Contributor | BH-Dev-Sub |
-| DevTeam | Reader | BH-Homologacao-Sub |
-| SecOps | Security Reader | BancoHorizonte-MG |
+| Grupo    | Role                        | Escopo             |
+| -------- | --------------------------- | ------------------ |
+| CloudOps | Virtual Machine Contributor | BH-Producao-Sub    |
+| CloudOps | Network Contributor         | bh-network-rg      |
+| DevTeam  | Contributor                 | BH-Dev-Sub         |
+| DevTeam  | Reader                      | BH-Homologacao-Sub |
+| SecOps   | Security Reader             | BancoHorizonte-MG  |
 
 Um membro do **CloudOps** tenta criar um **VNet peering** entre a HubVNet (em `bh-network-rg`) e a AppVNet (em `bh-app-rg`). A operacao **falha** com erro de permissao.
 
@@ -168,11 +168,11 @@ Qual e a causa mais provavel?
 
 Camila precisa configurar redundancia para 3 storage accounts criticos:
 
-| Storage Account | Dados | Requisito de DR |
-|-----------------|-------|-----------------|
-| `bhdatastorage` | Dados de clientes (PII) | RPO near-zero, failover automatico |
-| `bhappstorage` | Binarios de aplicacao | RPO 15 min, failover manual aceitavel |
-| `bhlogs` | Logs de auditoria | Retencao legal, imutavel |
+| Storage Account | Dados                   | Requisito de DR                       |
+| --------------- | ----------------------- | ------------------------------------- |
+| `bhdatastorage` | Dados de clientes (PII) | RPO near-zero, failover automatico    |
+| `bhappstorage`  | Binarios de aplicacao   | RPO 15 min, failover manual aceitavel |
+| `bhlogs`        | Logs de auditoria       | Retencao legal, imutavel              |
 
 Responda:
 
@@ -254,12 +254,12 @@ O ExpressRoute esta funcionando normalmente. Porem, quando Camila testa o failov
 
 Camila precisa configurar um sistema de alertas abrangente para o ambiente bancario:
 
-| Alerta | Condicao | Severidade | Destinatario |
-|--------|----------|------------|-------------|
-| CPU critica | CPU > 95% por 5 min em qualquer VM de producao | Sev 0 (Critico) | CloudOps (SMS + Email) + SecOps (Email) |
-| Disk space | Disco > 90% em qualquer VM | Sev 1 (Erro) | CloudOps (Email) |
-| Key Vault access denied | Qualquer acesso negado ao Key Vault | Sev 0 (Critico) | SecOps (SMS + Email) + Camila (Email) |
-| Policy non-compliance | Novo recurso non-compliant detectado | Sev 2 (Warning) | SecOps (Email) |
+| Alerta                  | Condicao                                       | Severidade      | Destinatario                            |
+| ----------------------- | ---------------------------------------------- | --------------- | --------------------------------------- |
+| CPU critica             | CPU > 95% por 5 min em qualquer VM de producao | Sev 0 (Critico) | CloudOps (SMS + Email) + SecOps (Email) |
+| Disk space              | Disco > 90% em qualquer VM                     | Sev 1 (Erro)    | CloudOps (Email)                        |
+| Key Vault access denied | Qualquer acesso negado ao Key Vault            | Sev 0 (Critico) | SecOps (SMS + Email) + Camila (Email)   |
+| Policy non-compliance   | Novo recurso non-compliant detectado           | Sev 2 (Warning) | SecOps (Email)                          |
 
 Responda:
 
@@ -287,20 +287,20 @@ Responda:
 
 ## Pontuacao
 
-| Secao | Questoes | Pontos por Questao | Total |
-|-------|----------|--------------------|-------|
-| 1 — Identidade e Governanca | 2 | 6 | 12 |
-| 2 — Armazenamento | 2 | 6 | 12 |
-| 3 — Computacao | 2 | 6 | 12 |
-| 4 — Networking | 2 | 7 | 14 |
-| 5 — Monitoramento | 2 | 7 | 14 |
-| **Total** | **10** | — | **64** |
+| Secao                       | Questoes | Pontos por Questao | Total  |
+| --------------------------- | -------- | ------------------ | ------ |
+| 1 — Identidade e Governanca | 2        | 6                  | 12     |
+| 2 — Armazenamento           | 2        | 6                  | 12     |
+| 3 — Computacao              | 2        | 6                  | 12     |
+| 4 — Networking              | 2        | 7                  | 14     |
+| 5 — Monitoramento           | 2        | 7                  | 14     |
+| **Total**                   | **10**   | —                  | **64** |
 
 ### Classificacao
 
-| Faixa | Nivel | Acao Sugerida |
-|-------|-------|---------------|
-| 55-64 | Excelente | Pronto para o exame |
-| 42-54 | Bom | Revisar questoes erradas — foco nos gotchas |
-| 28-41 | Regular | Refazer labs dos dominios com mais erros |
-| < 28 | Insuficiente | Revisar todos os labs e simulados antes do exame |
+| Faixa | Nivel        | Acao Sugerida                                    |
+| ----- | ------------ | ------------------------------------------------ |
+| 55-64 | Excelente    | Pronto para o exame                              |
+| 42-54 | Bom          | Revisar questoes erradas — foco nos gotchas      |
+| 28-41 | Regular      | Refazer labs dos dominios com mais erros         |
+| < 28  | Insuficiente | Revisar todos os labs e simulados antes do exame |
