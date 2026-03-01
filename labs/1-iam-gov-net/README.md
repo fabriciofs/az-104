@@ -6,12 +6,12 @@ Labs e simulado cobrindo os 5 dominios fundamentais do AZ-104: Identity, Governa
 
 ### Labs
 
-| Arquivo                                                    | Descricao                                         | Ferramenta               |
-| ---------------------------------------------------------- | ------------------------------------------------- | ------------------------ |
-| [lab-cenario-contoso.md](lab-cenario-contoso.md)           | Cenario Contoso Corp — exercicios interconectados | Portal                   |
-| [lab-iac-powershell.md](lab-iac-powershell.md)             | Reproduz o lab v2 inteiro via PowerShell          | Cloud Shell (PowerShell) |
-| [lab-iac-arm.md](lab-iac-arm.md)                           | Reproduz o lab v2 inteiro via ARM Templates JSON  | Cloud Shell (Bash) + CLI |
-| [lab-iac-bicep.md](lab-iac-bicep.md)                       | Reproduz o lab v2 inteiro via Bicep               | Cloud Shell (Bash) + CLI |
+| Arquivo                                          | Descricao                                         | Ferramenta               |
+| ------------------------------------------------ | ------------------------------------------------- | ------------------------ |
+| [lab-cenario-contoso.md](lab-cenario-contoso.md) | Cenario Contoso Corp — exercicios interconectados | Portal                   |
+| [lab-iac-powershell.md](lab-iac-powershell.md)   | Reproduz o lab v2 inteiro via PowerShell          | Cloud Shell (PowerShell) |
+| [lab-iac-arm.md](lab-iac-arm.md)                 | Reproduz o lab v2 inteiro via ARM Templates JSON  | Cloud Shell (Bash) + CLI |
+| [lab-iac-bicep.md](lab-iac-bicep.md)             | Reproduz o lab v2 inteiro via Bicep               | Cloud Shell (Bash) + CLI |
 
 ### Simulado
 
@@ -29,6 +29,43 @@ Labs e simulado cobrindo os 5 dominios fundamentais do AZ-104: Identity, Governa
 4. lab-iac-arm.md         ─┘
 5. simulado-iam-gov-net.md     Validacao final (sem consultar labs)
 ```
+
+## Recursos que Geram Cobranca
+
+| Recurso                                       | Gera cobranca?                        | Pode parar?     | Como parar          |
+| --------------------------------------------- | ------------------------------------- | --------------- | ------------------- |
+| VMs (CoreServicesVM, ManufacturingVM)         | Sim, enquanto alocada                 | Sim, desalocar  | `az vm deallocate`  |
+| Managed Disks (az104-disk1 a disk5, OS disks) | Sim, sempre (mesmo com VM desalocada) | Nao, so deletar | Deletar disco ou RG |
+| Public IP (Standard SKU)                      | Sim, enquanto existir                 | Nao, so deletar | Deletar IP ou RG    |
+| DNS Zones (publica e privada)                 | Sim, cobranca minima mensal           | Nao, so deletar | Deletar zona ou RG  |
+| Storage Account                               | Sim, por dados armazenados            | Nao, so deletar | Deletar conta ou RG |
+| VNets, NSGs, Route Tables                     | Gratuito                              | —               | —                   |
+| RBAC, Policy, Users, Groups                   | Gratuito                              | —               | —                   |
+
+## Pausar Recursos entre Sessoes
+
+### Pausar (parar cobranca de compute)
+
+```bash
+# CLI
+az vm deallocate -g az104-rg5 -n CoreServicesVM --no-wait
+az vm deallocate -g az104-rg5 -n ManufacturingVM --no-wait
+```
+
+```powershell
+# PowerShell
+Stop-AzVM -ResourceGroupName az104-rg5 -Name CoreServicesVM -Force
+Stop-AzVM -ResourceGroupName az104-rg5 -Name ManufacturingVM -Force
+```
+
+### Retomar (quando voltar ao lab)
+
+```bash
+az vm start -g az104-rg5 -n CoreServicesVM --no-wait
+az vm start -g az104-rg5 -n ManufacturingVM --no-wait
+```
+
+> **Nota:** Desalocar a VM para a cobranca de compute mas discos e IPs publicos continuam gerando cobranca. Para zerar completamente, delete o Resource Group.
 
 ## Dominios AZ-104 cobertos
 

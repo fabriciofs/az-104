@@ -75,6 +75,7 @@ Bloco 5 (Log Analytics) ◄──── Analise avancada de tudo
 - [Bloco 3 - Site Recovery (DR)](#bloco-3---site-recovery-dr)
 - [Bloco 4 - Monitor & Alerts](#bloco-4---monitor--alerts)
 - [Bloco 5 - Log Analytics & Network Watcher](#bloco-5---log-analytics--network-watcher)
+- [Pausar entre Sessoes](#pausar-entre-sessoes)
 - [Cleanup Unificado](#cleanup-unificado)
 - [Key Takeaways Consolidados](#key-takeaways-consolidados)
 
@@ -124,6 +125,8 @@ Na Semana 2, voce criou VMs Windows (`az104-vm-win`) e Linux (`az104-vm-linux`) 
 ### Task 1.1: Criar Recovery Services Vault
 
 O vault centraliza backups de VMs, file shares e configuracoes de Site Recovery. Voce usara este mesmo vault nos **Blocos 2 e 3**.
+
+> **Cobranca:** O vault em si e gratuito, mas cada instancia protegida (VM, File Share) gera cobranca.
 
 1. Acesse o **Azure Portal** - `https://portal.azure.com`
 
@@ -186,6 +189,8 @@ A DefaultPolicy faz backup diario com retencao de 30 dias. Voce cria uma policy 
 ### Task 1.3: Habilitar backup para az104-vm-win (custom policy)
 
 Voce protege a VM Windows da Semana 2 usando a policy customizada.
+
+> **Cobranca:** Habilitar backup gera cobranca por instancia protegida e armazenamento de snapshots.
 
 > **Pre-requisito:** A VM `az104-vm-win` deve existir no `az104-rg7` (criada na Semana 2). Se nao existir, crie uma VM Windows Server basica nesse RG antes de continuar.
 
@@ -772,6 +777,8 @@ Para Site Recovery, o vault deve estar na **regiao de destino** (DR), diferente 
 
 ### Task 3.2: Habilitar replicacao para az104-vm-win
 
+> **Cobranca:** A replicacao ASR gera cobranca continua por VM replicada. Nao pode ser pausada — so desabilitada.
+
 1. No vault **az104-rsv-dr** (West US), va para **Getting started** > **Site Recovery**
 
 2. Em **Azure virtual machines**, clique em **Enable replication**
@@ -1137,6 +1144,8 @@ Voce explora as metricas da VM criada na Semana 2 para entender o baseline de pe
 
 Este alerta monitora a CPU da VM da Semana 2 e notifica via Action Group.
 
+> **Cobranca:** Alert rules geram cobranca minima por sinal monitorado.
+
 1. Pesquise e selecione **Monitor** > **Alerts** > **+ Create** > **Alert rule**
 
 2. Aba **Scope**: clique em **Select a resource**
@@ -1422,6 +1431,8 @@ O Azure Monitor coleta metricas basicas automaticamente, mas para observabilidad
 ---
 
 ### Task 5.1: Criar Log Analytics Workspace
+
+> **Cobranca:** O workspace gera cobranca por GB de dados ingeridos.
 
 1. Pesquise e selecione **Log Analytics workspaces** > **+ Create**
 
@@ -1744,6 +1755,8 @@ Voce usa o Network Watcher para diagnosticar regras NSG nas VNets da Semana 1.
 
 Voce cria um alerta baseado em query KQL que dispara quando VMs param de enviar heartbeats.
 
+> **Cobranca:** Alert rules geram cobranca minima por sinal monitorado.
+
 1. Em **Monitor** > **Alerts** > **+ Create** > **Alert rule**
 
 2. Aba **Scope**: selecione o workspace **az104-law**
@@ -1890,6 +1903,39 @@ D) DCR e o antigo, Diagnostic Settings e o novo
 - **Diagnostic Settings:** Configuradas em recursos Azure (VMs, Storage, VNets, etc.) para enviar metricas de plataforma e logs de recurso para destinos (Log Analytics, Storage, Event Hub)
 
 </details>
+
+---
+
+# Pausar entre Sessoes
+
+Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos para evitar cobrancas desnecessarias.
+
+## Pausar (parar cobranca)
+
+```bash
+# CLI — VMs (da Semana 2)
+az vm deallocate -g az104-rg7 -n az104-vm-win --no-wait
+az vm deallocate -g az104-rg7 -n az104-vm-linux --no-wait
+
+# CLI — Desabilitar alertas (evita avaliacoes desnecessarias)
+az monitor metrics alert update -g az104-rg-monitor -n az104-vm-win-cpu-alert --enabled false
+```
+
+```powershell
+# PowerShell — VMs
+Stop-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-win -Force
+Stop-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-linux -Force
+```
+
+## Retomar (quando voltar ao lab)
+
+```bash
+az vm start -g az104-rg7 -n az104-vm-win --no-wait
+az vm start -g az104-rg7 -n az104-vm-linux --no-wait
+az monitor metrics alert update -g az104-rg-monitor -n az104-vm-win-cpu-alert --enabled true
+```
+
+> **Nota:** Desalocar VMs para cobranca de compute, mas discos continuam cobrando. Site Recovery cobra continuamente por VM replicada — desabilite a replicacao via Portal se nao for continuar no mesmo dia. Recovery Services Vault cobra por instancia protegida — desabilite a protecao se necessario.
 
 ---
 

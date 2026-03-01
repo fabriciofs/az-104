@@ -79,6 +79,7 @@ Bloco 5 (Connectivity) ◄──── VMs nas VNets do Bloco 4
 - [Bloco 3 - Azure Resources & IaC](#bloco-3---azure-resources--iac)
 - [Bloco 4 - Virtual Networking](#bloco-4---virtual-networking)
 - [Bloco 5 - Intersite Connectivity](#bloco-5---intersite-connectivity)
+- [Pausar entre Sessoes](#pausar-entre-sessoes)
 - [Cleanup Unificado](#cleanup-unificado)
 - [Key Takeaways Consolidados](#key-takeaways-consolidados)
 
@@ -1714,6 +1715,8 @@ Antes de criar as VMs, adicione subnets dedicadas nas VNets do Bloco 4.
 
 ### Task 5.2: Criar CoreServicesVM
 
+> **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab (veja [Pausar entre Sessoes](#pausar-entre-sessoes)).
+
 1. Pesquise **Virtual Machines** > **Create** > **Virtual machine**
 
 2. Aba **Basics**:
@@ -1749,6 +1752,8 @@ Antes de criar as VMs, adicione subnets dedicadas nas VNets do Bloco 4.
 ---
 
 ### Task 5.3: Criar ManufacturingVM
+
+> **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab (veja [Pausar entre Sessoes](#pausar-entre-sessoes)).
 
 1. **Virtual Machines** > **Create** > **Virtual machine**
 
@@ -2096,6 +2101,35 @@ D) A resolucao funciona apenas se a VM usar um DNS forwarder na VNet A
 Private DNS Zones resolvem nomes **apenas** para VNets que possuem um Virtual Network Link configurado. O VNet Peering nao propaga resolucao DNS automaticamente. Para que VMs na VNet B resolvam nomes da zona privada, voce precisa criar um Virtual Network Link adicional para a VNet B, ou configurar um DNS forwarder customizado.
 
 </details>
+
+---
+
+# Pausar entre Sessoes
+
+Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos para evitar cobrancas desnecessarias.
+
+### Pausar (parar cobranca de compute)
+
+```bash
+# CLI
+az vm deallocate -g az104-rg5 -n CoreServicesVM --no-wait
+az vm deallocate -g az104-rg5 -n ManufacturingVM --no-wait
+```
+
+```powershell
+# PowerShell
+Stop-AzVM -ResourceGroupName az104-rg5 -Name CoreServicesVM -Force
+Stop-AzVM -ResourceGroupName az104-rg5 -Name ManufacturingVM -Force
+```
+
+### Retomar (quando voltar ao lab)
+
+```bash
+az vm start -g az104-rg5 -n CoreServicesVM --no-wait
+az vm start -g az104-rg5 -n ManufacturingVM --no-wait
+```
+
+> **Nota:** Desalocar a VM para a cobranca de compute mas discos e IPs publicos continuam gerando cobranca. Para zerar completamente, delete o Resource Group.
 
 ---
 

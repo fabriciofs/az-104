@@ -72,6 +72,7 @@ Bloco 5 (Container Apps) ◄──── Usa VNet + contexto anterior
 - [Bloco 3 - Azure Web Apps](#bloco-3---azure-web-apps)
 - [Bloco 4 - Azure Container Instances](#bloco-4---azure-container-instances)
 - [Bloco 5 - Azure Container Apps](#bloco-5---azure-container-apps)
+- [Pausar entre Sessoes](#pausar-entre-sessoes)
 - [Cleanup Unificado](#cleanup-unificado)
 - [Key Takeaways Consolidados](#key-takeaways-consolidados)
 
@@ -125,6 +126,8 @@ A Contoso Corp precisa de armazenamento centralizado para dados corporativos. Vo
 ---
 
 ### Task 1.1: Criar Storage Account
+
+> **Cobranca:** A Storage Account gera cobranca por dados armazenados. Para parar, delete a conta ou os dados.
 
 Voce cria a Storage Account principal que sera referenciada em todos os blocos seguintes.
 
@@ -363,6 +366,8 @@ Voce restringe o acesso a Storage Account para aceitar trafego apenas da SharedS
 
 ### Task 1.7: Criar Private Endpoint para o Storage Account
 
+> **Cobranca:** Private Endpoints geram cobranca enquanto existirem.
+
 O Private Endpoint atribui um IP privado da VNet ao storage, eliminando exposicao publica.
 
 1. Navegue para a **Storage Account** > **Security + networking** > **Networking** > aba **Private endpoint connections**
@@ -581,6 +586,8 @@ Com o armazenamento configurado no Bloco 1, voce agora implanta cargas de trabal
 
 ### Task 2.1: Criar Windows VM na CoreServicesVnet
 
+> **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab (veja [Pausar entre Sessoes](#pausar-entre-sessoes)).
+
 A VM Windows sera implantada na CoreServicesVnet criada na Semana 1, demonstrando cross-resource-group deployment.
 
 1. Pesquise e selecione **Virtual Machines** > **Create** > **Azure Virtual Machine**
@@ -702,6 +709,8 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
 
 ### Task 2.3: Criar Linux VM na ManufacturingVnet com Custom Script Extension
 
+> **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab (veja [Pausar entre Sessoes](#pausar-entre-sessoes)).
+
 1. Pesquise **Virtual Machines** > **Create** > **Azure Virtual Machine**
 
 2. Aba **Basics**:
@@ -777,6 +786,8 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
 ---
 
 ### Task 2.5: Criar VM Scale Set (VMSS)
+
+> **Cobranca:** Cada instancia do VMSS gera cobranca. Escale para 0 ao pausar o lab.
 
 O VMSS sera implantado na SharedServicesSubnet da CoreServicesVnet (Semana 1), que ja tem o NSG `myNSGSecure` associado.
 
@@ -1037,6 +1048,8 @@ Com armazenamento (Bloco 1) e computacao (Bloco 2) configurados, voce agora impl
 ---
 
 ### Task 3.1: Criar App Service Plan e Web App
+
+> **Cobranca:** O App Service Plan gera cobranca enquanto existir, mesmo com a app parada.
 
 1. Pesquise e selecione **App Services** > **+ Create** > **Web App**
 
@@ -1365,6 +1378,8 @@ A Contoso Corp precisa executar cargas de trabalho em containers para processos 
 
 ### Task 4.1: Criar Container Instance com imagem publica
 
+> **Cobranca:** Container Instances geram cobranca enquanto estiverem Running. Pare com `az container stop` ao pausar o lab.
+
 1. Pesquise e selecione **Container instances** > **+ Create**
 
 2. Aba **Basics**:
@@ -1415,6 +1430,8 @@ A Contoso Corp precisa executar cargas de trabalho em containers para processos 
 ---
 
 ### Task 4.2: Montar File Share do Bloco 1 como Volume
+
+> **Cobranca:** Container Instances geram cobranca enquanto estiverem Running. Pare com `az container stop` ao pausar o lab.
 
 Voce cria um novo container que monta o file share `contoso-files` do Bloco 1, demonstrando persistencia de dados entre containers e VMs.
 
@@ -1689,6 +1706,8 @@ O environment define a infraestrutura compartilhada onde os Container Apps execu
 
 ### Task 5.2: Criar Container App com imagem publica
 
+> **Cobranca:** Container Apps geram cobranca por replica ativa. Com scale-to-zero configurado, nao ha custo quando ociosas.
+
 1. Pesquise **Container Apps** > **+ Create**
 
 2. Aba **Basics**:
@@ -1921,6 +1940,49 @@ D) Recriar o Container App
 Basta alterar o traffic split para enviar 100% do trafego para a revisao desejada. As revisoes podem ser mantidas ativas para futuras mudancas. Nao e necessario deletar a revisao.
 
 </details>
+
+---
+
+# Pausar entre Sessoes
+
+Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos para evitar cobrancas desnecessarias.
+
+## Pausar (parar cobranca de compute)
+
+```bash
+# CLI — VMs
+az vm deallocate -g az104-rg7 -n az104-vm-win --no-wait
+az vm deallocate -g az104-rg7 -n az104-vm-linux --no-wait
+
+# CLI — VMSS (escalar para 0)
+az vmss scale -g az104-rg7 -n az104-vmss --new-capacity 0
+
+# CLI — ACI
+az container stop -g az104-rg9 -n az104-container-1
+az container stop -g az104-rg9 -n az104-container-2
+```
+
+```powershell
+# PowerShell — VMs
+Stop-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-win -Force
+Stop-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-linux -Force
+
+# PowerShell — ACI
+Stop-AzContainerGroup -ResourceGroupName az104-rg9 -Name az104-container-1
+Stop-AzContainerGroup -ResourceGroupName az104-rg9 -Name az104-container-2
+```
+
+## Retomar (quando voltar ao lab)
+
+```bash
+az vm start -g az104-rg7 -n az104-vm-win --no-wait
+az vm start -g az104-rg7 -n az104-vm-linux --no-wait
+az vmss scale -g az104-rg7 -n az104-vmss --new-capacity 1
+az container start -g az104-rg9 -n az104-container-1
+az container start -g az104-rg9 -n az104-container-2
+```
+
+> **Nota:** Desalocar VMs para cobranca de compute, mas discos e IPs publicos continuam cobrando. O App Service Plan (Standard S1) cobra enquanto existir — para parar, delete o plano ou rebaixe para Free F1. Container Apps com scale-to-zero nao geram custo quando ociosas.
 
 ---
 
