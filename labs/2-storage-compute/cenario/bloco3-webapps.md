@@ -13,33 +13,33 @@ Com armazenamento (Bloco 1) e computacao (Bloco 2) configurados, voce agora impl
 
 ```
 ┌───────────────────────────────────────────────────────────────────┐
-│                          az104-rg8                                 │
-│                                                                    │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │  App Service Plan: az104-appplan                              │  │
-│  │  SKU: Standard S1                                             │  │
-│  │  OS: Linux                                                    │  │
-│  │                                                               │  │
-│  │  ┌──────────────────────────────────────────────────────┐     │  │
-│  │  │  Web App: az104-webapp-<uniqueid>                     │     │  │
-│  │  │                                                       │     │  │
-│  │  │  Runtime: PHP 8.2                                     │     │  │
-│  │  │  Deployment: GitHub/External Git                      │     │  │
-│  │  │                                                       │     │  │
-│  │  │  App Settings:                                        │     │  │
-│  │  │  • STORAGE_CONNECTION (← Bloco 1 Storage Account)     │     │  │
-│  │  │                                                       │     │  │
-│  │  │  Deployment Slots:                                    │     │  │
-│  │  │  • Production (default)                               │     │  │
-│  │  │  • staging (swap target)                              │     │  │
-│  │  │                                                       │     │  │
-│  │  │  Scaling:                                             │     │  │
-│  │  │  • Scale out: min 1, max 3 (CPU > 60%)               │     │  │
-│  │  └──────────────────────────────────────────────────────┘     │  │
-│  └──────────────────────────────────────────────────────────────┘  │
-│                                                                    │
-│  → Connection String referencia Storage Account do Bloco 1         │
-│  → Deployment Slots permitem deploy blue/green sem downtime        │
+│                          az104-rg8                                │
+│                                                                   │
+│  ┌─────────────────────────────────────────────────────────────┐  │
+│  │  App Service Plan: az104-appplan                            │  │
+│  │  SKU: Standard S1                                           │  │
+│  │  OS: Linux                                                  │  │
+│  │                                                             │  │
+│  │  ┌───────────────────────────────────────────────────────┐  │  │
+│  │  │  Web App: az104-webapp-<uniqueid>                     │  │  │
+│  │  │                                                       │  │  │
+│  │  │  Runtime: PHP 8.2                                     │  │  │
+│  │  │  Deployment: GitHub/External Git                      │  │  │
+│  │  │                                                       │  │  │
+│  │  │  App Settings:                                        │  │  │
+│  │  │  • STORAGE_CONNECTION (← Bloco 1 Storage Account)     │  │  │
+│  │  │                                                       │  │  │
+│  │  │  Deployment Slots:                                    │  │  │
+│  │  │  • Production (default)                               │  │  │
+│  │  │  • staging (swap target)                              │  │  │
+│  │  │                                                       │  │  │
+│  │  │  Scaling:                                             │  │  │
+│  │  │  • Scale out: min 1, max 3 (CPU > 60%)                │  │  │
+│  │  └───────────────────────────────────────────────────────┘  │  │
+│  └─────────────────────────────────────────────────────────────┘  │
+│                                                                   │
+│  → Connection String referencia Storage Account do Bloco 1        │
+│  → Deployment Slots permitem deploy blue/green sem downtime       │
 └───────────────────────────────────────────────────────────────────┘
 ```
 
@@ -53,17 +53,17 @@ Com armazenamento (Bloco 1) e computacao (Bloco 2) configurados, voce agora impl
 
 2. Aba **Basics**:
 
-   | Setting              | Value                                       |
-   | -------------------- | ------------------------------------------- |
-   | Subscription         | *sua subscription*                          |
-   | Resource group       | `az104-rg8` (crie se necessario)            |
-   | Name                 | `az104-webapp-<uniqueid>` (globalmente unico) |
-   | Publish              | **Code**                                    |
-   | Runtime stack        | **PHP 8.2**                                 |
-   | Operating System     | **Linux**                                   |
-   | Region               | **East US**                                 |
-   | App Service Plan     | *Create new*: `az104-appplan`               |
-   | Pricing plan         | **Standard S1**                             |
+   | Setting          | Value                                         |
+   | ---------------- | --------------------------------------------- |
+   | Subscription     | *sua subscription*                            |
+   | Resource group   | `az104-rg8` (crie se necessario)              |
+   | Name             | `az104-webapp-<uniqueid>` (globalmente unico) |
+   | Publish          | **Code**                                      |
+   | Runtime stack    | **PHP 8.2**                                   |
+   | Operating System | **Linux**                                     |
+   | Region           | **East US**                                   |
+   | App Service Plan | *Create new*: `az104-appplan`                 |
+   | Pricing plan     | **Standard S1**                               |
 
    > **Nota:** Standard S1 ou superior e necessario para deployment slots. Free/Basic nao suportam slots.
 
@@ -91,20 +91,20 @@ Voce conecta a Web App ao Storage Account do Bloco 1 para que a aplicacao possa 
 
 2. Na aba **App settings**, clique em **+ Add**:
 
-   | Setting | Value                                                                     |
-   | ------- | ------------------------------------------------------------------------- |
-   | Name    | `STORAGE_ACCOUNT_NAME`                                                    |
-   | Value   | `contosostore<uniqueid>` (nome do storage account do Bloco 1)            |
+   | Setting | Value                                                         |
+   | ------- | ------------------------------------------------------------- |
+   | Name    | `STORAGE_ACCOUNT_NAME`                                        |
+   | Value   | `contosostore<uniqueid>` (nome do storage account do Bloco 1) |
 
 3. Clique em **Apply**
 
 4. Na aba **Connection strings**, clique em **+ Add**:
 
-   | Setting | Value                                                        |
-   | ------- | ------------------------------------------------------------ |
-   | Name    | `AzureStorageConnection`                                     |
-   | Value   | *cole a connection string da Storage Account (Bloco 1)*      |
-   | Type    | **Custom**                                                   |
+   | Setting | Value                                                   |
+   | ------- | ------------------------------------------------------- |
+   | Name    | `AzureStorageConnection`                                |
+   | Value   | *cole a connection string da Storage Account (Bloco 1)* |
+   | Type    | **Custom**                                              |
 
    > **Para obter a connection string:** Va ate a Storage Account (Bloco 1) > **Security + networking** > **Access keys** > copie a **Connection string** de key1.
 
@@ -126,11 +126,11 @@ Voce conecta a Web App ao Storage Account do Bloco 1 para que a aplicacao possa 
 
 2. Configure o source:
 
-   | Setting    | Value            |
-   | ---------- | ---------------- |
-   | Source     | **External Git** |
+   | Setting    | Value                                                   |
+   | ---------- | ------------------------------------------------------- |
+   | Source     | **External Git**                                        |
    | Repository | `https://github.com/Azure-Samples/php-docs-hello-world` |
-   | Branch     | `master`         |
+   | Branch     | `master`                                                |
 
 3. Clique em **Save**
 
@@ -144,9 +144,9 @@ Voce conecta a Web App ao Storage Account do Bloco 1 para que a aplicacao possa 
 
 7. Clique em **+ Add Slot**:
 
-   | Setting          | Value       |
-   | ---------------- | ----------- |
-   | Name             | `staging`   |
+   | Setting             | Value                     |
+   | ------------------- | ------------------------- |
+   | Name                | `staging`                 |
    | Clone settings from | **Do not clone settings** |
 
 8. Clique em **Add**
@@ -169,10 +169,10 @@ Voce conecta a Web App ao Storage Account do Bloco 1 para que a aplicacao possa 
 
 2. Clique em **Swap**:
 
-   | Setting     | Value              |
-   | ----------- | ------------------ |
-   | Source      | **staging**        |
-   | Target      | **Production**     |
+   | Setting | Value          |
+   | ------- | -------------- |
+   | Source  | **staging**    |
+   | Target  | **Production** |
 
 3. Revise as **Config changes** (mostra quais settings vao mudar)
 
@@ -194,37 +194,37 @@ Voce conecta a Web App ao Storage Account do Bloco 1 para que a aplicacao possa 
 
 2. Selecione **Rules Based** (se disponivel) ou configure:
 
-   | Setting               | Value                        |
-   | --------------------- | ---------------------------- |
-   | Minimum instances     | `1`                          |
-   | Maximum instances     | `3`                          |
-   | Rules                 | *custom rule abaixo*         |
+   | Setting           | Value                |
+   | ----------------- | -------------------- |
+   | Minimum instances | `1`                  |
+   | Maximum instances | `3`                  |
+   | Rules             | *custom rule abaixo* |
 
 3. **+ Add a rule** (scale-out):
 
-   | Setting            | Value                    |
-   | ------------------ | ------------------------ |
-   | Metric source      | **Current resource**     |
-   | Metric name        | **CPU Percentage**       |
-   | Operator           | **Greater than**         |
-   | Metric threshold   | `60`                     |
-   | Duration           | `5` minutes              |
-   | Operation          | **Increase count by**    |
-   | Instance count     | `1`                      |
-   | Cool down          | `5` minutes              |
+   | Setting          | Value                 |
+   | ---------------- | --------------------- |
+   | Metric source    | **Current resource**  |
+   | Metric name      | **CPU Percentage**    |
+   | Operator         | **Greater than**      |
+   | Metric threshold | `60`                  |
+   | Duration         | `5` minutes           |
+   | Operation        | **Increase count by** |
+   | Instance count   | `1`                   |
+   | Cool down        | `5` minutes           |
 
 4. **+ Add a rule** (scale-in):
 
-   | Setting            | Value                    |
-   | ------------------ | ------------------------ |
-   | Metric source      | **Current resource**     |
-   | Metric name        | **CPU Percentage**       |
-   | Operator           | **Less than**            |
-   | Metric threshold   | `30`                     |
-   | Duration           | `5` minutes              |
-   | Operation          | **Decrease count by**    |
-   | Instance count     | `1`                      |
-   | Cool down          | `5` minutes              |
+   | Setting          | Value                 |
+   | ---------------- | --------------------- |
+   | Metric source    | **Current resource**  |
+   | Metric name      | **CPU Percentage**    |
+   | Operator         | **Less than**         |
+   | Metric threshold | `30`                  |
+   | Duration         | `5` minutes           |
+   | Operation        | **Decrease count by** |
+   | Instance count   | `1`                   |
+   | Cool down        | `5` minutes           |
 
 5. Clique em **Save**
 
@@ -246,13 +246,13 @@ Voce conecta a Web App ao Storage Account do Bloco 1 para que a aplicacao possa 
 
 4. Configure:
 
-   | Setting                  | Value            |
-   | ------------------------ | ---------------- |
-   | Application Logging (Filesystem) | **On** |
-   | Level                    | **Information**  |
-   | Web server logging       | **File System**  |
-   | Quota (MB)               | `35`             |
-   | Retention Period (Days)  | `3`              |
+   | Setting                          | Value           |
+   | -------------------------------- | --------------- |
+   | Application Logging (Filesystem) | **On**          |
+   | Level                            | **Information** |
+   | Web server logging               | **File System** |
+   | Quota (MB)                       | `35`            |
+   | Retention Period (Days)          | `3`             |
 
 5. Clique em **Save**
 

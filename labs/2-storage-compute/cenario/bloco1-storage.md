@@ -12,13 +12,13 @@ A Contoso Corp precisa de armazenamento centralizado para dados corporativos. Vo
 ## Diagrama
 
 ```
-┌───────────────────────────────────────────────────────────────────┐
+┌────────────────────────────────────────────────────────────────────┐
 │                          az104-rg6                                 │
 │                                                                    │
 │  ┌──────────────────────────────────────────────────────────────┐  │
 │  │  Storage Account: contosostore<uniqueid>                     │  │
 │  │  Kind: StorageV2 | Replication: LRS                          │  │
-│  │                                                               │  │
+│  │                                                              │  │
 │  │  ┌──────────────┐  ┌──────────────┐  ┌───────────────────┐   │  │
 │  │  │ Blob Service │  │ File Service │  │ Table/Queue       │   │  │
 │  │  │              │  │              │  │ (explorar)        │   │  │
@@ -30,19 +30,19 @@ A Contoso Corp precisa de armazenamento centralizado para dados corporativos. Vo
 │  │  │ Hot/Cool/    │  │ → Bloco 4    │  │                   │   │  │
 │  │  │ Archive      │  │   (ACI mount)│  │                   │   │  │
 │  │  └──────────────┘  └──────────────┘  └───────────────────┘   │  │
-│  │                                                               │  │
-│  │  Networking:                                                  │  │
-│  │  • Service Endpoint: SharedServicesSubnet (Semana 1)          │  │
-│  │  • Private Endpoint: CoreServicesVnet (Semana 1)              │  │
-│  │  • SAS Token configurado                                      │  │
-│  │                                                               │  │
-│  │  → Usado nos Blocos 2-5 para dados, file shares e config      │  │
+│  │                                                              │  │
+│  │  Networking:                                                 │  │
+│  │  • Service Endpoint: SharedServicesSubnet (Semana 1)         │  │
+│  │  • Private Endpoint: CoreServicesVnet (Semana 1)             │  │
+│  │  • SAS Token configurado                                     │  │
+│  │                                                              │  │
+│  │  → Usado nos Blocos 2-5 para dados, file shares e config     │  │
 │  └──────────────────────────────────────────────────────────────┘  │
 │                                                                    │
 │  ┌──────────────────────────────────────────────────────────────┐  │
-│  │  Lifecycle Management + Immutability configurados             │  │
+│  │  Lifecycle Management + Immutability configurados            │  │
 │  └──────────────────────────────────────────────────────────────┘  │
-└───────────────────────────────────────────────────────────────────┘
+└────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -96,19 +96,19 @@ O blob container armazenara dados corporativos que serao acessados pelas Web App
 
 2. Clique em **+ Container**:
 
-   | Setting              | Value                           |
-   | -------------------- | ------------------------------- |
-   | Name                 | `data`                          |
-   | Public access level  | **Private (no anonymous access)** |
+   | Setting             | Value                             |
+   | ------------------- | --------------------------------- |
+   | Name                | `data`                            |
+   | Public access level | **Private (no anonymous access)** |
 
 3. Clique em **Create**
 
 4. Selecione o container **data** > **Upload**:
 
-   | Setting   | Value                                       |
-   | --------- | ------------------------------------------- |
+   | Setting   | Value                                        |
+   | --------- | -------------------------------------------- |
    | Files     | *qualquer arquivo de teste (ex: readme.txt)* |
-   | Overwrite | **checked**                                 |
+   | Overwrite | **checked**                                  |
 
 5. Clique em **Upload**
 
@@ -132,15 +132,15 @@ O blob container armazenara dados corporativos que serao acessados pelas Web App
 
 2. Configure o SAS:
 
-   | Setting                      | Value                                        |
-   | ---------------------------- | -------------------------------------------- |
-   | Allowed services             | **Blob** (marque apenas Blob)                |
-   | Allowed resource types       | **Container** + **Object**                   |
-   | Allowed permissions          | **Read** + **List**                           |
-   | Start date/time              | *data/hora atual*                             |
-   | Expiry date/time             | *amanha, mesma hora*                          |
-   | Allowed protocols            | **HTTPS only**                                |
-   | Signing key                  | **key1**                                      |
+   | Setting                | Value                         |
+   | ---------------------- | ----------------------------- |
+   | Allowed services       | **Blob** (marque apenas Blob) |
+   | Allowed resource types | **Container** + **Object**    |
+   | Allowed permissions    | **Read** + **List**           |
+   | Start date/time        | *data/hora atual*             |
+   | Expiry date/time       | *amanha, mesma hora*          |
+   | Allowed protocols      | **HTTPS only**                |
+   | Signing key            | **key1**                      |
 
 3. Clique em **Generate SAS and connection string**
 
@@ -155,12 +155,12 @@ O blob container armazenara dados corporativos que serao acessados pelas Web App
 
 7. Em **Stored access policies**, clique em **+ Add policy**:
 
-   | Setting       | Value                   |
-   | ------------- | ----------------------- |
-   | Identifier    | `read-policy`           |
-   | Permissions   | **Read** + **List**      |
-   | Start time    | *data/hora atual*       |
-   | Expiry time   | *7 dias a partir de hoje* |
+   | Setting     | Value                     |
+   | ----------- | ------------------------- |
+   | Identifier  | `read-policy`             |
+   | Permissions | **Read** + **List**       |
+   | Start time  | *data/hora atual*         |
+   | Expiry time | *7 dias a partir de hoje* |
 
 8. Clique em **OK** > **Save**
 
@@ -178,10 +178,10 @@ O file share sera montado como unidade de rede nas VMs (Bloco 2) e como volume n
 
 2. Clique em **+ File share**:
 
-   | Setting          | Value            |
-   | ---------------- | ---------------- |
-   | Name             | `contoso-files`  |
-   | Tier             | **Transaction optimized** |
+   | Setting | Value                     |
+   | ------- | ------------------------- |
+   | Name    | `contoso-files`           |
+   | Tier    | **Transaction optimized** |
 
 3. Clique em **Create**
 
@@ -214,26 +214,26 @@ O file share sera montado como unidade de rede nas VMs (Bloco 2) e como volume n
 
 2. Clique em **Add a rule**:
 
-   | Setting              | Value                              |
-   | -------------------- | ---------------------------------- |
-   | Rule name            | `move-to-cool`                     |
-   | Rule scope           | **Apply rule to all blobs**        |
-   | Blob type            | **Block blobs**                    |
-   | Blob subtype         | **Base blobs**                     |
+   | Setting      | Value                       |
+   | ------------ | --------------------------- |
+   | Rule name    | `move-to-cool`              |
+   | Rule scope   | **Apply rule to all blobs** |
+   | Blob type    | **Block blobs**             |
+   | Blob subtype | **Base blobs**              |
 
 3. Na aba **Base blobs**, configure:
 
-   | Setting                               | Value       |
-   | ------------------------------------- | ----------- |
-   | Last modified more than (days) ago    | `30`        |
-   | Then                                  | **Move to cool storage** |
+   | Setting                            | Value                    |
+   | ---------------------------------- | ------------------------ |
+   | Last modified more than (days) ago | `30`                     |
+   | Then                               | **Move to cool storage** |
 
 4. Adicione outra acao:
 
-   | Setting                               | Value       |
-   | ------------------------------------- | ----------- |
-   | Last modified more than (days) ago    | `90`        |
-   | Then                                  | **Move to archive storage** |
+   | Setting                            | Value                       |
+   | ---------------------------------- | --------------------------- |
+   | Last modified more than (days) ago | `90`                        |
+   | Then                               | **Move to archive storage** |
 
 5. Clique em **Add**
 
@@ -241,10 +241,10 @@ O file share sera montado como unidade de rede nas VMs (Bloco 2) e como volume n
 
 7. Em **Immutable blob storage**, clique em **Add policy**:
 
-   | Setting          | Value                                     |
-   | ---------------- | ----------------------------------------- |
-   | Policy type      | **Time-based retention**                  |
-   | Retention period | `7` days                                  |
+   | Setting          | Value                    |
+   | ---------------- | ------------------------ |
+   | Policy type      | **Time-based retention** |
+   | Retention period | `7` days                 |
 
 8. Clique em **Save**
 
@@ -264,11 +264,11 @@ Voce restringe o acesso a Storage Account para aceitar trafego apenas da SharedS
 
 3. Em **Virtual networks**, clique em **+ Add existing virtual network**:
 
-   | Setting         | Value                                  |
-   | --------------- | -------------------------------------- |
-   | Subscription    | *sua subscription*                     |
+   | Setting         | Value                                         |
+   | --------------- | --------------------------------------------- |
+   | Subscription    | *sua subscription*                            |
    | Virtual network | **CoreServicesVnet** (do az104-rg4, Semana 1) |
-   | Subnets         | **SharedServicesSubnet**               |
+   | Subnets         | **SharedServicesSubnet**                      |
 
    > **Nota:** Se a VNet da Semana 1 nao existir mais, crie uma nova VNet `StorageVnet` (10.50.0.0/16) com subnet `StorageSubnet` (10.50.0.0/24) no az104-rg6 e use-a.
 
@@ -298,26 +298,26 @@ O Private Endpoint atribui um IP privado da VNet ao storage, eliminando exposica
 
 3. Aba **Basics**:
 
-   | Setting        | Value                   |
-   | -------------- | ----------------------- |
-   | Subscription   | *sua subscription*      |
-   | Resource group | `az104-rg6`             |
-   | Name           | `pe-contosostore`       |
+   | Setting                | Value                 |
+   | ---------------------- | --------------------- |
+   | Subscription           | *sua subscription*    |
+   | Resource group         | `az104-rg6`           |
+   | Name                   | `pe-contosostore`     |
    | Network Interface Name | `pe-contosostore-nic` |
-   | Region         | **East US**             |
+   | Region                 | **East US**           |
 
 4. Aba **Resource**:
 
-   | Setting            | Value                |
-   | ------------------ | -------------------- |
-   | Target sub-resource | **blob**            |
+   | Setting             | Value    |
+   | ------------------- | -------- |
+   | Target sub-resource | **blob** |
 
 5. Aba **Virtual Network**:
 
-   | Setting         | Value                                  |
-   | --------------- | -------------------------------------- |
+   | Setting         | Value                                         |
+   | --------------- | --------------------------------------------- |
    | Virtual network | **CoreServicesVnet** (do az104-rg4, Semana 1) |
-   | Subnet          | **SharedServicesSubnet**               |
+   | Subnet          | **SharedServicesSubnet**                      |
 
    > **Nota:** Se a VNet da Semana 1 nao existir, use a VNet alternativa criada na Task 1.6.
 
@@ -347,8 +347,8 @@ O Private Endpoint atribui um IP privado da VNet ao storage, eliminando exposica
 
 4. Navegue para **Containers** > **data** > **Change access level**:
 
-   | Setting             | Value                                    |
-   | ------------------- | ---------------------------------------- |
+   | Setting             | Value                                           |
+   | ------------------- | ----------------------------------------------- |
    | Public access level | **Blob (anonymous read access for blobs only)** |
 
 5. Clique em **OK**

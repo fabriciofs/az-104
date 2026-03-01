@@ -12,32 +12,32 @@ A Contoso Corp precisa executar cargas de trabalho em containers para processos 
 ## Diagrama
 
 ```
-┌───────────────────────────────────────────────────────────────────┐
-│                          az104-rg9                                 │
-│                                                                    │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │  Container Group: az104-aci-1                                 │  │
-│  │                                                               │  │
-│  │  ┌────────────────────────────────────────────────────┐       │  │
-│  │  │  Container: az104-container-1                       │       │  │
-│  │  │  Image: mcr.microsoft.com/azuredocs/aci-helloworld │       │  │
-│  │  │                                                     │       │  │
-│  │  │  Resources: 1 CPU, 1.5 GiB memory                  │       │  │
-│  │  │  Port: 80 (HTTP)                                    │       │  │
-│  │  │  Restart policy: On failure                         │       │  │
-│  │  │                                                     │       │  │
-│  │  │  Volume Mount:                                      │       │  │
-│  │  │  ┌──────────────────────────────────────────┐       │       │  │
-│  │  │  │  /mnt/fileshare → contoso-files          │       │       │  │
-│  │  │  │  (Azure File Share do Bloco 1)           │       │       │  │
-│  │  │  │  Storage: contosostore<id>               │       │       │  │
-│  │  │  └──────────────────────────────────────────┘       │       │  │
-│  │  └────────────────────────────────────────────────────┘       │  │
-│  └──────────────────────────────────────────────────────────────┘  │
-│                                                                    │
-│  → File share do Bloco 1 montado como volume no container         │
-│  → Dados criados pela VM (Bloco 2) visiveis no container          │
-└───────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────┐
+│                          az104-rg9                             │
+│                                                                │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  Container Group: az104-aci-1                            │  │
+│  │                                                          │  │
+│  │  ┌────────────────────────────────────────────────────┐  │  │
+│  │  │  Container: az104-container-1                      │  │  │
+│  │  │  Image: mcr.microsoft.com/azuredocs/aci-helloworld │  │  │
+│  │  │                                                    │  │  │
+│  │  │  Resources: 1 CPU, 1.5 GiB memory                  │  │  │
+│  │  │  Port: 80 (HTTP)                                   │  │  │
+│  │  │  Restart policy: On failure                        │  │  │
+│  │  │                                                    │  │  │
+│  │  │  Volume Mount:                                     │  │  │
+│  │  │  ┌──────────────────────────────────────────┐      │  │  │
+│  │  │  │  /mnt/fileshare → contoso-files          │      │  │  │
+│  │  │  │  (Azure File Share do Bloco 1)           │      │  │  │
+│  │  │  │  Storage: contosostore<id>               │      │  │  │
+│  │  │  └──────────────────────────────────────────┘      │  │  │
+│  │  └────────────────────────────────────────────────────┘  │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                                                                │
+│  → File share do Bloco 1 montado como volume no container      │
+│  → Dados criados pela VM (Bloco 2) visiveis no container       │
+└────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -50,33 +50,33 @@ A Contoso Corp precisa executar cargas de trabalho em containers para processos 
 
 2. Aba **Basics**:
 
-   | Setting          | Value                                              |
-   | ---------------- | -------------------------------------------------- |
-   | Subscription     | *sua subscription*                                 |
-   | Resource group   | `az104-rg9` (crie se necessario)                   |
-   | Container name   | `az104-container-1`                                |
-   | Region           | **East US**                                        |
-   | SKU              | **Standard**                                       |
-   | Image source     | **Other registry**                                 |
-   | Image type       | **Public**                                         |
-   | Image            | `mcr.microsoft.com/azuredocs/aci-helloworld`       |
-   | OS type          | **Linux**                                          |
-   | Size             | **1 vcpu, 1.5 GiB memory**                        |
+   | Setting        | Value                                        |
+   | -------------- | -------------------------------------------- |
+   | Subscription   | *sua subscription*                           |
+   | Resource group | `az104-rg9` (crie se necessario)             |
+   | Container name | `az104-container-1`                          |
+   | Region         | **East US**                                  |
+   | SKU            | **Standard**                                 |
+   | Image source   | **Other registry**                           |
+   | Image type     | **Public**                                   |
+   | Image          | `mcr.microsoft.com/azuredocs/aci-helloworld` |
+   | OS type        | **Linux**                                    |
+   | Size           | **1 vcpu, 1.5 GiB memory**                   |
 
 3. Aba **Networking**:
 
-   | Setting            | Value      |
-   | ------------------ | ---------- |
-   | Networking type    | **Public** |
-   | DNS name label     | `az104-aci-<uniqueid>` (globalmente unico) |
-   | Ports              | `80`       |
-   | Port protocol      | **TCP**    |
+   | Setting         | Value                                      |
+   | --------------- | ------------------------------------------ |
+   | Networking type | **Public**                                 |
+   | DNS name label  | `az104-aci-<uniqueid>` (globalmente unico) |
+   | Ports           | `80`                                       |
+   | Port protocol   | **TCP**                                    |
 
 4. Aba **Advanced**:
 
-   | Setting          | Value          |
-   | ---------------- | -------------- |
-   | Restart policy   | **On failure** |
+   | Setting        | Value          |
+   | -------------- | -------------- |
+   | Restart policy | **On failure** |
 
 5. Clique em **Review + create** > **Create**
 
@@ -109,41 +109,41 @@ Voce cria um novo container que monta o file share `contoso-files` do Bloco 1, d
 
 3. Aba **Basics**:
 
-   | Setting          | Value                                              |
-   | ---------------- | -------------------------------------------------- |
-   | Resource group   | `az104-rg9`                                        |
-   | Container name   | `az104-container-2`                                |
-   | Region           | **East US**                                        |
-   | Image source     | **Other registry**                                 |
-   | Image type       | **Public**                                         |
-   | Image            | `mcr.microsoft.com/azuredocs/aci-helloworld`       |
-   | OS type          | **Linux**                                          |
-   | Size             | **1 vcpu, 1.5 GiB memory**                        |
+   | Setting        | Value                                        |
+   | -------------- | -------------------------------------------- |
+   | Resource group | `az104-rg9`                                  |
+   | Container name | `az104-container-2`                          |
+   | Region         | **East US**                                  |
+   | Image source   | **Other registry**                           |
+   | Image type     | **Public**                                   |
+   | Image          | `mcr.microsoft.com/azuredocs/aci-helloworld` |
+   | OS type        | **Linux**                                    |
+   | Size           | **1 vcpu, 1.5 GiB memory**                   |
 
 4. Aba **Networking**:
 
-   | Setting            | Value      |
-   | ------------------ | ---------- |
-   | Networking type    | **Public** |
-   | DNS name label     | `az104-aci2-<uniqueid>` |
-   | Ports              | `80`       |
+   | Setting         | Value                   |
+   | --------------- | ----------------------- |
+   | Networking type | **Public**              |
+   | DNS name label  | `az104-aci2-<uniqueid>` |
+   | Ports           | `80`                    |
 
 5. Aba **Advanced**:
 
-   | Setting          | Value          |
-   | ---------------- | -------------- |
-   | Restart policy   | **On failure** |
+   | Setting        | Value          |
+   | -------------- | -------------- |
+   | Restart policy | **On failure** |
 
 6. Em **Volume mounts**, clique em **+ Add volume**:
 
-   | Setting              | Value                                         |
-   | -------------------- | --------------------------------------------- |
-   | Volume name          | `filesharevolume`                              |
-   | Volume type          | **Azure file share**                           |
-   | Storage account name | `contosostore<uniqueid>` (Bloco 1)            |
-   | Storage account key  | *cole key1 copiada acima*                     |
-   | File share name      | `contoso-files`                                |
-   | Mount path           | `/mnt/fileshare`                               |
+   | Setting              | Value                              |
+   | -------------------- | ---------------------------------- |
+   | Volume name          | `filesharevolume`                  |
+   | Volume type          | **Azure file share**               |
+   | Storage account name | `contosostore<uniqueid>` (Bloco 1) |
+   | Storage account key  | *cole key1 copiada acima*          |
+   | File share name      | `contoso-files`                    |
+   | Mount path           | `/mnt/fileshare`                   |
 
 7. Clique em **Add**
 

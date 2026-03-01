@@ -12,39 +12,39 @@ Como passo final, voce implanta Azure Container Apps — uma plataforma serverle
 ## Diagrama
 
 ```
-┌───────────────────────────────────────────────────────────────────┐
-│                          az104-rg10                                │
-│                                                                    │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │  Container Apps Environment: az104-cae                        │  │
-│  │  (Ambiente gerenciado para Container Apps)                    │  │
-│  │                                                               │  │
-│  │  VNet Integration: CoreServicesVnet (Semana 1)                │  │
-│  │  ou subnet dedicada                                           │  │
-│  │                                                               │  │
-│  │  ┌──────────────────────────────────────────────────────┐     │  │
-│  │  │  Container App: az104-ca-1                            │     │  │
-│  │  │  Image: mcr.microsoft.com/azuredocs/containerapps-   │     │  │
-│  │  │         helloworld:latest                             │     │  │
-│  │  │                                                       │     │  │
-│  │  │  Ingress: External (HTTP, port 80)                    │     │  │
-│  │  │  Scaling: min 0, max 5 (HTTP requests)                │     │  │
-│  │  │  Revisions: Multiple (blue/green)                     │     │  │
-│  │  │                                                       │     │  │
-│  │  │  Environment Variables:                               │     │  │
-│  │  │  • STORAGE_CONN (← Bloco 1)                          │     │  │
-│  │  └──────────────────────────────────────────────────────┘     │  │
-│  │                                                               │  │
-│  │  ┌──────────────────────────────────────────────────────┐     │  │
-│  │  │  Container App: az104-ca-2                            │     │  │
-│  │  │  (segunda revisao / multi-container)                  │     │  │
-│  │  └──────────────────────────────────────────────────────┘     │  │
-│  └──────────────────────────────────────────────────────────────┘  │
-│                                                                    │
-│  → Usa VNet da Semana 1 para integracao de rede                   │
-│  → Storage Account do Bloco 1 referenciado via env vars           │
+┌──────────────────────────────────────────────────────────────────┐
+│                          az104-rg10                              │
+│                                                                  │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │  Container Apps Environment: az104-cae                     │  │
+│  │  (Ambiente gerenciado para Container Apps)                 │  │
+│  │                                                            │  │
+│  │  VNet Integration: CoreServicesVnet (Semana 1)             │  │
+│  │  ou subnet dedicada                                        │  │
+│  │                                                            │  │
+│  │  ┌──────────────────────────────────────────────────────┐  │  │
+│  │  │  Container App: az104-ca-1                           │  │  │
+│  │  │  Image: mcr.microsoft.com/azuredocs/containerapps-   │  │  │
+│  │  │         helloworld:latest                            │  │  │
+│  │  │                                                      │  │  │
+│  │  │  Ingress: External (HTTP, port 80)                   │  │  │
+│  │  │  Scaling: min 0, max 5 (HTTP requests)               │  │  │
+│  │  │  Revisions: Multiple (blue/green)                    │  │  │
+│  │  │                                                      │  │  │
+│  │  │  Environment Variables:                              │  │  │
+│  │  │  • STORAGE_CONN (← Bloco 1)                          │  │  │
+│  │  └──────────────────────────────────────────────────────┘  │  │
+│  │                                                            │  │
+│  │  ┌──────────────────────────────────────────────────────┐  │  │
+│  │  │  Container App: az104-ca-2                           │  │  │
+│  │  │  (segunda revisao / multi-container)                 │  │  │
+│  │  └──────────────────────────────────────────────────────┘  │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  → Usa VNet da Semana 1 para integracao de rede                  │
+│  → Storage Account do Bloco 1 referenciado via env vars          │
 │  → Demonstra evolucao: VMs → Web Apps → ACI → Container Apps     │
-└───────────────────────────────────────────────────────────────────┘
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -57,21 +57,21 @@ O environment define a infraestrutura compartilhada onde os Container Apps execu
 
 2. Aba **Basics**:
 
-   | Setting          | Value                          |
-   | ---------------- | ------------------------------ |
-   | Subscription     | *sua subscription*             |
+   | Setting          | Value                             |
+   | ---------------- | --------------------------------- |
+   | Subscription     | *sua subscription*                |
    | Resource group   | `az104-rg10` (crie se necessario) |
-   | Environment name | `az104-cae`                    |
-   | Region           | **East US**                    |
-   | Environment type | **Consumption only**           |
+   | Environment name | `az104-cae`                       |
+   | Region           | **East US**                       |
+   | Environment type | **Consumption only**              |
 
 3. Aba **Networking**:
 
-   | Setting                     | Value                                      |
-   | --------------------------- | ------------------------------------------ |
-   | Use your own virtual network | **Yes**                                   |
-   | Virtual network             | **CoreServicesVnet** (de az104-rg4, Semana 1) |
-   | Infrastructure subnet       | *Crie uma nova subnet dedicada* `ContainerAppsSubnet` (10.20.30.0/23, minimo /23) |
+   | Setting                      | Value                                                                             |
+   | ---------------------------- | --------------------------------------------------------------------------------- |
+   | Use your own virtual network | **Yes**                                                                           |
+   | Virtual network              | **CoreServicesVnet** (de az104-rg4, Semana 1)                                     |
+   | Infrastructure subnet        | *Crie uma nova subnet dedicada* `ContainerAppsSubnet` (10.20.30.0/23, minimo /23) |
 
    > **Nota:** Container Apps requer uma subnet dedicada com tamanho minimo /23. Se a CoreServicesVnet nao tiver espaco disponivel ou nao existir, crie sem VNet integration (selecione **No**) e prossiga.
 
@@ -95,42 +95,42 @@ O environment define a infraestrutura compartilhada onde os Container Apps execu
 
 2. Aba **Basics**:
 
-   | Setting            | Value                          |
-   | ------------------ | ------------------------------ |
-   | Subscription       | *sua subscription*             |
-   | Resource group     | `az104-rg10`                   |
-   | Container app name | `az104-ca-1`                   |
-   | Region             | **East US**                    |
+   | Setting                    | Value                        |
+   | -------------------------- | ---------------------------- |
+   | Subscription               | *sua subscription*           |
+   | Resource group             | `az104-rg10`                 |
+   | Container app name         | `az104-ca-1`                 |
+   | Region                     | **East US**                  |
    | Container Apps Environment | **az104-cae** (criado acima) |
 
 3. Aba **Container**:
 
-   | Setting         | Value                                                        |
-   | --------------- | ------------------------------------------------------------ |
-   | Image source    | **Docker Hub or other registries**                           |
-   | Image type      | **Public**                                                   |
-   | Registry login server | `mcr.microsoft.com`                                   |
-   | Image and tag   | `azuredocs/containerapps-helloworld:latest`                  |
-   | CPU and Memory  | **0.25 CPU cores, 0.5 Gi memory**                           |
+   | Setting               | Value                                       |
+   | --------------------- | ------------------------------------------- |
+   | Image source          | **Docker Hub or other registries**          |
+   | Image type            | **Public**                                  |
+   | Registry login server | `mcr.microsoft.com`                         |
+   | Image and tag         | `azuredocs/containerapps-helloworld:latest` |
+   | CPU and Memory        | **0.25 CPU cores, 0.5 Gi memory**           |
 
 4. Em **Environment variables**, clique em **+ Add**:
 
-   | Setting | Value                                              |
-   | ------- | -------------------------------------------------- |
-   | Name    | `STORAGE_CONNECTION`                               |
-   | Source  | **Manual entry**                                   |
-   | Value   | *connection string do Storage Account (Bloco 1)*   |
+   | Setting | Value                                            |
+   | ------- | ------------------------------------------------ |
+   | Name    | `STORAGE_CONNECTION`                             |
+   | Source  | **Manual entry**                                 |
+   | Value   | *connection string do Storage Account (Bloco 1)* |
 
    > **Conexao com Bloco 1:** A variavel de ambiente referencia o Storage Account, permitindo que a aplicacao acesse dados do Bloco 1. Em producao, use secrets ao inves de manual entry.
 
 5. Aba **Ingress**:
 
-   | Setting               | Value        |
-   | --------------------- | ------------ |
-   | Ingress               | **Enabled**  |
-   | Ingress traffic        | **Accepting traffic from anywhere** |
-   | Ingress type           | **HTTP**     |
-   | Target port            | `80`         |
+   | Setting         | Value                               |
+   | --------------- | ----------------------------------- |
+   | Ingress         | **Enabled**                         |
+   | Ingress traffic | **Accepting traffic from anywhere** |
+   | Ingress type    | **HTTP**                            |
+   | Target port     | `80`                                |
 
 6. Clique em **Review + create** > **Create**
 
@@ -150,10 +150,10 @@ O environment define a infraestrutura compartilhada onde os Container Apps execu
 
 3. Na aba **Scale**:
 
-   | Setting          | Value |
-   | ---------------- | ----- |
-   | Min replicas     | `0`   |
-   | Max replicas     | `5`   |
+   | Setting      | Value |
+   | ------------ | ----- |
+   | Min replicas | `0`   |
+   | Max replicas | `5`   |
 
 4. Revise a regra de scaling padrao (**HTTP scaling**):
    - Concurrent requests per replica: `10` (cada replica lida com ate 10 requests simultaneos)
@@ -177,11 +177,11 @@ O environment define a infraestrutura compartilhada onde os Container Apps execu
 2. Na aba **Container image**:
    - Mantenha a mesma imagem mas altere uma environment variable:
 
-   | Setting | Value                       |
-   | ------- | --------------------------- |
-   | Name    | `APP_VERSION`               |
-   | Source  | **Manual entry**            |
-   | Value   | `v2`                        |
+   | Setting | Value            |
+   | ------- | ---------------- |
+   | Name    | `APP_VERSION`    |
+   | Source  | **Manual entry** |
+   | Value   | `v2`             |
 
 3. Clique em **Create**
 
@@ -208,11 +208,11 @@ O environment define a infraestrutura compartilhada onde os Container Apps execu
 
 2. Clique em **+ Add**:
 
-   | Setting | Value                                     |
-   | ------- | ----------------------------------------- |
-   | Key     | `storage-key`                             |
-   | Type    | **Container Apps Secret**                 |
-   | Value   | *cole a storage account key do Bloco 1*   |
+   | Setting | Value                                   |
+   | ------- | --------------------------------------- |
+   | Key     | `storage-key`                           |
+   | Type    | **Container Apps Secret**               |
+   | Value   | *cole a storage account key do Bloco 1* |
 
 3. Clique em **Add**
 

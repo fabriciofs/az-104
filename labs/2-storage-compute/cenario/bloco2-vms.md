@@ -13,31 +13,31 @@ Com o armazenamento configurado no Bloco 1, voce agora implanta cargas de trabal
 
 ```
 ┌───────────────────────────────────────────────────────────────────┐
-│                          az104-rg7                                 │
-│                                                                    │
+│                          az104-rg7                                │
+│                                                                   │
 │  ┌────────────────────────────┐  ┌─────────────────────────────┐  │
 │  │  az104-vm-win              │  │  az104-vm-linux             │  │
-│  │  (Windows Server 2022)     │  │  (Ubuntu 22.04 LTS)        │  │
+│  │  (Windows Server 2022)     │  │  (Ubuntu 22.04 LTS)         │  │
 │  │                            │  │                             │  │
 │  │  VNet: CoreServicesVnet    │  │  VNet: ManufacturingVnet    │  │
-│  │  Subnet: Core (Semana 1)  │  │  Subnet: Manufacturing     │  │
-│  │  Size: Standard_D2s_v3    │  │  Size: Standard_D2s_v3     │  │
+│  │  Subnet: Core (Semana 1)   │  │  Subnet: Manufacturing      │  │
+│  │  Size: Standard_D2s_v3     │  │  Size: Standard_D2s_v3      │  │
 │  │                            │  │                             │  │
-│  │  Data Disk: 32 GiB        │  │  Custom Script Ext.        │  │
-│  │  File Share: Z: drive     │  │  (instala Nginx)           │  │
-│  │  (← Bloco 1)              │  │                             │  │
+│  │  Data Disk: 32 GiB         │  │  Custom Script Ext.         │  │
+│  │  File Share: Z: drive      │  │  (instala Nginx)            │  │
+│  │  (← Bloco 1)               │  │                             │  │
 │  └────────────────────────────┘  └─────────────────────────────┘  │
-│                                                                    │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │  az104-vmss                                                  │  │
-│  │  (VM Scale Set - Ubuntu 22.04)                               │  │
-│  │                                                               │  │
-│  │  VNet: CoreServicesVnet (Semana 1)                            │  │
-│  │  Subnet: SharedServicesSubnet                                 │  │
-│  │  Instances: min 1, max 3 (CPU > 75% scale out)               │  │
-│  │  → Usa rede ja protegida por NSG (Semana 1)                   │  │
-│  └──────────────────────────────────────────────────────────────┘  │
-│                                                                    │
+│                                                                   │
+│  ┌─────────────────────────────────────────────────────────────┐  │
+│  │  az104-vmss                                                 │  │
+│  │  (VM Scale Set - Ubuntu 22.04)                              │  │
+│  │                                                             │  │
+│  │  VNet: CoreServicesVnet (Semana 1)                          │  │
+│  │  Subnet: SharedServicesSubnet                               │  │
+│  │  Instances: min 1, max 3 (CPU > 75% scale out)              │  │
+│  │  → Usa rede ja protegida por NSG (Semana 1)                 │  │
+│  └─────────────────────────────────────────────────────────────┘  │
+│                                                                   │
 │  → VMs usam VNets da Semana 1 (cross-resource-group)              │
 │  → File Share do Bloco 1 montado na Windows VM                    │
 │  → Data Disk demonstra gerenciamento de storage para VMs          │
@@ -77,12 +77,12 @@ A VM Windows sera implantada na CoreServicesVnet criada na Semana 1, demonstrand
 
 4. Aba **Networking**:
 
-   | Setting         | Value                                              |
-   | --------------- | -------------------------------------------------- |
-   | Virtual network | **CoreServicesVnet** (de az104-rg4, Semana 1)      |
-   | Subnet          | **Core** (10.20.0.0/24)                            |
-   | Public IP       | **(new) az104-vm-win-ip**                          |
-   | NIC NSG         | **Basic**                                          |
+   | Setting              | Value                                         |
+   | -------------------- | --------------------------------------------- |
+   | Virtual network      | **CoreServicesVnet** (de az104-rg4, Semana 1) |
+   | Subnet               | **Core** (10.20.0.0/24)                       |
+   | Public IP            | **(new) az104-vm-win-ip**                     |
+   | NIC NSG              | **Basic**                                     |
    | Public inbound ports | **Allow selected ports**                      |
    | Select inbound ports | **RDP (3389)**                                |
 
@@ -115,13 +115,13 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
 
 2. Clique em **+ Create and attach a new disk**:
 
-   | Setting          | Value                  |
-   | ---------------- | ---------------------- |
-   | LUN              | `0`                    |
-   | Disk name        | `az104-vm-win-disk1`   |
-   | Storage type     | **Premium SSD**        |
-   | Size (GiB)       | `32`                   |
-   | Encryption       | Default                |
+   | Setting      | Value                |
+   | ------------ | -------------------- |
+   | LUN          | `0`                  |
+   | Disk name    | `az104-vm-win-disk1` |
+   | Storage type | **Premium SSD**      |
+   | Size (GiB)   | `32`                 |
+   | Encryption   | Default              |
 
 3. Clique em **Apply**
 
@@ -179,27 +179,27 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
 
 2. Aba **Basics**:
 
-   | Setting              | Value                                     |
-   | -------------------- | ----------------------------------------- |
-   | Resource group       | `az104-rg7`                               |
-   | Virtual machine name | `az104-vm-linux`                          |
-   | Region               | **(US) East US**                          |
-   | Security type        | **Standard**                              |
-   | Image                | **Ubuntu Server 22.04 LTS - x64 Gen2**   |
-   | Size                 | **Standard_D2s_v3**                       |
-   | Authentication type  | **Password**                              |
-   | Username             | `localadmin`                              |
-   | Password             | *senha complexa*                          |
-   | Public inbound ports | **Allow selected ports**                  |
-   | Select inbound ports | **HTTP (80)**, **SSH (22)**               |
+   | Setting              | Value                                  |
+   | -------------------- | -------------------------------------- |
+   | Resource group       | `az104-rg7`                            |
+   | Virtual machine name | `az104-vm-linux`                       |
+   | Region               | **(US) East US**                       |
+   | Security type        | **Standard**                           |
+   | Image                | **Ubuntu Server 22.04 LTS - x64 Gen2** |
+   | Size                 | **Standard_D2s_v3**                    |
+   | Authentication type  | **Password**                           |
+   | Username             | `localadmin`                           |
+   | Password             | *senha complexa*                       |
+   | Public inbound ports | **Allow selected ports**               |
+   | Select inbound ports | **HTTP (80)**, **SSH (22)**            |
 
 3. Aba **Networking**:
 
-   | Setting         | Value                                              |
-   | --------------- | -------------------------------------------------- |
-   | Virtual network | **ManufacturingVnet** (de az104-rg4, Semana 1)     |
-   | Subnet          | **Manufacturing** (10.30.0.0/24)                   |
-   | Public IP       | **(new) az104-vm-linux-ip**                        |
+   | Setting         | Value                                          |
+   | --------------- | ---------------------------------------------- |
+   | Virtual network | **ManufacturingVnet** (de az104-rg4, Semana 1) |
+   | Subnet          | **Manufacturing** (10.30.0.0/24)               |
+   | Public IP       | **(new) az104-vm-linux-ip**                    |
 
    > **Conexao com Semana 1:** A Linux VM fica na ManufacturingVnet. Se o peering da Semana 1 ainda existir, ela pode se comunicar com a Windows VM na CoreServicesVnet.
 
@@ -259,38 +259,38 @@ O VMSS sera implantado na SharedServicesSubnet da CoreServicesVnet (Semana 1), q
 
 2. Aba **Basics**:
 
-   | Setting              | Value                                   |
-   | -------------------- | --------------------------------------- |
-   | Resource group       | `az104-rg7`                             |
-   | VMSS name            | `az104-vmss`                            |
-   | Region               | **(US) East US**                        |
-   | Availability zone    | **None**                                |
-   | Orchestration mode   | **Uniform**                             |
-   | Security type        | **Standard**                            |
-   | Image                | **Ubuntu Server 22.04 LTS - x64 Gen2** |
-   | Size                 | **Standard_B1s** (economico)            |
-   | Authentication type  | **Password**                            |
-   | Username             | `localadmin`                            |
-   | Password             | *senha complexa*                        |
+   | Setting             | Value                                  |
+   | ------------------- | -------------------------------------- |
+   | Resource group      | `az104-rg7`                            |
+   | VMSS name           | `az104-vmss`                           |
+   | Region              | **(US) East US**                       |
+   | Availability zone   | **None**                               |
+   | Orchestration mode  | **Uniform**                            |
+   | Security type       | **Standard**                           |
+   | Image               | **Ubuntu Server 22.04 LTS - x64 Gen2** |
+   | Size                | **Standard_B1s** (economico)           |
+   | Authentication type | **Password**                           |
+   | Username            | `localadmin`                           |
+   | Password            | *senha complexa*                       |
 
 3. Aba **Networking**:
 
-   | Setting         | Value                                              |
-   | --------------- | -------------------------------------------------- |
-   | Virtual network | **CoreServicesVnet** (de az104-rg4, Semana 1)      |
-   | Subnet          | **SharedServicesSubnet** (10.20.10.0/24)           |
-   | Load balancer   | **None** (para simplificar)                        |
+   | Setting         | Value                                         |
+   | --------------- | --------------------------------------------- |
+   | Virtual network | **CoreServicesVnet** (de az104-rg4, Semana 1) |
+   | Subnet          | **SharedServicesSubnet** (10.20.10.0/24)      |
+   | Load balancer   | **None** (para simplificar)                   |
 
    > **Conexao com Semana 1:** O VMSS esta na SharedServicesSubnet, que tem o NSG `myNSGSecure` associado (Semana 1, Bloco 4). Isso significa que as regras de inbound/outbound do NSG se aplicam a todas as instancias do VMSS automaticamente.
 
 4. Aba **Scaling**:
 
-   | Setting           | Value     |
-   | ----------------- | --------- |
-   | Initial instance count | `1` |
-   | Scaling policy    | **Custom** |
-   | Minimum instances | `1`       |
-   | Maximum instances | `3`       |
+   | Setting                | Value      |
+   | ---------------------- | ---------- |
+   | Initial instance count | `1`        |
+   | Scaling policy         | **Custom** |
+   | Minimum instances      | `1`        |
+   | Maximum instances      | `3`        |
 
 5. Configure a regra de scale-out:
    - Metric: **Percentage CPU**
@@ -344,10 +344,10 @@ O VMSS sera implantado na SharedServicesSubnet da CoreServicesVnet (Semana 1), q
 
 2. Revise as opcoes:
 
-   | Setting          | Value                                    |
-   | ---------------- | ---------------------------------------- |
-   | Recovery Services vault | *crie ou selecione um existente*  |
-   | Backup policy    | **DefaultPolicy** (diario, 30 dias)      |
+   | Setting                 | Value                               |
+   | ----------------------- | ----------------------------------- |
+   | Recovery Services vault | *crie ou selecione um existente*    |
+   | Backup policy           | **DefaultPolicy** (diario, 30 dias) |
 
    > **Nota:** Nao e necessario habilitar o backup de fato (gera custo). Apenas revise as opcoes.
 

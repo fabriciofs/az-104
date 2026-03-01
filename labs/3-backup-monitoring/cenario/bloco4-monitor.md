@@ -12,38 +12,38 @@ Com backup e DR configurados (Blocos 1-3), voce agora implementa monitoramento p
 ## Diagrama
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                    Azure Monitor                                     │
-│                                                                      │
-│  ┌──────────────────────────────────────────────────────────────┐    │
-│  │  Action Groups (az104-rg-monitor)                            │    │
-│  │                                                              │    │
-│  │  └─ az104-ag1: Email + SMS                                  │    │
-│  └──────────────────────────────────────────────────────────────┘    │
-│                                                                      │
-│  ┌──────────────────────────────────────────────────────────────┐    │
-│  │  Alert Rules                                                 │    │
-│  │                                                              │    │
-│  │  ├─ CPU Alert: az104-vm-win CPU > 80%                       │    │
-│  │  │  (VM da Semana 2) → az104-ag1                            │    │
-│  │  │                                                          │    │
-│  │  ├─ VM Deleted Alert: Activity Log delete VM                │    │
-│  │  │  (qualquer VM) → az104-ag1                               │    │
-│  │  │                                                          │    │
-│  │  └─ Backup Failed Alert: Recovery Services vault             │    │
-│  │     (vault do Bloco 1) → az104-ag1                          │    │
-│  └──────────────────────────────────────────────────────────────┘    │
-│                                                                      │
-│  ┌──────────────────────────────────────────────────────────────┐    │
-│  │  Monitored Resources                                         │    │
-│  │                                                              │    │
-│  │  Semana 1: VNets, NSGs, DNS ─── metricas de rede            │    │
-│  │  Semana 2: VMs, Storage ──────── metricas de compute/storage │    │
-│  │  Semana 3: Vaults ────────────── metricas de backup          │    │
-│  └──────────────────────────────────────────────────────────────┘    │
-│                                                                      │
-│  → Usado no Bloco 5 para conectar Log Analytics workspace            │
-└──────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────┐
+│                    Azure Monitor                                   │
+│                                                                    │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │  Action Groups (az104-rg-monitor)                            │  │
+│  │                                                              │  │
+│  │  └─ az104-ag1: Email + SMS                                   │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│                                                                    │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │  Alert Rules                                                 │  │
+│  │                                                              │  │
+│  │  ├─ CPU Alert: az104-vm-win CPU > 80%                        │  │
+│  │  │  (VM da Semana 2) → az104-ag1                             │  │
+│  │  │                                                           │  │
+│  │  ├─ VM Deleted Alert: Activity Log delete VM                 │  │
+│  │  │  (qualquer VM) → az104-ag1                                │  │
+│  │  │                                                           │  │
+│  │  └─ Backup Failed Alert: Recovery Services vault             │  │
+│  │     (vault do Bloco 1) → az104-ag1                           │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│                                                                    │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │  Monitored Resources                                         │  │
+│  │                                                              │  │
+│  │  Semana 1: VNets, NSGs, DNS ─── metricas de rede             │  │
+│  │  Semana 2: VMs, Storage ──────── metricas de compute/storage │  │
+│  │  Semana 3: Vaults ────────────── metricas de backup          │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│                                                                    │
+│  → Usado no Bloco 5 para conectar Log Analytics workspace          │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -58,28 +58,28 @@ Voce explora as metricas da VM criada na Semana 2 para entender o baseline de pe
 
 3. Configure o grafico:
 
-   | Setting    | Value                          |
-   | ---------- | ------------------------------ |
-   | Scope      | **az104-vm-win**               |
+   | Setting          | Value                    |
+   | ---------------- | ------------------------ |
+   | Scope            | **az104-vm-win**         |
    | Metric Namespace | **Virtual Machine Host** |
-   | Metric     | **Percentage CPU**             |
-   | Aggregation | **Avg**                       |
+   | Metric           | **Percentage CPU**       |
+   | Aggregation      | **Avg**                  |
 
 4. Observe o grafico de CPU — este e o baseline da VM
 
 5. Clique em **+ Add metric** e adicione:
 
-   | Setting    | Value                          |
-   | ---------- | ------------------------------ |
-   | Metric     | **Network In Total**           |
-   | Aggregation | **Sum**                       |
+   | Setting     | Value                |
+   | ----------- | -------------------- |
+   | Metric      | **Network In Total** |
+   | Aggregation | **Sum**              |
 
 6. Clique em **+ Add metric** novamente:
 
-   | Setting    | Value                          |
-   | ---------- | ------------------------------ |
-   | Metric     | **Network Out Total**          |
-   | Aggregation | **Sum**                       |
+   | Setting     | Value                 |
+   | ----------- | --------------------- |
+   | Metric      | **Network Out Total** |
+   | Aggregation | **Sum**               |
 
    > **Conexao com Semana 2:** As metricas de rede mostram o trafego das VMs que estao conectadas as VNets da Semana 1 e se comunicam via peering configurado naquela semana.
 
@@ -97,21 +97,21 @@ Voce explora as metricas da VM criada na Semana 2 para entender o baseline de pe
 
 2. Aba **Basics**:
 
-   | Setting        | Value                                    |
-   | -------------- | ---------------------------------------- |
-   | Subscription   | *sua subscription*                       |
-   | Resource group | `az104-rg-monitor` (crie se necessario)  |
-   | Action group name | `az104-ag1`                           |
-   | Display name   | `az104-ag1`                              |
+   | Setting           | Value                                   |
+   | ----------------- | --------------------------------------- |
+   | Subscription      | *sua subscription*                      |
+   | Resource group    | `az104-rg-monitor` (crie se necessario) |
+   | Action group name | `az104-ag1`                             |
+   | Display name      | `az104-ag1`                             |
 
 3. Aba **Notifications**:
 
-   | Setting             | Value                                    |
-   | ------------------- | ---------------------------------------- |
-   | Notification type   | **Email/SMS message/Push/Voice**         |
-   | Name                | `admin-notification`                     |
-   | Email               | *seu email*                              |
-   | SMS                 | *(opcional — marque e informe seu numero)*|
+   | Setting           | Value                                      |
+   | ----------------- | ------------------------------------------ |
+   | Notification type | **Email/SMS message/Push/Voice**           |
+   | Name              | `admin-notification`                       |
+   | Email             | *seu email*                                |
+   | SMS               | *(opcional — marque e informe seu numero)* |
 
 4. Aba **Actions**: pule por enquanto (sem automation neste lab)
 
@@ -135,10 +135,10 @@ Este alerta monitora a CPU da VM da Semana 2 e notifica via Action Group.
 
 2. Aba **Scope**: clique em **Select a resource**
 
-   | Setting       | Value                        |
-   | ------------- | ---------------------------- |
-   | Filter by resource type | **Virtual machines** |
-   | Resource      | **az104-vm-win** (az104-rg7) |
+   | Setting                 | Value                        |
+   | ----------------------- | ---------------------------- |
+   | Filter by resource type | **Virtual machines**         |
+   | Resource                | **az104-vm-win** (az104-rg7) |
 
 3. Clique em **Apply**
 
@@ -146,14 +146,14 @@ Este alerta monitora a CPU da VM da Semana 2 e notifica via Action Group.
 
 5. Configure:
 
-   | Setting         | Value                |
-   | --------------- | -------------------- |
-   | Threshold       | **Static**           |
-   | Aggregation type| **Average**          |
-   | Operator        | **Greater than**     |
-   | Threshold value | `80`                 |
-   | Check every     | **5 minutes**        |
-   | Lookback period | **5 minutes**        |
+   | Setting          | Value            |
+   | ---------------- | ---------------- |
+   | Threshold        | **Static**       |
+   | Aggregation type | **Average**      |
+   | Operator         | **Greater than** |
+   | Threshold value  | `80`             |
+   | Check every      | **5 minutes**    |
+   | Lookback period  | **5 minutes**    |
 
    > **Conexao com Semana 2:** Voce esta monitorando a mesma VM Windows da Semana 2. Se a carga de trabalho configurada naquela semana ultrapassar 80% de CPU, voce sera notificado automaticamente.
 
@@ -163,14 +163,14 @@ Este alerta monitora a CPU da VM da Semana 2 e notifica via Action Group.
 
 8. Aba **Details**:
 
-   | Setting                   | Value                                |
-   | ------------------------- | ------------------------------------ |
-   | Subscription              | *sua subscription*                   |
-   | Resource group            | `az104-rg-monitor`                   |
-   | Severity                  | **2 - Warning**                      |
-   | Alert rule name           | `az104-vm-win-cpu-alert`             |
-   | Alert rule description    | `Alert when CPU exceeds 80% on az104-vm-win` |
-   | Enable upon creation      | **Checked**                          |
+   | Setting                | Value                                        |
+   | ---------------------- | -------------------------------------------- |
+   | Subscription           | *sua subscription*                           |
+   | Resource group         | `az104-rg-monitor`                           |
+   | Severity               | **2 - Warning**                              |
+   | Alert rule name        | `az104-vm-win-cpu-alert`                     |
+   | Alert rule description | `Alert when CPU exceeds 80% on az104-vm-win` |
+   | Enable upon creation   | **Checked**                                  |
 
 9. Clique em **Review + create** > **Create**
 
@@ -194,23 +194,23 @@ Este alerta dispara quando qualquer VM e deletada — protegendo recursos de tod
 
 6. Configure:
 
-   | Setting    | Value                    |
-   | ---------- | ------------------------ |
-   | Chart period | **Over the last 6 hours** |
-   | Event level  | **Informational** (ou All) |
-   | Status       | **All**                 |
-   | Event initiated by | *(deixe em branco)* |
+   | Setting            | Value                      |
+   | ------------------ | -------------------------- |
+   | Chart period       | **Over the last 6 hours**  |
+   | Event level        | **Informational** (ou All) |
+   | Status             | **All**                    |
+   | Event initiated by | *(deixe em branco)*        |
 
 7. Clique em **Next: Actions** > selecione **az104-ag1**
 
 8. Aba **Details**:
 
-   | Setting            | Value                                |
-   | ------------------ | ------------------------------------ |
-   | Severity           | **1 - Error**                        |
-   | Alert rule name    | `az104-vm-deleted-alert`             |
-   | Description        | `Alert when any VM is deleted`       |
-   | Resource group     | `az104-rg-monitor`                   |
+   | Setting         | Value                          |
+   | --------------- | ------------------------------ |
+   | Severity        | **1 - Error**                  |
+   | Alert rule name | `az104-vm-deleted-alert`       |
+   | Description     | `Alert when any VM is deleted` |
+   | Resource group  | `az104-rg-monitor`             |
 
 9. Clique em **Review + create** > **Create**
 
@@ -257,14 +257,14 @@ Voce gera carga na VM para testar o alerta de CPU.
 
 2. Explore os blades:
 
-   | Blade              | Descricao                                         |
-   | ------------------ | ------------------------------------------------- |
-   | **Overview**       | Resumo de alertas, metricas e servico health      |
-   | **Activity Log**   | Operacoes de controle em todos os recursos         |
-   | **Alerts**         | Alertas ativos e historico                         |
-   | **Metrics**        | Explorer de metricas interativo                    |
-   | **Diagnostic settings** | Configuracao de envio de logs/metricas        |
-   | **Service Health** | Status dos servicos Azure na sua regiao            |
+   | Blade                   | Descricao                                    |
+   | ----------------------- | -------------------------------------------- |
+   | **Overview**            | Resumo de alertas, metricas e servico health |
+   | **Activity Log**        | Operacoes de controle em todos os recursos   |
+   | **Alerts**              | Alertas ativos e historico                   |
+   | **Metrics**             | Explorer de metricas interativo              |
+   | **Diagnostic settings** | Configuracao de envio de logs/metricas       |
+   | **Service Health**      | Status dos servicos Azure na sua regiao      |
 
 3. Em **Alerts**, revise os alertas disparados e resolvidos
 

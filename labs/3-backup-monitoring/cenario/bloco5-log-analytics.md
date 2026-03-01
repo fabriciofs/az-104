@@ -12,46 +12,46 @@ O Azure Monitor coleta metricas basicas automaticamente, mas para observabilidad
 ## Diagrama
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                    Log Analytics & Observabilidade                    │
-│                                                                      │
-│  ┌──────────────────────────────────────────────────────────────┐    │
-│  │  Log Analytics Workspace: az104-law (az104-rg-monitor)       │    │
-│  │                                                              │    │
-│  │  Data Sources:                                               │    │
-│  │  ├─ az104-vm-win  (Semana 2) ◄── Azure Monitor Agent       │    │
-│  │  ├─ az104-vm-linux (Semana 2) ◄── Azure Monitor Agent      │    │
-│  │  └─ Activity Log ◄── Diagnostic Settings                   │    │
-│  │                                                              │    │
-│  │  Queries (KQL):                                              │    │
-│  │  ├─ Heartbeat: verificar conectividade dos agentes          │    │
-│  │  ├─ Perf: metricas de CPU, memoria, disco                  │    │
-│  │  ├─ Event: logs de eventos Windows                          │    │
-│  │  └─ InsightsMetrics: dados de VM Insights                   │    │
-│  └──────────────────────────────────────────────────────────────┘    │
-│                                                                      │
-│  ┌──────────────────────────────────────────────────────────────┐    │
-│  │  VM Insights                                                 │    │
-│  │                                                              │    │
-│  │  ├─ Performance: CPU, memoria, disco, rede das VMs          │    │
-│  │  └─ Map: dependencias entre VMs e servicos                  │    │
-│  │     ├─ az104-vm-win → conexoes de rede                      │    │
-│  │     └─ az104-vm-linux → processos e portas                  │    │
-│  └──────────────────────────────────────────────────────────────┘    │
-│                                                                      │
-│  ┌──────────────────────────────────────────────────────────────┐    │
-│  │  Network Watcher (Semana 1 — VNets)                          │    │
-│  │                                                              │    │
-│  │  ├─ IP Flow Verify: testar NSG rules nas VNets              │    │
-│  │  ├─ Next Hop: verificar routing (route tables da Semana 1)  │    │
-│  │  ├─ Connection Troubleshoot: testar conectividade           │    │
-│  │  │  (entre VMs da Semana 2 via VNets da Semana 1)           │    │
-│  │  ├─ NSG Flow Logs: trafego nos NSGs da Semana 1             │    │
-│  │  └─ Topology: visualizar VNets + subnets + NSGs + VMs      │    │
-│  └──────────────────────────────────────────────────────────────┘    │
-│                                                                      │
-│  → Integra recursos de TODAS as semanas (1, 2 e 3)                   │
-└──────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────┐
+│                    Log Analytics & Observabilidade                 │
+│                                                                    │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │  Log Analytics Workspace: az104-law (az104-rg-monitor)       │  │
+│  │                                                              │  │
+│  │  Data Sources:                                               │  │
+│  │  ├─ az104-vm-win  (Semana 2) ◄── Azure Monitor Agent         │  │
+│  │  ├─ az104-vm-linux (Semana 2) ◄── Azure Monitor Agent        │  │
+│  │  └─ Activity Log ◄── Diagnostic Settings                     │  │
+│  │                                                              │  │
+│  │  Queries (KQL):                                              │  │
+│  │  ├─ Heartbeat: verificar conectividade dos agentes           │  │
+│  │  ├─ Perf: metricas de CPU, memoria, disco                    │  │
+│  │  ├─ Event: logs de eventos Windows                           │  │
+│  │  └─ InsightsMetrics: dados de VM Insights                    │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│                                                                    │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │  VM Insights                                                 │  │
+│  │                                                              │  │
+│  │  ├─ Performance: CPU, memoria, disco, rede das VMs           │  │
+│  │  └─ Map: dependencias entre VMs e servicos                   │  │
+│  │     ├─ az104-vm-win → conexoes de rede                       │  │
+│  │     └─ az104-vm-linux → processos e portas                   │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│                                                                    │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │  Network Watcher (Semana 1 — VNets)                          │  │
+│  │                                                              │  │
+│  │  ├─ IP Flow Verify: testar NSG rules nas VNets               │  │
+│  │  ├─ Next Hop: verificar routing (route tables da Semana 1)   │  │
+│  │  ├─ Connection Troubleshoot: testar conectividade            │  │
+│  │  │  (entre VMs da Semana 2 via VNets da Semana 1)            │  │
+│  │  ├─ NSG Flow Logs: trafego nos NSGs da Semana 1              │  │
+│  │  └─ Topology: visualizar VNets + subnets + NSGs + VMs        │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│                                                                    │
+│  → Integra recursos de TODAS as semanas (1, 2 e 3)                 │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -64,12 +64,12 @@ O Azure Monitor coleta metricas basicas automaticamente, mas para observabilidad
 
 2. Configure:
 
-   | Setting        | Value                                  |
-   | -------------- | -------------------------------------- |
-   | Subscription   | *sua subscription*                     |
-   | Resource group | `az104-rg-monitor`                     |
-   | Name           | `az104-law`                            |
-   | Region         | **East US**                            |
+   | Setting        | Value              |
+   | -------------- | ------------------ |
+   | Subscription   | *sua subscription* |
+   | Resource group | `az104-rg-monitor` |
+   | Name           | `az104-law`        |
+   | Region         | **East US**        |
 
 3. Clique em **Review + Create** > **Create** > **Go to resource**
 
@@ -99,13 +99,13 @@ Voce habilita a coleta de logs e metricas guest das VMs da Semana 2.
 
 5. Aba **Basics**:
 
-   | Setting        | Value                    |
-   | -------------- | ------------------------ |
-   | Rule Name      | `az104-dcr`              |
-   | Subscription   | *sua subscription*       |
-   | Resource Group | `az104-rg-monitor`       |
-   | Region         | **East US**              |
-   | Platform Type  | **All**                  |
+   | Setting        | Value              |
+   | -------------- | ------------------ |
+   | Rule Name      | `az104-dcr`        |
+   | Subscription   | *sua subscription* |
+   | Resource Group | `az104-rg-monitor` |
+   | Region         | **East US**        |
+   | Platform Type  | **All**            |
 
 6. Aba **Resources**: clique em **+ Add resources**
 
@@ -119,10 +119,10 @@ Voce habilita a coleta de logs e metricas guest das VMs da Semana 2.
 
    **Data Source 1 — Performance Counters:**
 
-   | Setting     | Value                      |
-   | ----------- | -------------------------- |
-   | Data source type | **Performance Counters** |
-   | Configure   | **Basic** (CPU, Memory, Disk, Network) |
+   | Setting          | Value                                  |
+   | ---------------- | -------------------------------------- |
+   | Data source type | **Performance Counters**               |
+   | Configure        | **Basic** (CPU, Memory, Disk, Network) |
 
    Destination: **Azure Monitor Logs** > `az104-law`
 
@@ -130,10 +130,10 @@ Voce habilita a coleta de logs e metricas guest das VMs da Semana 2.
 
     **Data Source 2 — Windows Event Logs:**
 
-    | Setting     | Value                      |
-    | ----------- | -------------------------- |
-    | Data source type | **Windows Event Logs** |
-    | Configure   | **Basic** (Application: Critical, Error, Warning; System: Critical, Error, Warning) |
+    | Setting          | Value                                                                               |
+    | ---------------- | ----------------------------------------------------------------------------------- |
+    | Data source type | **Windows Event Logs**                                                              |
+    | Configure        | **Basic** (Application: Critical, Error, Warning; System: Critical, Error, Warning) |
 
     Destination: **Azure Monitor Logs** > `az104-law`
 
@@ -153,10 +153,10 @@ Voce habilita a coleta de logs e metricas guest das VMs da Semana 2.
 
 4. Configure:
 
-   | Setting                              | Value           |
-   | ------------------------------------ | --------------- |
-   | Log Analytics Workspace              | `az104-law`     |
-   | Data collection rule (if prompted)   | `az104-dcr` ou crie uma nova |
+   | Setting                            | Value                        |
+   | ---------------------------------- | ---------------------------- |
+   | Log Analytics Workspace            | `az104-law`                  |
+   | Data collection rule (if prompted) | `az104-dcr` ou crie uma nova |
 
 5. Clique em **Configure** > aguarde o deployment
 
@@ -246,13 +246,13 @@ Voce envia o Activity Log para o workspace, permitindo queries KQL sobre operaco
 
 4. Configure:
 
-   | Setting                     | Value                          |
-   | --------------------------- | ------------------------------ |
-   | Diagnostic setting name     | `az104-activity-to-law`        |
-   | Log categories              | **Selecione todas** (Administrative, Security, ServiceHealth, Alert, etc.) |
-   | Destination: Send to Log Analytics workspace | **Checked**  |
-   | Subscription                | *sua subscription*             |
-   | Log Analytics workspace     | `az104-law`                    |
+   | Setting                                      | Value                                                                      |
+   | -------------------------------------------- | -------------------------------------------------------------------------- |
+   | Diagnostic setting name                      | `az104-activity-to-law`                                                    |
+   | Log categories                               | **Selecione todas** (Administrative, Security, ServiceHealth, Alert, etc.) |
+   | Destination: Send to Log Analytics workspace | **Checked**                                                                |
+   | Subscription                                 | *sua subscription*                                                         |
+   | Log Analytics workspace                      | `az104-law`                                                                |
 
 5. Clique em **Save**
 
@@ -280,17 +280,17 @@ Voce usa o Network Watcher para diagnosticar regras NSG nas VNets da Semana 1.
 
 3. Configure:
 
-   | Setting              | Value                                    |
-   | -------------------- | ---------------------------------------- |
-   | Subscription         | *sua subscription*                       |
-   | Resource group       | `az104-rg7`                              |
-   | Virtual machine      | **az104-vm-win**                         |
-   | Network interface    | *selecione a NIC da VM*                  |
-   | Protocol             | **TCP**                                  |
-   | Direction            | **Inbound**                              |
-   | Local port           | `3389`                                   |
-   | Remote IP address    | `10.20.10.5` (IP simulado na SharedServicesSubnet da Semana 1) |
-   | Remote port          | `*`                                      |
+   | Setting           | Value                                                          |
+   | ----------------- | -------------------------------------------------------------- |
+   | Subscription      | *sua subscription*                                             |
+   | Resource group    | `az104-rg7`                                                    |
+   | Virtual machine   | **az104-vm-win**                                               |
+   | Network interface | *selecione a NIC da VM*                                        |
+   | Protocol          | **TCP**                                                        |
+   | Direction         | **Inbound**                                                    |
+   | Local port        | `3389`                                                         |
+   | Remote IP address | `10.20.10.5` (IP simulado na SharedServicesSubnet da Semana 1) |
+   | Remote port       | `*`                                                            |
 
 4. Clique em **Check**
 
@@ -306,25 +306,25 @@ Voce usa o Network Watcher para diagnosticar regras NSG nas VNets da Semana 1.
 
 2. Configure:
 
-   | Setting              | Value                                    |
-   | -------------------- | ---------------------------------------- |
-   | Subscription         | *sua subscription*                       |
-   | Resource group       | `az104-rg7`                              |
-   | Virtual machine      | **az104-vm-win**                         |
-   | Network interface    | *selecione a NIC da VM*                  |
-   | Source IP address    | *IP privado da az104-vm-win*             |
+   | Setting                | Value                                                      |
+   | ---------------------- | ---------------------------------------------------------- |
+   | Subscription           | *sua subscription*                                         |
+   | Resource group         | `az104-rg7`                                                |
+   | Virtual machine        | **az104-vm-win**                                           |
+   | Network interface      | *selecione a NIC da VM*                                    |
+   | Source IP address      | *IP privado da az104-vm-win*                               |
    | Destination IP address | `10.30.0.4` (IP simulado na ManufacturingVnet da Semana 1) |
 
 3. Clique em **Next hop**
 
 4. Observe o resultado:
 
-   | Resultado esperado | Significado                              |
-   | ------------------ | ---------------------------------------- |
-   | **VNet peering**   | Trafego roteado via peering (Semana 1)   |
+   | Resultado esperado    | Significado                                    |
+   | --------------------- | ---------------------------------------------- |
+   | **VNet peering**      | Trafego roteado via peering (Semana 1)         |
    | **Virtual appliance** | Trafego roteado via NVA (se route table ativa) |
-   | **Internet**       | Sem rota especifica — vai para internet  |
-   | **None**           | Trafego descartado                       |
+   | **Internet**          | Sem rota especifica — vai para internet        |
+   | **None**              | Trafego descartado                             |
 
    > **Conexao com Semana 1:** O Next Hop mostra como as route tables e peerings configurados na Semana 1 afetam o trafego. Se voce configurou UDRs com next hop "Virtual appliance", o resultado mostrara isso.
 
@@ -336,14 +336,14 @@ Voce usa o Network Watcher para diagnosticar regras NSG nas VNets da Semana 1.
 
 2. Configure:
 
-   | Setting              | Value                        |
-   | -------------------- | ---------------------------- |
-   | Source type          | **Virtual machine**          |
-   | Virtual machine      | **az104-vm-win**             |
-   | Destination type     | **Specify manually**         |
+   | Setting                 | Value                          |
+   | ----------------------- | ------------------------------ |
+   | Source type             | **Virtual machine**            |
+   | Virtual machine         | **az104-vm-win**               |
+   | Destination type        | **Specify manually**           |
    | URI, FQDN or IP address | *IP privado de az104-vm-linux* |
-   | Destination port     | `22` (SSH)                   |
-   | Protocol             | **TCP**                      |
+   | Destination port        | `22` (SSH)                     |
+   | Protocol                | **TCP**                        |
 
 3. Clique em **Check**
 
@@ -359,9 +359,9 @@ Voce usa o Network Watcher para diagnosticar regras NSG nas VNets da Semana 1.
 
 2. Configure:
 
-   | Setting        | Value                    |
-   | -------------- | ------------------------ |
-   | Subscription   | *sua subscription*       |
+   | Setting        | Value                           |
+   | -------------- | ------------------------------- |
+   | Subscription   | *sua subscription*              |
    | Resource Group | `az104-rg4` (VNets da Semana 1) |
 
 3. Observe o diagrama visual mostrando:
@@ -399,14 +399,14 @@ Voce cria um alerta baseado em query KQL que dispara quando VMs param de enviar 
 
 5. Configure:
 
-   | Setting            | Value                    |
-   | ------------------ | ------------------------ |
-   | Measurement        | **Table rows**           |
-   | Aggregation type   | **Count**                |
-   | Threshold operator | **Greater than**         |
-   | Threshold value    | `0`                      |
-   | Frequency          | **5 minutes**            |
-   | Lookback period    | **5 minutes**            |
+   | Setting            | Value            |
+   | ------------------ | ---------------- |
+   | Measurement        | **Table rows**   |
+   | Aggregation type   | **Count**        |
+   | Threshold operator | **Greater than** |
+   | Threshold value    | `0`              |
+   | Frequency          | **5 minutes**    |
+   | Lookback period    | **5 minutes**    |
 
 6. Clique em **Next: Actions** > selecione **az104-ag1** (do Bloco 4)
 
@@ -414,12 +414,12 @@ Voce cria um alerta baseado em query KQL que dispara quando VMs param de enviar 
 
 7. Aba **Details**:
 
-   | Setting            | Value                                    |
-   | ------------------ | ---------------------------------------- |
-   | Severity           | **1 - Error**                            |
-   | Alert rule name    | `az104-vm-heartbeat-lost`                |
-   | Description        | `Alert when VM stops sending heartbeats` |
-   | Resource group     | `az104-rg-monitor`                       |
+   | Setting         | Value                                    |
+   | --------------- | ---------------------------------------- |
+   | Severity        | **1 - Error**                            |
+   | Alert rule name | `az104-vm-heartbeat-lost`                |
+   | Description     | `Alert when VM stops sending heartbeats` |
+   | Resource group  | `az104-rg-monitor`                       |
 
 8. Clique em **Review + create** > **Create**
 

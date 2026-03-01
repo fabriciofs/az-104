@@ -12,26 +12,26 @@ O backup (Blocos 1-2) protege contra perda de dados, mas nao garante disponibili
 ## Diagrama
 
 ```
-┌────────────────────────────────────────┐     ┌──────────────────────────────────────┐
-│          East US (Primaria)            │     │         West US (DR)                 │
-│                                        │     │                                      │
-│  ┌──────────────────────────────────┐  │     │  ┌──────────────────────────────────┐│
-│  │ az104-rg7 (Semana 2)            │  │     │  │ az104-rg-dr                      ││
-│  │                                  │  │     │  │                                  ││
-│  │ ┌──────────────┐                │  │     │  │ Recovery Services Vault:          ││
-│  │ │az104-vm-win  │────replicacao──│──│─────│──│─► az104-rsv-dr                    ││
-│  │ │(Windows)     │                │  │     │  │                                  ││
-│  │ └──────────────┘                │  │     │  │ Replicated Items:                ││
-│  │                                  │  │     │  │ ├─ az104-vm-win (replicada)      ││
-│  │ VNet da Semana 1 ◄──────────────│──│─────│──│─► VNet DR (auto-created)          ││
-│  │                                  │  │     │  │                                  ││
-│  │ Storage (Semana 2) ◄────────────│──│─────│──│─► Cache Storage (auto-created)    ││
-│  └──────────────────────────────────┘  │     │  │                                  ││
-│                                        │     │  │ Recovery Plans:                  ││
-│  az104-rg-backup (Bloco 1)            │     │  │ └─ contoso-recovery-plan          ││
-│  └─ az104-rsv (backup local)          │     │  └──────────────────────────────────┘│
-│                                        │     │                                      │
-└────────────────────────────────────────┘     └──────────────────────────────────────┘
+┌───────────────────────────────────────┐     ┌────────────────────────────────────────┐
+│          East US (Primaria)           │     │         West US (DR)                   │
+│                                       │     │                                        │
+│  ┌─────────────────────────────────┐  │     │  ┌──────────────────────────────────┐  │
+│  │ az104-rg7 (Semana 2)            │  │     │  │ az104-rg-dr                      │  │
+│  │                                 │  │     │  │                                  │  │
+│  │ ┌──────────────┐                │  │     │  │ Recovery Services Vault:         │  │
+│  │ │az104-vm-win  │────replicacao──│──│─────│──│─► az104-rsv-dr                   │  │
+│  │ │(Windows)     │                │  │     │  │                                  │  │
+│  │ └──────────────┘                │  │     │  │ Replicated Items:                │  │
+│  │                                 │  │     │  │ ├─ az104-vm-win (replicada)      │  │
+│  │ VNet da Semana 1 ◄──────────────│──│─────│──│─► VNet DR (auto-created)         │  │
+│  │                                 │  │     │  │                                  │  │
+│  │ Storage (Semana 2) ◄────────────│──│─────│──│─► Cache Storage (auto-created)   │  │
+│  └─────────────────────────────────┘  │     │  │                                  │  │
+│                                       │     │  │ Recovery Plans:                  │  │
+│  az104-rg-backup (Bloco 1)            │     │  │ └─ contoso-recovery-plan         │  │
+│  └─ az104-rsv (backup local)          │     │  └──────────────────────────────────┘  │
+│                                       │     │                                        │
+└───────────────────────────────────────┘     └────────────────────────────────────────┘
 ```
 
 > **Nota:** Site Recovery gera custos de replicacao e storage. Configure e teste rapidamente, depois faca cleanup.
@@ -71,11 +71,11 @@ Para Site Recovery, o vault deve estar na **regiao de destino** (DR), diferente 
 
 3. Aba **Source**:
 
-   | Setting              | Value                     |
-   | -------------------- | ------------------------- |
-   | Region               | **East US**               |
-   | Subscription         | *sua subscription*        |
-   | Resource group       | `az104-rg7`               |
+   | Setting                          | Value                |
+   | -------------------------------- | -------------------- |
+   | Region                           | **East US**          |
+   | Subscription                     | *sua subscription*   |
+   | Resource group                   | `az104-rg7`          |
    | Virtual machine deployment model | **Resource Manager** |
 
 4. Clique em **Next**
@@ -88,13 +88,13 @@ Para Site Recovery, o vault deve estar na **regiao de destino** (DR), diferente 
 
 7. Aba **Replication settings** — revise:
 
-   | Setting                    | Value                          |
-   | -------------------------- | ------------------------------ |
-   | Target location            | **West US** (auto)             |
-   | Target resource group      | `az104-rg7-asr` (auto-created) |
-   | Failover virtual network   | auto-created ou selecione uma  |
-   | Target availability        | *aceite default*               |
-   | Replication policy         | `24-hour-retention-policy` (default) |
+   | Setting                  | Value                                |
+   | ------------------------ | ------------------------------------ |
+   | Target location          | **West US** (auto)                   |
+   | Target resource group    | `az104-rg7-asr` (auto-created)       |
+   | Failover virtual network | auto-created ou selecione uma        |
+   | Target availability      | *aceite default*                     |
+   | Replication policy       | `24-hour-retention-policy` (default) |
 
    > **Conceito:** O ASR cria automaticamente recursos na regiao de destino: RG, VNet, storage account para cache. A replication policy define RPO (Recovery Point Objective) e retencao de recovery points.
 
@@ -120,12 +120,12 @@ Um Recovery Plan define a ordem e agrupamento de VMs para failover coordenado.
 
 3. Configure:
 
-   | Setting        | Value                    |
-   | -------------- | ------------------------ |
-   | Name           | `contoso-recovery-plan`  |
-   | Source         | **East US**              |
-   | Target         | **West US**              |
-   | Allow items with deployment model | **Resource Manager** |
+   | Setting                           | Value                   |
+   | --------------------------------- | ----------------------- |
+   | Name                              | `contoso-recovery-plan` |
+   | Source                            | **East US**             |
+   | Target                            | **West US**             |
+   | Allow items with deployment model | **Resource Manager**    |
 
 4. Em **Select items**, selecione **az104-vm-win** > **OK**
 
@@ -156,9 +156,9 @@ Test Failover valida a replicacao sem afetar a producao.
 
 4. Configure:
 
-   | Setting               | Value                                          |
-   | --------------------- | ---------------------------------------------- |
-   | Recovery Point        | **Latest processed** (mais recente)             |
+   | Setting               | Value                                                |
+   | --------------------- | ---------------------------------------------------- |
+   | Recovery Point        | **Latest processed** (mais recente)                  |
    | Azure virtual network | *selecione a VNet auto-created ou crie uma de teste* |
 
    > **Conceito:** Use uma VNet isolada para test failover para evitar conflitos de IP com a VM de producao. O "Latest processed" usa o recovery point mais recente ja processado pelo ASR.
@@ -201,12 +201,12 @@ Test Failover valida a replicacao sem afetar a producao.
 
 2. Revise o blade **Overview**:
 
-   | Metrica                  | Descricao                                              |
-   | ------------------------ | ------------------------------------------------------ |
-   | **Replication health**   | Healthy/Warning/Critical                               |
-   | **RPO**                  | Tempo desde o ultimo recovery point (minutos)          |
-   | **Latest recovery point**| Timestamp do ponto mais recente                        |
-   | **Failover health**      | Se a VM esta pronta para failover                      |
+   | Metrica                   | Descricao                                     |
+   | ------------------------- | --------------------------------------------- |
+   | **Replication health**    | Healthy/Warning/Critical                      |
+   | **RPO**                   | Tempo desde o ultimo recovery point (minutos) |
+   | **Latest recovery point** | Timestamp do ponto mais recente               |
+   | **Failover health**       | Se a VM esta pronta para failover             |
 
 3. Va para **Compute and Network** — revise as configuracoes da VM na regiao de destino
 

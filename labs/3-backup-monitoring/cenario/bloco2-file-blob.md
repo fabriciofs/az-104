@@ -12,39 +12,39 @@ Na Semana 2, voce criou storage accounts com file shares e blob containers no `a
 ## Diagrama
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                    az104-rg-backup (Bloco 1)                         │
-│                                                                      │
-│  ┌──────────────────────────────────────────────────────────────┐    │
-│  │          Recovery Services Vault: az104-rsv (Bloco 1)        │    │
-│  │                                                              │    │
-│  │  Backup Items:                                               │    │
-│  │  ├─ Azure VMs: az104-vm-win, az104-vm-linux ◄── Bloco 1    │    │
-│  │  └─ Azure File Share: az104-share ◄── NOVO (este bloco)     │    │
-│  │                                                              │    │
-│  │  File Share Backup Policy:                                   │    │
-│  │  └─ az104-fs-policy (daily, 30 days)                        │    │
-│  └──────────────────────────────────────────────────────────────┘    │
-│                                                                      │
-│  ┌──────────────────────────────────────────────────────────────┐    │
-│  │  az104-rg6 (Semana 2 — Storage)                              │    │
-│  │                                                              │    │
-│  │  ┌───────────────────────────────────────────────┐           │    │
-│  │  │ Storage Account: az104storageXXX (Semana 2)   │           │    │
-│  │  │                                               │           │    │
-│  │  │ File Shares:                                  │           │    │
-│  │  │ └─ az104-share ──── backup via RSV ✓          │           │    │
-│  │  │                                               │           │    │
-│  │  │ Blob Containers:                              │           │    │
-│  │  │ └─ az104-container                            │           │    │
-│  │  │    ├─ Soft delete: 14 dias ✓ (NOVO)           │           │    │
-│  │  │    └─ Versioning: habilitado ✓ (NOVO)         │           │    │
-│  │  └───────────────────────────────────────────────┘           │    │
-│  └──────────────────────────────────────────────────────────────┘    │
-│                                                                      │
-│  → Vault reutilizado do Bloco 1                                      │
-│  → Storage account reutilizado da Semana 2                           │
-└──────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────┐
+│                    az104-rg-backup (Bloco 1)                       │
+│                                                                    │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │          Recovery Services Vault: az104-rsv (Bloco 1)        │  │
+│  │                                                              │  │
+│  │  Backup Items:                                               │  │
+│  │  ├─ Azure VMs: az104-vm-win, az104-vm-linux ◄── Bloco 1      │  │
+│  │  └─ Azure File Share: az104-share ◄── NOVO (este bloco)      │  │
+│  │                                                              │  │
+│  │  File Share Backup Policy:                                   │  │
+│  │  └─ az104-fs-policy (daily, 30 days)                         │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│                                                                    │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │  az104-rg6 (Semana 2 — Storage)                              │  │
+│  │                                                              │  │
+│  │  ┌───────────────────────────────────────────────┐           │  │
+│  │  │ Storage Account: az104storageXXX (Semana 2)   │           │  │
+│  │  │                                               │           │  │
+│  │  │ File Shares:                                  │           │  │
+│  │  │ └─ az104-share ──── backup via RSV ✓          │           │  │
+│  │  │                                               │           │  │
+│  │  │ Blob Containers:                              │           │  │
+│  │  │ └─ az104-container                            │           │  │
+│  │  │    ├─ Soft delete: 14 dias ✓ (NOVO)           │           │  │
+│  │  │    └─ Versioning: habilitado ✓ (NOVO)         │           │  │
+│  │  └───────────────────────────────────────────────┘           │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│                                                                    │
+│  → Vault reutilizado do Bloco 1                                    │
+│  → Storage account reutilizado da Semana 2                         │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -59,10 +59,10 @@ Voce usa o **mesmo vault** criado no Bloco 1 para proteger o file share da Seman
 
 2. Configure:
 
-   | Setting                     | Value                     |
-   | --------------------------- | ------------------------- |
-   | Where is your workload running? | **Azure**             |
-   | What do you want to back up?    | **Azure File Share**  |
+   | Setting                         | Value                |
+   | ------------------------------- | -------------------- |
+   | Where is your workload running? | **Azure**            |
+   | What do you want to back up?    | **Azure File Share** |
 
 3. Clique em **Backup**
 
@@ -80,14 +80,14 @@ Voce usa o **mesmo vault** criado no Bloco 1 para proteger o file share da Seman
 
 2. Configure:
 
-   | Setting            | Value                    |
-   | ------------------ | ------------------------ |
-   | Policy name        | `az104-fs-policy`        |
-   | Frequency          | **Daily**                |
-   | Time               | `12:00 AM`               |
-   | Timezone           | **(UTC-03:00) Brasilia** |
-   | Retention of daily | **30** days              |
-   | Weekly backup      | **Enabled** — Sunday, retain **8** weeks |
+   | Setting            | Value                                           |
+   | ------------------ | ----------------------------------------------- |
+   | Policy name        | `az104-fs-policy`                               |
+   | Frequency          | **Daily**                                       |
+   | Time               | `12:00 AM`                                      |
+   | Timezone           | **(UTC-03:00) Brasilia**                        |
+   | Retention of daily | **30** days                                     |
+   | Weekly backup      | **Enabled** — Sunday, retain **8** weeks        |
    | Monthly backup     | **Enabled** — First Sunday, retain **6** months |
 
    > **Conceito:** O backup de file share usa **snapshots** do Azure Files. Cada backup cria um share snapshot que captura o estado completo do file share naquele momento. Diferente de VM backup, nao ha transfer to vault — tudo fica na storage account.
@@ -138,10 +138,10 @@ Voce usa o **mesmo vault** criado no Bloco 1 para proteger o file share da Seman
 
 4. Em **Restore Type**, revise as opcoes:
 
-   | Opcao                     | Descricao                                          |
-   | ------------------------- | -------------------------------------------------- |
-   | **Full Share Restore**    | Restaura todo o file share para original ou novo   |
-   | **Item Level Restore**    | Restaura arquivos/pastas individuais               |
+   | Opcao                  | Descricao                                        |
+   | ---------------------- | ------------------------------------------------ |
+   | **Full Share Restore** | Restaura todo o file share para original ou novo |
+   | **Item Level Restore** | Restaura arquivos/pastas individuais             |
 
 5. Selecione **Item Level Restore**
 
@@ -163,12 +163,12 @@ Soft delete protege contra exclusao acidental de blobs no storage account da Sem
 
 3. Em **Recovery**, configure:
 
-   | Setting                                  | Value         |
-   | ---------------------------------------- | ------------- |
-   | Enable soft delete for blobs             | **Checked**   |
-   | Days to retain deleted blobs             | **14**        |
-   | Enable soft delete for containers        | **Checked**   |
-   | Days to retain deleted containers        | **14**        |
+   | Setting                           | Value       |
+   | --------------------------------- | ----------- |
+   | Enable soft delete for blobs      | **Checked** |
+   | Days to retain deleted blobs      | **14**      |
+   | Enable soft delete for containers | **Checked** |
+   | Days to retain deleted containers | **14**      |
 
 4. Clique em **Save**
 
@@ -182,9 +182,9 @@ Soft delete protege contra exclusao acidental de blobs no storage account da Sem
 
 2. Em **Tracking**, configure:
 
-   | Setting                      | Value       |
-   | ---------------------------- | ----------- |
-   | Enable versioning for blobs  | **Checked** |
+   | Setting                     | Value       |
+   | --------------------------- | ----------- |
+   | Enable versioning for blobs | **Checked** |
 
 3. Clique em **Save**
 

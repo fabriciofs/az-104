@@ -12,31 +12,31 @@ Na Semana 2, voce criou VMs Windows (`az104-vm-win`) e Linux (`az104-vm-linux`) 
 ## Diagrama
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                    az104-rg-backup                                    │
-│                                                                      │
-│  ┌──────────────────────────────────────────────────────────────┐    │
-│  │          Recovery Services Vault: az104-rsv                  │    │
-│  │                                                              │    │
-│  │  Backup Policies:                                            │    │
-│  │  ├─ DefaultPolicy (built-in, daily)                         │    │
-│  │  └─ az104-backup-policy (custom, 12h frequency)             │    │
-│  │                                                              │    │
-│  │  Protected Items:                                            │    │
-│  │  ├─ az104-vm-win  (Semana 2, az104-rg7) ◄── Custom policy  │    │
-│  │  └─ az104-vm-linux (Semana 2, az104-rg7) ◄── Default policy│    │
-│  │                                                              │    │
-│  │  → Reutilizado no Bloco 2 (File Share backup)               │    │
-│  │  → Reutilizado no Bloco 3 (Site Recovery)                   │    │
-│  └──────────────────────────────────────────────────────────────┘    │
-│                                                                      │
-│  ┌──────────────────────────────────────────────────────────┐        │
-│  │  az104-rg7 (Semana 2 — VMs)                              │        │
-│  │                                                          │        │
-│  │  ├─ az104-vm-win  (Windows Server) ─── backup ativo ✓   │        │
-│  │  └─ az104-vm-linux (Ubuntu) ────────── backup ativo ✓   │        │
-│  └──────────────────────────────────────────────────────────┘        │
-└──────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────┐
+│                    az104-rg-backup                                 │
+│                                                                    │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │          Recovery Services Vault: az104-rsv                  │  │
+│  │                                                              │  │
+│  │  Backup Policies:                                            │  │
+│  │  ├─ DefaultPolicy (built-in, daily)                          │  │
+│  │  └─ az104-backup-policy (custom, 12h frequency)              │  │
+│  │                                                              │  │
+│  │  Protected Items:                                            │  │
+│  │  ├─ az104-vm-win  (Semana 2, az104-rg7) ◄── Custom policy    │  │
+│  │  └─ az104-vm-linux (Semana 2, az104-rg7) ◄── Default policy  │  │
+│  │                                                              │  │
+│  │  → Reutilizado no Bloco 2 (File Share backup)                │  │
+│  │  → Reutilizado no Bloco 3 (Site Recovery)                    │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│                                                                    │
+│    ┌──────────────────────────────────────────────────────────┐    │
+│    │  az104-rg7 (Semana 2 — VMs)                              │    │
+│    │                                                          │    │
+│    │  ├─ az104-vm-win  (Windows Server) ─── backup ativo ✓    │    │
+│    │  └─ az104-vm-linux (Ubuntu) ────────── backup ativo ✓    │    │
+│    └──────────────────────────────────────────────────────────┘    │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -53,12 +53,12 @@ O vault centraliza backups de VMs, file shares e configuracoes de Site Recovery.
 
 3. Preencha as configuracoes:
 
-   | Setting        | Value                            |
-   | -------------- | -------------------------------- |
-   | Subscription   | *sua subscription*               |
+   | Setting        | Value                                  |
+   | -------------- | -------------------------------------- |
+   | Subscription   | *sua subscription*                     |
    | Resource group | `az104-rg-backup` (crie se necessario) |
-   | Vault name     | `az104-rsv`                      |
-   | Region         | **East US**                      |
+   | Vault name     | `az104-rsv`                            |
+   | Region         | **East US**                            |
 
    > **Conceito:** O Recovery Services Vault deve estar na **mesma regiao** dos recursos que protege (para backup). Para Site Recovery (Bloco 3), o vault de DR ficara na regiao secundaria.
 
@@ -84,15 +84,15 @@ A DefaultPolicy faz backup diario com retencao de 30 dias. Voce cria uma policy 
 
 4. Configure a nova policy:
 
-   | Setting              | Value                               |
-   | -------------------- | ----------------------------------- |
-   | Policy name          | `az104-backup-policy`               |
-   | Frequency            | **Every 12 hours** (Hourly)         |
-   | Time                 | `6:00 AM`                           |
-   | Timezone             | **(UTC-03:00) Brasilia**            |
-   | Instant Restore      | Retain for **2** day(s)             |
-   | Daily backup point   | Retain for **180** days             |
-   | Weekly backup point  | **Enabled** — Sunday, retain **12** weeks |
+   | Setting              | Value                                            |
+   | -------------------- | ------------------------------------------------ |
+   | Policy name          | `az104-backup-policy`                            |
+   | Frequency            | **Every 12 hours** (Hourly)                      |
+   | Time                 | `6:00 AM`                                        |
+   | Timezone             | **(UTC-03:00) Brasilia**                         |
+   | Instant Restore      | Retain for **2** day(s)                          |
+   | Daily backup point   | Retain for **180** days                          |
+   | Weekly backup point  | **Enabled** — Sunday, retain **12** weeks        |
    | Monthly backup point | **Enabled** — First Sunday, retain **12** months |
 
    > **Conceito:** Instant Restore usa snapshots locais para restauracao rapida (minutos). Daily/Weekly/Monthly sao pontos de retencao de longo prazo armazenados no vault.
@@ -117,10 +117,10 @@ Voce protege a VM Windows da Semana 2 usando a policy customizada.
 
 2. Configure:
 
-   | Setting                     | Value                     |
-   | --------------------------- | ------------------------- |
-   | Where is your workload running? | **Azure**             |
-   | What do you want to back up?    | **Virtual machine**   |
+   | Setting                         | Value               |
+   | ------------------------------- | ------------------- |
+   | Where is your workload running? | **Azure**           |
+   | What do you want to back up?    | **Virtual machine** |
 
 3. Clique em **Backup**
 
@@ -146,10 +146,10 @@ Voce protege a VM Windows da Semana 2 usando a policy customizada.
 
 2. Configure:
 
-   | Setting                     | Value                     |
-   | --------------------------- | ------------------------- |
-   | Where is your workload running? | **Azure**             |
-   | What do you want to back up?    | **Virtual machine**   |
+   | Setting                         | Value               |
+   | ------------------------------- | ------------------- |
+   | Where is your workload running? | **Azure**           |
+   | What do you want to back up?    | **Virtual machine** |
 
 3. Clique em **Backup**
 
@@ -175,9 +175,9 @@ Voce protege a VM Windows da Semana 2 usando a policy customizada.
 
 4. Configure:
 
-   | Setting                   | Value                                     |
-   | ------------------------- | ----------------------------------------- |
-   | Retain Backup Till        | *aceite o default (30 dias a partir de hoje)* |
+   | Setting            | Value                                         |
+   | ------------------ | --------------------------------------------- |
+   | Retain Backup Till | *aceite o default (30 dias a partir de hoje)* |
 
 5. Clique em **OK**
 
@@ -197,10 +197,10 @@ Voce protege a VM Windows da Semana 2 usando a policy customizada.
 
 2. Verifique que ambas as VMs aparecem:
 
-   | VM              | Policy              | Last Backup Status |
-   | --------------- | -------------------- | ------------------ |
-   | az104-vm-win    | az104-backup-policy  | Completed          |
-   | az104-vm-linux  | DefaultPolicy        | Warning (initial)  |
+   | VM             | Policy              | Last Backup Status |
+   | -------------- | ------------------- | ------------------ |
+   | az104-vm-win   | az104-backup-policy | Completed          |
+   | az104-vm-linux | DefaultPolicy       | Warning (initial)  |
 
 3. Selecione **az104-vm-win** > clique em **View all restore points**
 
@@ -230,10 +230,10 @@ Voce pratica o processo de restore sem criar recursos permanentes.
 
 5. Configure:
 
-   | Setting               | Value                                  |
-   | --------------------- | -------------------------------------- |
-   | Staging Location      | *selecione um storage account existente (da Semana 2)* |
-   | Resource Group        | `az104-rg-backup`                      |
+   | Setting          | Value                                                  |
+   | ---------------- | ------------------------------------------------------ |
+   | Staging Location | *selecione um storage account existente (da Semana 2)* |
+   | Resource Group   | `az104-rg-backup`                                      |
 
    > **Conexao com Semana 2:** Voce pode usar o storage account criado na Semana 2 como staging location. O restore process usa esse storage para armazenar temporariamente os discos restaurados.
 
