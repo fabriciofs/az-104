@@ -211,6 +211,8 @@ echo "Aguarde 2-3 min antes de prosseguir"
 
 ### Task 1.2: Criar Recovery Services Vault + Backup Policy via Bicep
 
+> **Cobranca:** O vault em si e gratuito, mas cada instancia protegida (VM, File Share) gera cobranca.
+
 Salve como **`bloco1-backup.bicep`**:
 
 ```bicep
@@ -298,6 +300,8 @@ echo "Recovery Services Vault '$VAULT_NAME' + policy 'az104-daily-policy' criado
 ---
 
 ### Task 1.3: Habilitar protecao da VM (CLI)
+
+> **Cobranca:** Habilitar backup gera cobranca por instancia protegida e armazenamento de snapshots.
 
 ```bash
 # ============================================================
@@ -1064,6 +1068,8 @@ echo "ASR infrastructure criada: vault + fabrics + containers + policy + mapping
 
 ### Task 3.3: Habilitar replicacao de VM (CLI)
 
+> **Cobranca:** A replicacao ASR gera cobranca continua por VM replicada. Nao pode ser pausada — so desabilitada.
+
 ```bash
 # ============================================================
 # TASK 3.3 - Habilitar replicacao ASR para VM (CLI)
@@ -1240,6 +1246,8 @@ echo "RG '$RG13' criado para recursos de monitoramento"
 ---
 
 ### Task 4.2: Criar Action Group + Metric Alert via Bicep
+
+> **Cobranca:** Alert rules geram cobranca minima por sinal monitorado.
 
 Salve como **`bloco4-monitor.bicep`**:
 
@@ -1600,6 +1608,8 @@ Metric Alerts e Action Groups sao recursos globais — independem de regiao.
 ---
 
 ### Task 5.1: Criar Log Analytics Workspace via Bicep
+
+> **Cobranca:** O workspace gera cobranca por GB de dados ingeridos.
 
 Salve como **`bloco5-loganalytics.bicep`**:
 
@@ -2208,6 +2218,26 @@ D) Throughput de rede
 IP Flow Verify simula um pacote com source/destination/port/protocol e diz se o NSG permite ou bloqueia, indicando qual regra e responsavel.
 
 </details>
+
+---
+
+## Pausar entre Sessoes
+
+Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos para evitar cobrancas desnecessarias.
+
+```bash
+# Pausar
+az vm deallocate -g az104-rg7 -n az104-vm-win --no-wait
+az vm deallocate -g az104-rg7 -n az104-vm-linux --no-wait
+az monitor metrics alert update -g az104-rg-monitor -n az104-vm-win-cpu-alert --enabled false
+
+# Retomar
+az vm start -g az104-rg7 -n az104-vm-win --no-wait
+az vm start -g az104-rg7 -n az104-vm-linux --no-wait
+az monitor metrics alert update -g az104-rg-monitor -n az104-vm-win-cpu-alert --enabled true
+```
+
+> **Nota:** Desalocar VMs para cobranca de compute, mas discos continuam cobrando. Site Recovery cobra continuamente por VM replicada — desabilite a replicacao via Portal se nao for continuar no mesmo dia.
 
 ---
 

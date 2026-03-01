@@ -1823,6 +1823,8 @@ Write-Host "=== Subnets de $vnetMfg ==="
 
 ### Task 5.2: Criar CoreServicesVM
 
+> **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab.
+
 ```powershell
 # ============================================================
 # TASK 5.2 - Criar CoreServicesVM
@@ -1876,6 +1878,8 @@ Write-Host "$vmCore sendo criada em background. Continue para a proxima task."
 ---
 
 ### Task 5.3: Criar ManufacturingVM
+
+> **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab.
 
 ```powershell
 # ============================================================
@@ -2306,6 +2310,24 @@ D) A resolucao funciona apenas com DNS forwarder
 Private DNS Zones resolvem nomes apenas para VNets com Virtual Network Link configurado. Peering NAO propaga DNS.
 
 </details>
+
+---
+
+## Pausar entre Sessoes
+
+Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos para evitar cobrancas desnecessarias.
+
+```powershell
+# Pausar
+Stop-AzVM -ResourceGroupName az104-rg5 -Name CoreServicesVM -Force
+Stop-AzVM -ResourceGroupName az104-rg5 -Name ManufacturingVM -Force
+
+# Retomar
+Start-AzVM -ResourceGroupName az104-rg5 -Name CoreServicesVM
+Start-AzVM -ResourceGroupName az104-rg5 -Name ManufacturingVM
+```
+
+> **Nota:** Desalocar a VM para a cobranca de compute mas discos e IPs publicos continuam gerando cobranca.
 
 ---
 

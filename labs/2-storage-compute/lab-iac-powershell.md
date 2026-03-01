@@ -558,6 +558,8 @@ Write-Host "  Subnet permitida: $($subnet.Name) (com Service Endpoint)"
 
 ### Task 1.7: Configurar Private Endpoint
 
+> **Cobranca:** Private Endpoints geram cobranca enquanto existirem.
+
 ```powershell
 # ============================================================
 # TASK 1.7 - Criar Private Endpoint para Storage Account
@@ -819,6 +821,8 @@ Write-Host "Criado $rg7 em $location"
 
 ### Task 2.2: Criar VM Windows em Availability Zone
 
+> **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab.
+
 ```powershell
 # ============================================================
 # TASK 2.2 - Criar VM Windows com Availability Zone
@@ -957,6 +961,8 @@ Get-AzVM -ResourceGroupName $rg7 -Name $vmWindowsName -Status |
 ---
 
 ### Task 2.3: Criar VM Linux com SSH Key
+
+> **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab.
 
 ```powershell
 # ============================================================
@@ -1237,6 +1243,8 @@ Write-Host "`nTeste no navegador: http://$winPip"
 ---
 
 ### Task 2.7: Criar VMSS com Autoscale
+
+> **Cobranca:** Cada instancia do VMSS gera cobranca. Escale para 0 ao pausar o lab.
 
 ```powershell
 # ============================================================
@@ -1526,6 +1534,8 @@ Custom Script Extension executa scripts (PowerShell no Windows, Bash no Linux) a
 ---
 
 ### Task 3.1: Criar Resource Group e App Service Plan
+
+> **Cobranca:** O App Service Plan gera cobranca enquanto existir, mesmo com a app parada.
 
 ```powershell
 # ============================================================
@@ -1902,6 +1912,8 @@ Standard (S1) e o tier minimo para deployment slots (5 slots) e autoscale. Free 
 ---
 
 ### Task 4.1: Criar Resource Group e Container Group simples
+
+> **Cobranca:** Container Instances geram cobranca enquanto estiverem Running.
 
 ```powershell
 # ============================================================
@@ -2493,6 +2505,28 @@ D) Ambos sao identicos em funcionalidade
 ACI = container simples, sem orquestracao, sem auto-scaling (voce gerencia manualmente). Container Apps = serverless com auto-scaling (KEDA), traffic splitting, revisions, Dapr integration. ACI tambem suporta multi-container groups, mas Container Apps tem mais recursos de orquestracao.
 
 </details>
+
+---
+
+## Pausar entre Sessoes
+
+Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos para evitar cobrancas desnecessarias.
+
+```powershell
+# Pausar
+Stop-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-win -Force
+Stop-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-linux -Force
+Stop-AzContainerGroup -ResourceGroupName az104-rg9 -Name az104-container-1
+Stop-AzContainerGroup -ResourceGroupName az104-rg9 -Name az104-container-2
+
+# Retomar
+Start-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-win
+Start-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-linux
+Start-AzContainerGroup -ResourceGroupName az104-rg9 -Name az104-container-1
+Start-AzContainerGroup -ResourceGroupName az104-rg9 -Name az104-container-2
+```
+
+> **Nota:** Desalocar VMs para cobranca de compute, mas discos e IPs publicos continuam cobrando. O App Service Plan (Standard S1) cobra enquanto existir — para parar, delete o plano ou rebaixe para Free F1. Container Apps com scale-to-zero nao geram custo quando ociosas.
 
 ---
 

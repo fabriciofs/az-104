@@ -159,6 +159,8 @@ Bloco 5 (Log Analytics & Insights) ←── Depende de Blocos 4
 
 ### Task 1.1: Criar Resource Group e Recovery Services Vault
 
+> **Cobranca:** O vault em si e gratuito, mas cada instancia protegida (VM, File Share) gera cobranca.
+
 ```powershell
 # ============================================================
 # TASK 1.1 - Criar RG e Recovery Services Vault
@@ -303,6 +305,8 @@ Get-AzRecoveryServicesBackupProtectionPolicy -Name $policyName -VaultId $vault.I
 ---
 
 ### Task 1.4: Habilitar backup na VM
+
+> **Cobranca:** Habilitar backup gera cobranca por instancia protegida e armazenamento de snapshots.
 
 ```powershell
 # ============================================================
@@ -1131,6 +1135,8 @@ Write-Host "Mapping: $($containerMapping.FriendlyName) - State: $($containerMapp
 
 ### Task 3.5: Habilitar replicacao da VM
 
+> **Cobranca:** A replicacao ASR gera cobranca continua por VM replicada. Nao pode ser pausada — so desabilitada.
+
 ```powershell
 # ============================================================
 # TASK 3.5 - Habilitar replicacao da VM para a regiao DR
@@ -1447,6 +1453,8 @@ Get-AzActionGroup -ResourceGroupName $rg13 -Name $actionGroupName |
 
 ### Task 4.3: Criar Metric Alert (CPU > 80%)
 
+> **Cobranca:** Alert rules geram cobranca minima por sinal monitorado.
+
 ```powershell
 # ============================================================
 # TASK 4.3 - Criar alerta de metrica: CPU > 80%
@@ -1510,6 +1518,8 @@ Get-AzMetricAlertRuleV2 -ResourceGroupName $rg13 -Name $alertRuleName |
 ---
 
 ### Task 4.4: Configurar Diagnostic Settings na VM
+
+> **Cobranca:** O workspace gera cobranca por GB de dados ingeridos.
 
 ```powershell
 # ============================================================
@@ -2228,6 +2238,24 @@ D) Diagnostic Settings
 **Connection Monitor** monitora conectividade de forma continua, testando periodicamente a conexao entre endpoints. IP Flow Verify e Next Hop sao verificacoes pontuais (on-demand).
 
 </details>
+
+---
+
+## Pausar entre Sessoes
+
+Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos para evitar cobrancas desnecessarias.
+
+```powershell
+# Pausar
+Stop-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-win -Force
+Stop-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-linux -Force
+
+# Retomar
+Start-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-win
+Start-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-linux
+```
+
+> **Nota:** Desalocar VMs para cobranca de compute, mas discos continuam cobrando. Site Recovery cobra continuamente por VM replicada — desabilite a replicacao via Portal se nao for continuar no mesmo dia.
 
 ---
 

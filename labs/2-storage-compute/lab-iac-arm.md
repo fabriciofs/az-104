@@ -633,6 +633,8 @@ az storage account show -g "$RG6" -n "$STORAGE_ACCOUNT_NAME" \
 
 ### Task 1.5: Private Endpoint + Private DNS Zone via ARM
 
+> **Cobranca:** Private Endpoints geram cobranca enquanto existirem.
+
 Salve como **`bloco1-private-endpoint.json`**:
 
 ```json
@@ -913,6 +915,8 @@ az deployment group create \
 
 ### Task 2.2: Windows VM via ARM
 
+> **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab.
+
 Salve como **`bloco2-vm-windows.json`**:
 
 ```json
@@ -1119,6 +1123,8 @@ az vm show -g "$RG7" -n "$VM_WIN_NAME" -d \
 ---
 
 ### Task 2.3: Linux VM (SSH key) via ARM
+
+> **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab.
 
 Salve como **`bloco2-vm-linux.json`**:
 
@@ -1357,6 +1363,8 @@ az vm show -g "$RG7" -n "$VM_WIN_NAME" \
 ---
 
 ### Task 2.5: VMSS com Autoscale via ARM
+
+> **Cobranca:** Cada instancia do VMSS gera cobranca. Escale para 0 ao pausar o lab.
 
 Salve como **`bloco2-vmss.json`**:
 
@@ -1818,6 +1826,8 @@ az group create --name "$RG8" --location "$LOCATION"
 
 ### Task 3.2: App Service Plan + Web App + Slot via ARM
 
+> **Cobranca:** O App Service Plan gera cobranca enquanto existir, mesmo com a app parada.
+
 Salve como **`bloco3-webapp.json`**:
 
 ```json
@@ -2159,6 +2169,8 @@ az group create --name "$RG9" --location "$LOCATION"
 ---
 
 ### Task 4.2: Container Group via ARM
+
+> **Cobranca:** Container Instances geram cobranca enquanto estiverem Running.
 
 Salve como **`bloco4-aci.json`**:
 
@@ -2777,6 +2789,30 @@ A) Apenas ACI  B) Apenas Container Apps  C) Ambos  D) Nenhum
 A) Deletar v1  B) Alterar weights para 0/100  C) Criar nova revisao  D) Swap como App Service
 
 <details><summary>Ver resposta</summary>**Resposta: B) Alterar weights** — mude traffic para latestRevision: true com weight: 100.</details>
+
+---
+
+## Pausar entre Sessoes
+
+Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos para evitar cobrancas desnecessarias.
+
+```bash
+# Pausar
+az vm deallocate -g az104-rg7 -n az104-vm-win --no-wait
+az vm deallocate -g az104-rg7 -n az104-vm-linux --no-wait
+az vmss scale -g az104-rg7 -n az104-vmss --new-capacity 0
+az container stop -g az104-rg9 -n az104-container-1
+az container stop -g az104-rg9 -n az104-container-2
+
+# Retomar
+az vm start -g az104-rg7 -n az104-vm-win --no-wait
+az vm start -g az104-rg7 -n az104-vm-linux --no-wait
+az vmss scale -g az104-rg7 -n az104-vmss --new-capacity 1
+az container start -g az104-rg9 -n az104-container-1
+az container start -g az104-rg9 -n az104-container-2
+```
+
+> **Nota:** Desalocar VMs para cobranca de compute, mas discos e IPs publicos continuam cobrando. O App Service Plan (Standard S1) cobra enquanto existir — para parar, delete o plano ou rebaixe para Free F1. Container Apps com scale-to-zero nao geram custo quando ociosas.
 
 ---
 

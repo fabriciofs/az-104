@@ -391,6 +391,8 @@ az vm show -g "$RG11" -n "az104-vm-backup" \
 
 ### Task 1.3: Recovery Services Vault via ARM
 
+> **Cobranca:** O vault em si e gratuito, mas cada instancia protegida (VM, File Share) gera cobranca.
+
 Salve como **`bloco1-rsv.json`**:
 
 ```json
@@ -638,6 +640,8 @@ az backup policy show \
 ---
 
 ### Task 1.5: Habilitar backup da VM (CLI)
+
+> **Cobranca:** Habilitar backup gera cobranca por instancia protegida e armazenamento de snapshots.
 
 > **POR QUE CLI E NAO ARM?** Habilitar protecao de backup (Protection Intent)
 > e uma operacao que depende do estado atual da VM e do vault. Embora exista
@@ -1400,6 +1404,8 @@ az rest --method GET \
 
 ### Task 3.3: Container Mapping e Replicacao (CLI)
 
+> **Cobranca:** A replicacao ASR gera cobranca continua por VM replicada. Nao pode ser pausada — so desabilitada.
+
 > **POR QUE CLI?** O Container Mapping (associar container primario ao de recovery)
 > e a habilitacao de replicacao de VMs envolvem operacoes complexas com
 > multiplas dependencias. A CLI e mais prática neste caso.
@@ -1652,6 +1658,8 @@ az monitor action-group show \
 ---
 
 ### Task 4.2: Metric Alert Rule via ARM
+
+> **Cobranca:** Alert rules geram cobranca minima por sinal monitorado.
 
 Salve como **`bloco4-metric-alert.json`**:
 
@@ -1990,6 +1998,8 @@ D) O action group e desabilitado
 ---
 
 ### Task 5.1: Log Analytics Workspace via ARM
+
+> **Cobranca:** O workspace gera cobranca por GB de dados ingeridos.
 
 Salve como **`bloco5-law.json`**:
 
@@ -2629,6 +2639,26 @@ Quando omitido, assume o RG do deploy atual.
 Formato completo: `[resourceId(subscriptionId, resourceGroupName, 'type', 'name')]`
 
 </details>
+
+---
+
+## Pausar entre Sessoes
+
+Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos para evitar cobrancas desnecessarias.
+
+```bash
+# Pausar
+az vm deallocate -g az104-rg7 -n az104-vm-win --no-wait
+az vm deallocate -g az104-rg7 -n az104-vm-linux --no-wait
+az monitor metrics alert update -g az104-rg-monitor -n az104-vm-win-cpu-alert --enabled false
+
+# Retomar
+az vm start -g az104-rg7 -n az104-vm-win --no-wait
+az vm start -g az104-rg7 -n az104-vm-linux --no-wait
+az monitor metrics alert update -g az104-rg-monitor -n az104-vm-win-cpu-alert --enabled true
+```
+
+> **Nota:** Desalocar VMs para cobranca de compute, mas discos continuam cobrando. Site Recovery cobra continuamente por VM replicada — desabilite a replicacao via Portal se nao for continuar no mesmo dia.
 
 ---
 

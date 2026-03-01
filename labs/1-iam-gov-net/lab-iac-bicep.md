@@ -1647,6 +1647,8 @@ echo "Subnets Core e Manufacturing adicionadas"
 
 ### Task 5.2-5.3: Criar VMs via Bicep
 
+> **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab.
+
 Salve como **`bloco5-vms.bicep`**:
 
 ```bicep
@@ -2173,6 +2175,24 @@ A) NSG  B) UDR com next hop NVA  C) IP forwarding apenas  D) VPN Gateway
 A) Sim  B) Falha — sem link  C) Com forwarded traffic  D) Com DNS forwarder
 
 <details><summary>Ver resposta</summary>**Resposta: B)** Peering NAO propaga DNS.</details>
+
+---
+
+## Pausar entre Sessoes
+
+Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos para evitar cobrancas desnecessarias.
+
+```bash
+# Pausar
+az vm deallocate -g az104-rg5 -n CoreServicesVM --no-wait
+az vm deallocate -g az104-rg5 -n ManufacturingVM --no-wait
+
+# Retomar
+az vm start -g az104-rg5 -n CoreServicesVM --no-wait
+az vm start -g az104-rg5 -n ManufacturingVM --no-wait
+```
+
+> **Nota:** Desalocar a VM para a cobranca de compute mas discos e IPs publicos continuam gerando cobranca.
 
 ---
 

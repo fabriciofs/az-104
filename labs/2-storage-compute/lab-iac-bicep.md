@@ -552,6 +552,8 @@ az storage account management-policy show \
 
 ### Task 1.5: Private Endpoint + Private DNS Zone
 
+> **Cobranca:** Private Endpoints geram cobranca enquanto existirem.
+
 Salve como **`bloco1-private-endpoint.bicep`**:
 
 ```bicep
@@ -803,6 +805,8 @@ Cada sub-recurso tem sua propria DNS zone: blob, file, table, queue, web, dfs.
 
 ### Task 2.1: Criar Windows VM via Bicep
 
+> **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab.
+
 Salve como **`bloco2-windows-vm.bicep`**:
 
 ```bicep
@@ -968,6 +972,8 @@ echo "RDP: mstsc /v:$WIN_PIP"
 ---
 
 ### Task 2.2: Criar Linux VM com SSH via Bicep
+
+> **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab.
 
 Salve como **`bloco2-linux-vm.bicep`**:
 
@@ -1265,6 +1271,8 @@ echo "Teste: curl http://$WIN_PIP (ou abra no browser)"
 ---
 
 ### Task 2.5: Criar VMSS com Autoscale via Bicep
+
+> **Cobranca:** Cada instancia do VMSS gera cobranca. Escale para 0 ao pausar o lab.
 
 Salve como **`bloco2-vmss.bicep`**:
 
@@ -1649,6 +1657,8 @@ A metrica precisa estar acima do threshold durante toda a `timeWindow` (5 min). 
 
 ### Task 3.1: Criar App Service Plan + Web App + Slot via Bicep
 
+> **Cobranca:** O App Service Plan gera cobranca enquanto existir, mesmo com a app parada.
+
 Salve como **`bloco3-webapp.bicep`**:
 
 ```bicep
@@ -1981,6 +1991,8 @@ Apps no mesmo plan compartilham os mesmos workers. Autoscale atua no plan, nao e
 ---
 
 ### Task 4.1: Criar Container Group via Bicep
+
+> **Cobranca:** Container Instances geram cobranca enquanto estiverem Running.
 
 Salve como **`bloco4-aci.bicep`**:
 
@@ -2404,6 +2416,30 @@ D) Container Apps requer Kubernetes
 Container Apps oferece autoscale baseado em regras, revisions, ingress, e scale to zero. ACI e mais simples — sem orquestracao.
 
 </details>
+
+---
+
+## Pausar entre Sessoes
+
+Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos para evitar cobrancas desnecessarias.
+
+```bash
+# Pausar
+az vm deallocate -g az104-rg7 -n az104-vm-win --no-wait
+az vm deallocate -g az104-rg7 -n az104-vm-linux --no-wait
+az vmss scale -g az104-rg7 -n az104-vmss --new-capacity 0
+az container stop -g az104-rg9 -n az104-container-1
+az container stop -g az104-rg9 -n az104-container-2
+
+# Retomar
+az vm start -g az104-rg7 -n az104-vm-win --no-wait
+az vm start -g az104-rg7 -n az104-vm-linux --no-wait
+az vmss scale -g az104-rg7 -n az104-vmss --new-capacity 1
+az container start -g az104-rg9 -n az104-container-1
+az container start -g az104-rg9 -n az104-container-2
+```
+
+> **Nota:** Desalocar VMs para cobranca de compute, mas discos e IPs publicos continuam cobrando. O App Service Plan (Standard S1) cobra enquanto existir — para parar, delete o plano ou rebaixe para Free F1. Container Apps com scale-to-zero nao geram custo quando ociosas.
 
 ---
 
