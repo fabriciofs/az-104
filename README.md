@@ -35,8 +35,7 @@ az-104/
 │   └── video-01 a video-22.md         # Notas de 22 video-aulas
 │
 └── labs/                               # Pratica hands-on
-    ├── iam-gov-net/                    # IAM, Governance e Networking (Labs 01-06)
-    │   ├── lab-blocos-independentes.md  # Conceitos via Portal
+    ├── 1-iam-gov-net/                  # IAM, Governance e Networking (Labs 01-06)
     │   ├── lab-cenario-contoso.md       # Cenario interconectado
     │   ├── lab-iac-powershell.md        # Variante PowerShell
     │   ├── lab-iac-arm.md               # Variante ARM Templates
@@ -44,8 +43,7 @@ az-104/
     │   ├── simulado-iam-gov-net.md      # 18 questoes (sem respostas)
     │   └── simulado-iam-gov-net-solucao.md  # Gabarito comentado
     │
-    ├── storage-compute/                # Storage e Compute (Labs 07-09c)
-    │   ├── lab-blocos-independentes.md  # Conceitos via Portal
+    ├── 2-storage-compute/              # Storage e Compute (Labs 07-09c)
     │   ├── lab-cenario-contoso.md       # Cenario interconectado
     │   ├── lab-iac-powershell.md        # Variante PowerShell
     │   ├── lab-iac-arm.md               # Variante ARM Templates
@@ -53,8 +51,7 @@ az-104/
     │   ├── simulado-storage-compute.md  # 18 questoes (sem respostas)
     │   └── simulado-storage-compute-solucao.md  # Gabarito comentado
     │
-    └── backup-monitoring/              # Backup, Recovery e Monitoring (Labs 10-11)
-        ├── lab-blocos-independentes.md  # Conceitos via Portal
+    └── 3-backup-monitoring/            # Backup, Recovery e Monitoring (Labs 10-11)
         ├── lab-cenario-contoso.md       # Cenario interconectado
         ├── lab-iac-powershell.md        # Variante PowerShell
         ├── lab-iac-arm.md               # Variante ARM Templates
@@ -95,21 +92,20 @@ az-104/
 ### Ordem dos labs
 
 ```
-Bloco 1: iam-gov-net (Dominios 1 e 4)
-  1. lab-blocos-independentes.md    → Primeira passagem (conceitos via Portal)
-  2. lab-cenario-contoso.md         → Segunda passagem (cenario interconectado)
-  3. lab-iac-powershell.md  ─┐
-  4. lab-iac-bicep.md        ├──── Escolha 1+ para praticar IaC
-  5. lab-iac-arm.md         ─┘
-  6. simulado-iam-gov-net.md       → Validacao final
+Bloco 1: 1-iam-gov-net (Dominios 1 e 4)
+  1. lab-cenario-contoso.md         → Cenario interconectado Contoso Corp
+  2. lab-iac-powershell.md  ─┐
+  3. lab-iac-bicep.md        ├──── Escolha 1+ para praticar IaC
+  4. lab-iac-arm.md         ─┘
+  5. simulado-iam-gov-net.md       → Validacao final
 
-Bloco 2: storage-compute (Dominios 2 e 3)
-  1-6. Mesma sequencia acima com arquivos do storage-compute/
-  7. simulado-storage-compute.md   → Validacao final
+Bloco 2: 2-storage-compute (Dominios 2 e 3)
+  1-5. Mesma sequencia acima com arquivos do 2-storage-compute/
+  6. simulado-storage-compute.md   → Validacao final
 
-Bloco 3: backup-monitoring (Dominios 2 e 5)
-  1-6. Mesma sequencia acima com arquivos do backup-monitoring/
-  7. simulado-backup-monitoring.md → Validacao final
+Bloco 3: 3-backup-monitoring (Dominios 2 e 5)
+  1-5. Mesma sequencia acima com arquivos do 3-backup-monitoring/
+  6. simulado-backup-monitoring.md → Validacao final
 ```
 
 ## Links Uteis

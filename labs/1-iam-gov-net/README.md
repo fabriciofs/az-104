@@ -8,7 +8,6 @@ Labs e simulado cobrindo os 5 dominios fundamentais do AZ-104: Identity, Governa
 
 | Arquivo                                                    | Descricao                                         | Ferramenta               |
 | ---------------------------------------------------------- | ------------------------------------------------- | ------------------------ |
-| [lab-blocos-independentes.md](lab-blocos-independentes.md) | Blocos independentes — conceitos via Portal       | Portal                   |
 | [lab-cenario-contoso.md](lab-cenario-contoso.md)           | Cenario Contoso Corp — exercicios interconectados | Portal                   |
 | [lab-iac-powershell.md](lab-iac-powershell.md)             | Reproduz o lab v2 inteiro via PowerShell          | Cloud Shell (PowerShell) |
 | [lab-iac-arm.md](lab-iac-arm.md)                           | Reproduz o lab v2 inteiro via ARM Templates JSON  | Cloud Shell (Bash) + CLI |
@@ -24,12 +23,11 @@ Labs e simulado cobrindo os 5 dominios fundamentais do AZ-104: Identity, Governa
 ## Ordem sugerida
 
 ```
-1. lab-blocos-independentes.md  Primeira passagem (conceitos via Portal)
-2. lab-cenario-contoso.md       Segunda passagem (cenario interconectado)
-3. lab-iac-powershell.md  ─┐
-4. lab-iac-bicep.md        ├─  Escolha 1 ou mais para praticar IaC
-5. lab-iac-arm.md         ─┘
-6. simulado-iam-gov-net.md     Validacao final (sem consultar labs)
+1. lab-cenario-contoso.md       Cenario interconectado Contoso Corp
+2. lab-iac-powershell.md  ─┐
+3. lab-iac-bicep.md        ├─  Escolha 1 ou mais para praticar IaC
+4. lab-iac-arm.md         ─┘
+5. simulado-iam-gov-net.md     Validacao final (sem consultar labs)
 ```
 
 ## Dominios AZ-104 cobertos

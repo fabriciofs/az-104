@@ -8,7 +8,6 @@ Labs e simulado cobrindo os dominios 2 e 5 do AZ-104: Backup de VMs e File Share
 
 | Arquivo                                        | Descricao                                                    | Ferramenta               |
 | ---------------------------------------------- | ------------------------------------------------------------ | ------------------------ |
-| [lab-blocos-independentes.md](lab-blocos-independentes.md) | Blocos independentes — conceitos via Portal                  | Portal                   |
 | [lab-cenario-contoso.md](lab-cenario-contoso.md)           | Cenario Contoso Corp — exercicios interconectados            | Portal                   |
 | [lab-iac-powershell.md](lab-iac-powershell.md) | Reproduz o lab inteiro via PowerShell                        | Cloud Shell (PowerShell) |
 | [lab-iac-arm.md](lab-iac-arm.md)               | Reproduz o lab inteiro via ARM Templates JSON                | Cloud Shell (Bash) + CLI |
@@ -24,17 +23,16 @@ Labs e simulado cobrindo os dominios 2 e 5 do AZ-104: Backup de VMs e File Share
 ## Ordem sugerida
 
 ```
-1. lab-blocos-independentes.md  Primeira passagem (conceitos via Portal)
-2. lab-cenario-contoso.md       Segunda passagem (cenario interconectado)
-3. lab-iac-powershell.md  ─┐
-4. lab-iac-bicep.md        ├─  Escolha 1 ou mais para praticar IaC
-5. lab-iac-arm.md         ─┘
-6. simulado-backup-monitoring.md  Validacao final (sem consultar labs)
+1. lab-cenario-contoso.md       Cenario interconectado Contoso Corp
+2. lab-iac-powershell.md  ─┐
+3. lab-iac-bicep.md        ├─  Escolha 1 ou mais para praticar IaC
+4. lab-iac-arm.md         ─┘
+5. simulado-backup-monitoring.md  Validacao final (sem consultar labs)
 ```
 
 ## Pre-requisitos
 
-- Conclusao dos blocos [iam-gov-net](../iam-gov-net/) e [storage-compute](../storage-compute/) (VMs, Storage e VNets sao referenciados)
+- Conclusao dos blocos [1-iam-gov-net](../1-iam-gov-net/) e [2-storage-compute](../2-storage-compute/) (VMs, Storage e VNets sao referenciados)
 - Assinatura Azure ativa com permissoes de **Owner** ou **Contributor** na subscription
 - VMs existentes nos RGs da Semana 2 (para backup e monitoramento)
 
