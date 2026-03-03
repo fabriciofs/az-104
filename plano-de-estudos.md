@@ -1,11 +1,28 @@
 # Plano de Estudos - AZ-104 (Azure Administrator)
 
+## Calendário — Março 2026
+
+|           Seg            |          Ter           |          Qua           |          Qui           |            Sex            |           Sáb            |           Dom            |
+| :----------------------: | :--------------------: | :--------------------: | :--------------------: | :-----------------------: | :----------------------: | :----------------------: |
+|                          |                        |                        |                        |                           |                          |            1             |
+|            2             |           3            |           4            |           5            |             6             | [**7** 📖](#dia-07) 9h50  | [**8** 📖](#dia-08) 4h50  |
+|  [**9** 📖](#dia-09) 5h   | [**10** 📖](#dia-10) 5h | [**11** 📖](#dia-11) 5h | [**12** 📖](#dia-12) 5h |            13             |            14            |            15            |
+|  [**16** 🧪](#dia-16) 5h  | [**17** 🧪](#dia-17) 5h | [**18** 🧪](#dia-18) 5h | [**19** 🧪](#dia-19) 5h |  [**20** 🧪](#dia-20) 5h   | [**21** 🧪](#dia-21) 9h50 | [**22** 🧪](#dia-22) 4h50 |
+|  [**23** 🔥](#dia-23) 5h  | [**24** 🔥](#dia-24) 5h |           25           | [**26** 🔥](#dia-26) 5h | [**27** 🔥](#dia-27) 11h50 | [**28** 🔥](#dia-28) 9h50 | [**29** 🔥](#dia-29) 9h50 |
+| [**30** 🎯](#dia-30) 8h20 |          31 🏆          |                        |                        |                           |                          |                          |
+
+> 📖 Teoria · 🧪 Labs + Simulados · 🔥 Sprint Final · 🎯 Véspera · 🏆 Prova — **Total: ~129h**
+
+---
+
 # Semana 1: Identity, Governance e Networking — Teoria (07/03 - 08/03)
 
 **Objetivo:** Vídeos 01-10 + MS Learn Identity/Governance/Networking
 **Horas:** 14h40 (Sábado + Domingo)
 
 ---
+
+<a id="dia-07"></a>
 
 ## 07/03 - Sábado (9h50)
 
@@ -34,15 +51,17 @@
 
 ### Noite (18:30-22:00) — 3h30
 
-| Conteúdo                    | Duração | Link                                                                                              |
-| --------------------------- | ------- | ------------------------------------------------------------------------------------------------- |
-| 🎥 Video 07: Azure Resources | 34 min  | [YouTube](https://www.youtube.com/watch?v=Ex7EF1chJiA)                                            |
-| 📄 Notas do vídeo 07         | 10 min  | [guias/video-07](guias/video-07-administer-azure-resources.md)                                    |
-| 📘 MS Learn: ARM Templates   | 40 min  | [MS Learn](https://learn.microsoft.com/pt-br/training/modules/configure-resources-arm-templates/) |
-| 📝 **MS Learn Assessment #0** (diagnóstico) | 1h | [Assessment](https://learn.microsoft.com/pt-br/credentials/certifications/azure-administrator/practice/assessment?assessment-type=practice&assessmentId=21&practice-assessment-type=certification) |
-| 📝 Análise de erros — anotar tópicos fracos  | 30 min | |
+| Conteúdo                                   | Duração | Link                                                                                                                                                                                               |
+| ------------------------------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🎥 Video 07: Azure Resources                | 34 min  | [YouTube](https://www.youtube.com/watch?v=Ex7EF1chJiA)                                                                                                                                             |
+| 📄 Notas do vídeo 07                        | 10 min  | [guias/video-07](guias/video-07-administer-azure-resources.md)                                                                                                                                     |
+| 📘 MS Learn: ARM Templates                  | 40 min  | [MS Learn](https://learn.microsoft.com/pt-br/training/modules/configure-resources-arm-templates/)                                                                                                  |
+| 📝 **MS Learn Assessment #0** (diagnóstico) | 1h      | [Assessment](https://learn.microsoft.com/pt-br/credentials/certifications/azure-administrator/practice/assessment?assessment-type=practice&assessmentId=21&practice-assessment-type=certification) |
+| 📝 Análise de erros — anotar tópicos fracos | 30 min  |                                                                                                                                                                                                    |
 
 ---
+
+<a id="dia-08"></a>
 
 ## 08/03 - Domingo (4h50)
 
@@ -70,6 +89,8 @@
 
 ---
 
+<a id="dia-09"></a>
+
 ## 09/03 - Segunda-feira (5h)
 
 ### Tarde (16:00-17:30) — 1h30
@@ -90,6 +111,8 @@
 | 📘 MS Learn: Load Balancer   | 35 min  | [MS Learn](https://learn.microsoft.com/pt-br/training/modules/configure-azure-load-balancer/) |
 
 ---
+
+<a id="dia-10"></a>
 
 ## 10/03 - Terça-feira (5h)
 
@@ -114,6 +137,8 @@
 
 ---
 
+<a id="dia-11"></a>
+
 ## 11/03 - Quarta-feira (5h)
 
 ### Tarde (16:00-17:30) — 1h30
@@ -134,6 +159,8 @@
 | 📘 MS Learn: Configurar VMs             | 40 min  | [MS Learn](https://learn.microsoft.com/pt-br/training/modules/configure-virtual-machines/) |
 
 ---
+
+<a id="dia-12"></a>
 
 ## 12/03 - Quinta-feira (5h)
 
@@ -164,6 +191,8 @@
 
 ---
 
+<a id="dia-16"></a>
+
 ## 16/03 - Segunda-feira (5h)
 
 ### Tarde (16:00-17:30) — 1h30
@@ -175,14 +204,16 @@
 
 ### Noite (18:30-22:00) — 3h30
 
-| Conteúdo                           | Duração | Link                                                                 |
-| ---------------------------------- | ------- | -------------------------------------------------------------------- |
+| Conteúdo                                             | Duração | Link                                                                 |
+| ---------------------------------------------------- | ------- | -------------------------------------------------------------------- |
 | 🧪 **Lab 1.1 (1ª vez):** Identity                     | 40 min  | [bloco1-identity](labs/1-iam-gov-net/cenario/bloco1-identity.md)     |
 | 🧪 **Lab 1.2 (1ª vez):** Governance                   | 40 min  | [bloco2-governance](labs/1-iam-gov-net/cenario/bloco2-governance.md) |
 | 📄 Revisão: notas vídeos 03-06 (Identity/Governance)  | 40 min  | [guias/](guias/)                                                     |
-| 📄 Estudo direcionado: pontos fracos do Assessment #0  | 30 min  |                                                                      |
+| 📄 Estudo direcionado: pontos fracos do Assessment #0 | 30 min  |                                                                      |
 
 ---
+
+<a id="dia-17"></a>
 
 ## 17/03 - Terça-feira (5h)
 
@@ -195,14 +226,16 @@
 
 ### Noite (18:30-22:00) — 3h30
 
-| Conteúdo                           | Duração | Link                                                                 |
-| ---------------------------------- | ------- | -------------------------------------------------------------------- |
-| 🧪 **Lab 1.3 (1ª vez):** IaC                          | 50 min  | [bloco3-iac](labs/1-iam-gov-net/cenario/bloco3-iac.md)              |
+| Conteúdo                                             | Duração | Link                                                                 |
+| ---------------------------------------------------- | ------- | -------------------------------------------------------------------- |
+| 🧪 **Lab 1.3 (1ª vez):** IaC                          | 50 min  | [bloco3-iac](labs/1-iam-gov-net/cenario/bloco3-iac.md)               |
 | 🧪 **Lab 1.4 (1ª vez):** Networking                   | 60 min  | [bloco4-networking](labs/1-iam-gov-net/cenario/bloco4-networking.md) |
 | 📄 Revisão: notas vídeos 08-10 (Virtual Networking)   | 30 min  | [guias/](guias/)                                                     |
 | 📄 Revisão: notas vídeos 11-13 (Connectivity/Traffic) | 30 min  | [guias/](guias/)                                                     |
 
 ---
+
+<a id="dia-18"></a>
 
 ## 18/03 - Quarta-feira (5h)
 
@@ -222,6 +255,8 @@
 | 📝 Análise de erros S1                | 30 min  | [solução](labs/1-iam-gov-net/simulado-iam-gov-net-solucao.md)            |
 
 ---
+
+<a id="dia-19"></a>
 
 ## 19/03 - Quinta-feira (5h)
 
@@ -244,6 +279,8 @@
 
 ---
 
+<a id="dia-20"></a>
+
 ## 20/03 - Sexta-feira (5h)
 
 ### Tarde (16:00-17:30) — 1h30
@@ -263,6 +300,8 @@
 | 📋 **Caso 2:** Instituto Saber Digital (fácil) | 30 min  | [caso2](estudos_de_caso/caso2-escola-monitoramento.md)                           |
 
 ---
+
+<a id="dia-21"></a>
 
 ## 21/03 - Sábado (9h50)
 
@@ -286,30 +325,32 @@
 
 ### Noite (18:30-22:00) — 3h30
 
-| Conteúdo                                             | Duração | Link                                                                                                               |
-| ---------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------ |
-| 📋 **Prático P1:** Migração de Datacenter (conclusão) | 1h30    | [pratico1](estudos_de_caso/pratico1-migracao-datacenter.md)                                                        |
+| Conteúdo                                             | Duração | Link                                                                                                                                                                                               |
+| ---------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 📋 **Prático P1:** Migração de Datacenter (conclusão) | 1h30    | [pratico1](estudos_de_caso/pratico1-migracao-datacenter.md)                                                                                                                                        |
 | 📝 **MS Learn Assessment #1**                         | 1h      | [Assessment](https://learn.microsoft.com/pt-br/credentials/certifications/azure-administrator/practice/assessment?assessment-type=practice&assessmentId=21&practice-assessment-type=certification) |
-| 📝 Análise de erros                                   | 1h      |                                                                                                                    |
+| 📝 Análise de erros                                   | 1h      |                                                                                                                                                                                                    |
 
 ---
+
+<a id="dia-22"></a>
 
 ## 22/03 - Domingo (4h50)
 
 ### Manhã (10:00-12:00) — 2h
 
-| Conteúdo                     | Duração | Link                                                                                                               |
-| ---------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------ |
+| Conteúdo                     | Duração | Link                                                                                                                                                                                               |
+| ---------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 📝 **MS Learn Assessment #2** | 1h      | [Assessment](https://learn.microsoft.com/pt-br/credentials/certifications/azure-administrator/practice/assessment?assessment-type=practice&assessmentId=21&practice-assessment-type=certification) |
-| 📝 Análise de erros           | 1h      |                                                                                                                    |
+| 📝 Análise de erros           | 1h      |                                                                                                                                                                                                    |
 
 ### Tarde (13:10-16:00) — 2h50
 
-| Conteúdo                                 | Duração | Link                                       |
-| ---------------------------------------- | ------- | ------------------------------------------ |
-| 📄 Criar resumo pessoal dos pontos fracos                 | 20 min | |
-| 📋 Revisão soluções Caso 1 e Caso 2                      | 1h     | [sol1](estudos_de_caso/caso1-startup-cloud-solucao.md) / [sol2](estudos_de_caso/caso2-escola-monitoramento-solucao.md) |
-| 📄 Estudo direcionado: tópicos fracos (Assessments #0-2) | 1h     | |
+| Conteúdo                                                | Duração | Link                                                                                                                   |
+| ------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------- |
+| 📄 Criar resumo pessoal dos pontos fracos                | 20 min  |                                                                                                                        |
+| 📋 Revisão soluções Caso 1 e Caso 2                      | 1h      | [sol1](estudos_de_caso/caso1-startup-cloud-solucao.md) / [sol2](estudos_de_caso/caso2-escola-monitoramento-solucao.md) |
+| 📄 Estudo direcionado: tópicos fracos (Assessments #0-2) | 1h      |                                                                                                                        |
 
 ---
 
@@ -319,6 +360,8 @@
 **Horas:** 54h50 (3 noites + 4 dias intensivos)
 
 ---
+
+<a id="dia-23"></a>
 
 ## 23/03 - Segunda-feira (5h)
 
@@ -341,6 +384,8 @@
 
 ---
 
+<a id="dia-24"></a>
+
 ## 24/03 - Terça-feira (5h)
 
 ### Tarde (16:00-17:30) — 1h30
@@ -353,14 +398,16 @@
 
 ### Noite (18:30-22:00) — 3h30
 
-| Conteúdo                                         | Duração | Link                                                                                                               |
-| ------------------------------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------ |
-| 🔄 **Lab Block 3 (2ª vez):** bloco4 Monitor       | 30 min  | [bloco4](labs/3-backup-monitoring/cenario/bloco4-monitor.md)                                                       |
-| 🔄 **Lab Block 3 (2ª vez):** bloco5 Log Analytics | 30 min  | [bloco5](labs/3-backup-monitoring/cenario/bloco5-log-analytics.md)                                                 |
-| 📋 **Caso 4:** MegaStore Brasil (médio)           | 1h30    | [caso4](estudos_de_caso/caso4-ecommerce-scaling.md)                                                                |
+| Conteúdo                                         | Duração | Link                                                                                                                                                                                               |
+| ------------------------------------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🔄 **Lab Block 3 (2ª vez):** bloco4 Monitor       | 30 min  | [bloco4](labs/3-backup-monitoring/cenario/bloco4-monitor.md)                                                                                                                                       |
+| 🔄 **Lab Block 3 (2ª vez):** bloco5 Log Analytics | 30 min  | [bloco5](labs/3-backup-monitoring/cenario/bloco5-log-analytics.md)                                                                                                                                 |
+| 📋 **Caso 4:** MegaStore Brasil (médio)           | 1h30    | [caso4](estudos_de_caso/caso4-ecommerce-scaling.md)                                                                                                                                                |
 | 📝 **MS Learn Assessment #3**                     | 1h      | [Assessment](https://learn.microsoft.com/pt-br/credentials/certifications/azure-administrator/practice/assessment?assessment-type=practice&assessmentId=21&practice-assessment-type=certification) |
 
 ---
+
+<a id="dia-26"></a>
 
 ## 26/03 - Quinta-feira (5h)
 
@@ -384,82 +431,88 @@
 
 ---
 
+<a id="dia-27"></a>
+
 ## 27/03 - Sexta-feira (11h50)
 
 ### Manhã (08:00-12:00) — 4h
 
-| Conteúdo                                           | Duração | Link                                                                                                               |
-| -------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------ |
-| ✅ **Lab Block 2 (3ª vez):** bloco1-5 (cronometrar) | 1h30    | [labs/2-storage-compute/cenario/](labs/2-storage-compute/cenario/)                                                 |
-| ✅ **Lab Block 3 (3ª vez):** bloco1-5 (cronometrar) | 1h30    | [labs/3-backup-monitoring/cenario/](labs/3-backup-monitoring/cenario/)                                             |
+| Conteúdo                                           | Duração | Link                                                                                                                                                                                               |
+| -------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ✅ **Lab Block 2 (3ª vez):** bloco1-5 (cronometrar) | 1h30    | [labs/2-storage-compute/cenario/](labs/2-storage-compute/cenario/)                                                                                                                                 |
+| ✅ **Lab Block 3 (3ª vez):** bloco1-5 (cronometrar) | 1h30    | [labs/3-backup-monitoring/cenario/](labs/3-backup-monitoring/cenario/)                                                                                                                             |
 | 📝 **MS Learn Assessment #4**                       | 1h      | [Assessment](https://learn.microsoft.com/pt-br/credentials/certifications/azure-administrator/practice/assessment?assessment-type=practice&assessmentId=21&practice-assessment-type=certification) |
 
 ### Tarde (13:10-17:30) — 4h20
 
-| Conteúdo                                 | Duração | Link                                                                                                               |
-| ---------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------ |
-| 📝 Análise de erros Assessment #4         | 30 min  |                                                                                                                    |
-| 📋 **Prático P2:** Governança Corporativa | 3h      | [pratico2](estudos_de_caso/pratico2-governanca-corporativa.md)                                                     |
+| Conteúdo                                 | Duração | Link                                                                                                                                                                                               |
+| ---------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 📝 Análise de erros Assessment #4         | 30 min  |                                                                                                                                                                                                    |
+| 📋 **Prático P2:** Governança Corporativa | 3h      | [pratico2](estudos_de_caso/pratico2-governanca-corporativa.md)                                                                                                                                     |
 | 📝 **MS Learn Assessment #5**             | 50 min  | [Assessment](https://learn.microsoft.com/pt-br/credentials/certifications/azure-administrator/practice/assessment?assessment-type=practice&assessmentId=21&practice-assessment-type=certification) |
 
 ### Noite (18:30-22:00) — 3h30
 
-| Conteúdo                                        | Duração | Link                                                                                                               |
-| ----------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------ |
-| 📝 Análise de erros Assessment #5                | 30 min  |                                                                                                                    |
-| 📋 **Caso 5:** Banco Horizonte Digital (difícil) | 2h      | [caso5](estudos_de_caso/caso5-banco-migracao.md)                                                                   |
+| Conteúdo                                        | Duração | Link                                                                                                                                                                                               |
+| ----------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 📝 Análise de erros Assessment #5                | 30 min  |                                                                                                                                                                                                    |
+| 📋 **Caso 5:** Banco Horizonte Digital (difícil) | 2h      | [caso5](estudos_de_caso/caso5-banco-migracao.md)                                                                                                                                                   |
 | 📝 **MS Learn Assessment #6**                    | 1h      | [Assessment](https://learn.microsoft.com/pt-br/credentials/certifications/azure-administrator/practice/assessment?assessment-type=practice&assessmentId=21&practice-assessment-type=certification) |
 
 ---
+
+<a id="dia-28"></a>
 
 ## 28/03 - Sábado (9h50)
 
 ### Manhã (10:00-12:00) — 2h
 
-| Conteúdo                         | Duração | Link                                                                                                               |
-| -------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------ |
-| 📝 Análise de erros Assessment #6 | 30 min  |                                                                                                                    |
+| Conteúdo                         | Duração | Link                                                                                                                                                                                               |
+| -------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 📝 Análise de erros Assessment #6 | 30 min  |                                                                                                                                                                                                    |
 | 📝 **MS Learn Assessment #7**     | 1h      | [Assessment](https://learn.microsoft.com/pt-br/credentials/certifications/azure-administrator/practice/assessment?assessment-type=practice&assessmentId=21&practice-assessment-type=certification) |
-| 📝 Análise de erros               | 30 min  |                                                                                                                    |
+| 📝 Análise de erros               | 30 min  |                                                                                                                                                                                                    |
 
 ### Tarde (13:10-17:30) — 4h20
 
-| Conteúdo                      | Duração | Link                                                                                                               |
-| ----------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------ |
+| Conteúdo                      | Duração | Link                                                                                                                                                                                               |
+| ----------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 📝 **MS Learn Assessment #8**  | 1h      | [Assessment](https://learn.microsoft.com/pt-br/credentials/certifications/azure-administrator/practice/assessment?assessment-type=practice&assessmentId=21&practice-assessment-type=certification) |
-| 📝 Análise de erros            | 30 min  |                                                                                                                    |
-| 🧪 **Lab IaC Block 1** (Bicep) | 1h30    | [IaC/bicep](labs/1-iam-gov-net/IaC/bicep.md)                                                                       |
-| 📄 Revisão de tópicos fracos   | 1h20    |                                                                                                                    |
+| 📝 Análise de erros            | 30 min  |                                                                                                                                                                                                    |
+| 🧪 **Lab IaC Block 1** (Bicep) | 1h30    | [IaC/bicep](labs/1-iam-gov-net/IaC/bicep.md)                                                                                                                                                       |
+| 📄 Revisão de tópicos fracos   | 1h20    |                                                                                                                                                                                                    |
 
 ### Noite (18:30-22:00) — 3h30
 
-| Conteúdo                      | Duração | Link                                                                                                               |
-| ----------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------ |
-| 🧪 **Lab IaC Block 2** (Bicep) | 1h30    | [IaC/bicep](labs/2-storage-compute/IaC/bicep.md)                                                                   |
+| Conteúdo                      | Duração | Link                                                                                                                                                                                               |
+| ----------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🧪 **Lab IaC Block 2** (Bicep) | 1h30    | [IaC/bicep](labs/2-storage-compute/IaC/bicep.md)                                                                                                                                                   |
 | 📝 **MS Learn Assessment #9**  | 1h      | [Assessment](https://learn.microsoft.com/pt-br/credentials/certifications/azure-administrator/practice/assessment?assessment-type=practice&assessmentId=21&practice-assessment-type=certification) |
-| 📝 Análise de erros            | 30 min  |                                                                                                                    |
-| 📄 Estudo direcionado          | 30 min  |                                                                                                                    |
+| 📝 Análise de erros            | 30 min  |                                                                                                                                                                                                    |
+| 📄 Estudo direcionado          | 30 min  |                                                                                                                                                                                                    |
 
 ---
+
+<a id="dia-29"></a>
 
 ## 29/03 - Domingo (9h50)
 
 ### Manhã (10:00-12:00) — 2h
 
-| Conteúdo                      | Duração | Link                                                                                                               |
-| ----------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------ |
-| 🧪 **Lab IaC Block 3** (Bicep) | 1h30    | [IaC/bicep](labs/3-backup-monitoring/IaC/bicep.md)                                                                 |
+| Conteúdo                      | Duração | Link                                                                                                                                                                                               |
+| ----------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🧪 **Lab IaC Block 3** (Bicep) | 1h30    | [IaC/bicep](labs/3-backup-monitoring/IaC/bicep.md)                                                                                                                                                 |
 | 📝 **MS Learn Assessment #10** | 30 min  | [Assessment](https://learn.microsoft.com/pt-br/credentials/certifications/azure-administrator/practice/assessment?assessment-type=practice&assessmentId=21&practice-assessment-type=certification) |
 
 ### Tarde (13:10-17:30) — 4h20
 
-| Conteúdo                                        | Duração | Link                                       |
-| ----------------------------------------------- | ------- | ------------------------------------------ |
-| 📝 Análise de erros Assessment #10               | 30 min  |                                                                                                                                                                                                   |
-| 📄 Revisão: notas de vídeo (áreas fracas)        | 1h30    | [guias/](guias/)                                                                                                                                                                                  |
-| 📄 Revisão do resumo pessoal                     | 50 min  |                                                                                                                                                                                                   |
-| 📝 **MS Learn Assessment #11**                   | 50 min  | [Assessment](https://learn.microsoft.com/pt-br/credentials/certifications/azure-administrator/practice/assessment?assessment-type=practice&assessmentId=21&practice-assessment-type=certification) |
-| 📝 Análise de erros #11                          | 30 min  |                                                                                                                                                                                                   |
+| Conteúdo                                 | Duração | Link                                                                                                                                                                                               |
+| ---------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 📝 Análise de erros Assessment #10        | 30 min  |                                                                                                                                                                                                    |
+| 📄 Revisão: notas de vídeo (áreas fracas) | 1h30    | [guias/](guias/)                                                                                                                                                                                   |
+| 📄 Revisão do resumo pessoal              | 50 min  |                                                                                                                                                                                                    |
+| 📝 **MS Learn Assessment #11**            | 50 min  | [Assessment](https://learn.microsoft.com/pt-br/credentials/certifications/azure-administrator/practice/assessment?assessment-type=practice&assessmentId=21&practice-assessment-type=certification) |
+| 📝 Análise de erros #11                   | 30 min  |                                                                                                                                                                                                    |
 
 ### Noite (18:30-22:00) — 3h30
 
@@ -470,6 +523,8 @@
 | 📄 Relaxar e confiar no preparo               | 1h      |
 
 ---
+
+<a id="dia-30"></a>
 
 ## 30/03 - Segunda-feira — Véspera da Prova (8h20)
 
