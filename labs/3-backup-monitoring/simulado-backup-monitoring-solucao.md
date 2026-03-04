@@ -421,6 +421,40 @@ O **Azure Monitor Agent (AMA)** e o agente unificado recomendado pela Microsoft 
 
 ---
 
+## Q5.1 — Backup Vault vs Recovery Services Vault
+
+**Resposta: B) Um novo Azure Backup Vault**
+
+O backup de Azure Managed Disks (baseado em snapshots incrementais) e suportado pelo Backup Vault, nao pelo Recovery Services Vault. O RSV suporta backup de VMs completas (que inclui os discos como parte do snapshot de VM), mas nao backup de discos individuais. Para protecao granular de discos especificos, o Backup Vault e o recurso correto.
+
+**Referencia no lab:** Bloco 6 — Tasks 6.3-6.5 (Backup Vault)
+
+---
+
+## Q5.2 — VM Move entre Resource Groups
+
+**Resposta: B) A VM pode ser movida sem downtime — apenas o resource ID muda**
+
+Move entre Resource Groups na mesma regiao nao requer parar a VM. O Azure atualiza o resource ID (que inclui o nome do RG no path) mas a VM continua operando. Recursos dependentes (NIC, discos, IP publico) devem ser movidos junto. O IP privado, configuracoes e dados permanecem inalterados.
+
+**Referencia no lab:** Bloco 6 — Task 6.1 (VM Move)
+
+---
+
+## Q5.3 — Move entre Regioes
+
+**Respostas:**
+
+1. **Nao, `az resource move` NAO suporta move entre regioes para VMs.** Esse comando so funciona para moves entre RGs ou subscriptions na mesma regiao. Mover entre regioes requer recriar o recurso na regiao de destino.
+
+2. **Azure Site Recovery (ASR)** e o servico recomendado. ASR replica a VM continuamente para a regiao de destino e permite failover controlado com minimo downtime. Alternativas incluem Azure Resource Mover e export/recreate manual via ARM template.
+
+3. **Nao, o backup NAO e migrado automaticamente.** O RSV de East US protege recursos nessa regiao. Rafael precisara criar um novo RSV em West Europe e configurar backup para a VM na nova regiao. Backups existentes permanecem no RSV original (acessiveis para restore ate a retencao expirar).
+
+**Referencia no lab:** Bloco 6 — Task 6.2 (Limitacoes de move entre regioes)
+
+---
+
 ## Top 10 Gotchas — Consolidado
 
 | # | Gotcha | Questao | Por que Pega |

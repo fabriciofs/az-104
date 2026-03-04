@@ -28,7 +28,7 @@ Ao final, voce tera **um ambiente corporativo completo** onde armazenamento, com
 iam-gov-net (Semana 1)
   │
   ├─ VNets (CoreServicesVnet, ManufacturingVnet) ─────────┐
-  ├─ NSGs, DNS zones ────────────────────────────────────┤
+  ├─ NSGs, DNS zones ─────────────────────────────────────┤
   ├─ RBAC, Policies ──────────────────────────────────────┤
   └─ Users, Groups ───────────────────────────────────────┤
                                                           │
@@ -61,19 +61,39 @@ Bloco 4 (ACI) ◄──── Usa File Share do Bloco 1
                                            │
                                            ▼
 Bloco 5 (Container Apps) ◄──── Usa VNet + contexto anterior
+                                           │
+                                           ▼
+Bloco 6 (Storage Avancado) ◄──── Usa Storage + VMs + Key Vault
+  │
+  ├─ AzCopy entre storage accounts
+  ├─ Storage Explorer (portal)
+  ├─ Object Replication (async)
+  ├─ CMK via Key Vault
+  ├─ Identity-based access (Azure Files)
+  └─ Azure Disk Encryption (ADE)
+                                          │
+                                          ▼
+Bloco 7 (ACR + App Service Avancado) ◄── Usa App Service + Storage
+  │
+  ├─ ACR + az acr build + ACI com imagem privada
+  ├─ Custom DNS + TLS/SSL (walkthrough)
+  ├─ App Service Backup → Storage Account
+  └─ VNet Integration (outbound)
 ```
 
 ---
 
 ## Indice
 
-| Bloco | Descricao | Link |
-|-------|-----------|------|
-| 1 | Azure Storage | [cenario/bloco1-storage.md](cenario/bloco1-storage.md) |
-| 2 | Virtual Machines | [cenario/bloco2-vms.md](cenario/bloco2-vms.md) |
-| 3 | Azure Web Apps | [cenario/bloco3-webapps.md](cenario/bloco3-webapps.md) |
-| 4 | Azure Container Instances | [cenario/bloco4-aci.md](cenario/bloco4-aci.md) |
-| 5 | Azure Container Apps | [cenario/bloco5-container-apps.md](cenario/bloco5-container-apps.md) |
+| Bloco | Descricao                          | Link                                                                                   |
+| ----- | ---------------------------------- | -------------------------------------------------------------------------------------- |
+| 1     | Azure Storage                      | [cenario/bloco1-storage.md](cenario/bloco1-storage.md)                                 |
+| 2     | Virtual Machines                   | [cenario/bloco2-vms.md](cenario/bloco2-vms.md)                                         |
+| 3     | Azure Web Apps                     | [cenario/bloco3-webapps.md](cenario/bloco3-webapps.md)                                 |
+| 4     | Azure Container Instances          | [cenario/bloco4-aci.md](cenario/bloco4-aci.md)                                         |
+| 5     | Azure Container Apps               | [cenario/bloco5-container-apps.md](cenario/bloco5-container-apps.md)                   |
+| 6     | Storage Avancado e Disk Encryption | [cenario/bloco6-storage-advanced.md](cenario/bloco6-storage-advanced.md)               |
+| 7     | ACR e App Service Avancado         | [cenario/bloco7-acr-appservice-advanced.md](cenario/bloco7-acr-appservice-advanced.md) |
 
 - [Pausar entre Sessoes](#pausar-entre-sessoes)
 - [Cleanup Unificado](#cleanup-unificado)
@@ -215,6 +235,22 @@ Get-AzResource | Where-Object { $_.Name -like "*az104*" } | Format-Table Name, R
 - **Environment** requer subnet dedicada **/23** para VNet integration
 - **Secrets** armazenam credenciais de forma segura (prefira a hardcoded env vars)
 - Compre: ACI = simples; Container Apps = serverless com orquestracao; AKS = Kubernetes completo
+
+## Bloco 6 - Storage Avancado e Disk Encryption
+- **AzCopy** transfere dados server-to-server (backbone Azure), sem passar pelo computador local
+- **Object Replication** e assincrona entre storage accounts — novos blobs apenas (por padrao)
+- **CMK** requer Key Vault com **purge protection** habilitado + Managed Identity na Storage Account
+- **Azure Files** suporta autenticacao via Entra ID (Kerberos) — RBAC no share + ACLs NTFS nos arquivos
+- **ADE** (BitLocker/DM-Crypt) criptografa no nivel do OS; **SSE** criptografa no storage layer — sao complementares
+- **Storage Explorer** no portal permite gerar SAS de blob individual (mais granular que SAS de conta)
+
+## Bloco 7 - ACR e App Service Avancado
+- **ACR Tasks** (`az acr build`) permite build de imagens no cloud sem Docker local
+- **ACR SKUs**: Basic (10 GiB), Standard (100 GiB + webhooks), Premium (geo-replication + private link)
+- **Custom DNS**: CNAME para subdomains; A record para apex domain. Requer verificacao TXT
+- **App Service Managed Certificate** = gratuito, automatico, apenas subdomains, Standard+
+- **App Service Backup** = Standard+, armazena .zip na Storage Account, limite 10 GB
+- **VNet Integration** = outbound (App Service acessa VNet); **Private Endpoint** = inbound (VNet acessa App Service)
 
 ## Integracao Geral
 - **Storage (Bloco 1)** e a base de dados para todos os servicos de compute

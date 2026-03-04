@@ -357,16 +357,83 @@ Carlos (Owner em ambos os RGs) configurou o peering entre as VNets com sucesso. 
 
 ---
 
+### Q6.1 — Load Balancer Standard e NSG (Multipla Escolha)
+
+Carlos implantou um **Standard Load Balancer** na DataFlow com duas VMs no backend pool. Os health probes mostram ambas as VMs como healthy, mas usuarios externos reportam que o servico web esta inacessivel pelo IP publico do Load Balancer.
+
+Carlos verifica:
+- As VMs estao running e o IIS esta respondendo localmente
+- O backend pool esta configurado corretamente
+- A regra de load balancing aponta para a porta 80
+
+Qual a causa mais provavel?
+
+A) O Standard Load Balancer requer VMs em Availability Zones, nao Availability Sets
+B) Carlos esqueceu de configurar um NSG com regra permitindo trafego HTTP na subnet das VMs
+C) Standard Load Balancer nao suporta HTTP, apenas HTTPS
+D) As VMs precisam de IPs publicos individuais alem do IP publico do Load Balancer
+
+---
+
+### Q6.2 — Azure Bastion e Requisitos (Cenario)
+
+Carlos precisa implantar **Azure Bastion** para acesso RDP seguro as VMs da HubServicesVnet. Ele cria uma subnet chamada `BastionSubnet` com tamanho /28.
+
+1. O que vai acontecer quando Carlos tentar implantar o Bastion? Por que?
+2. Quais sao os requisitos exatos de nome e tamanho da subnet para Azure Bastion?
+3. Qual a vantagem de usar Bastion ao inves de abrir porta RDP (3389) via NSG?
+
+---
+
+### Q6.3 — Health Probe e Failover (Troubleshooting)
+
+Carlos nota que o health probe do Load Balancer marca uma VM como **Unhealthy**, mas a VM aparece como **Running** no portal. O problema comecou apos uma atualizacao de software na VM.
+
+1. Explique por que o health probe pode falhar mesmo com a VM running
+2. Quais passos Carlos deve seguir para diagnosticar o problema?
+3. O que acontece com o trafego destinado a VM unhealthy enquanto o problema nao e resolvido?
+
+---
+
+### Q7.1 — SSPR e Metodos de Autenticacao (Multipla Escolha)
+
+Carlos habilitou SSPR para o grupo **AzureOps** com 2 metodos requeridos. Um membro do grupo, ao tentar resetar a senha, recebe a mensagem: "You cannot reset your password because you have not registered enough authentication methods."
+
+Qual a causa?
+
+A) O usuario nao e membro do grupo AzureOps
+B) O usuario nao registrou pelo menos 2 metodos de autenticacao
+C) SSPR so funciona com licenca Azure AD Premium P2
+D) SSPR nao pode exigir mais de 1 metodo
+
+---
+
+### Q7.2 — Cost Management vs Azure Policy (Design)
+
+A DataFlow atingiu o budget mensal de R$ 5.000 e a CTO quer garantir que isso nao aconteca novamente. Carlos considera duas opcoes:
+
+1. Apenas configurar Budget alerts com action groups
+2. Configurar Budget alerts + Azure Policy para restringir SKUs de VMs caras
+
+Responda:
+1. O Budget alert sozinho impede novos gastos? Por que?
+2. Qual combinacao de controles Carlos deve implementar para prevenir gastos excessivos?
+3. Como o Azure Advisor complementa essa estrategia?
+
+---
+
 ## Pontuacao
 
-| Secao             | Questoes | Pontos por Questao | Total  |
-| ----------------- | -------- | ------------------ | ------ |
-| 1 — Identidade    | 3        | 5                  | 15     |
-| 2 — Governanca    | 4        | 5                  | 20     |
-| 3 — IaC           | 3        | 5                  | 15     |
-| 4 — Rede          | 5        | 6                  | 30     |
-| 5 — Conectividade | 3        | 5                  | 15     |
-| **Total**         | **18**   | —                  | **95** |
+| Secao             | Questoes | Pontos por Questao | Total   |
+| ----------------- | -------- | ------------------ | ------- |
+| 1 — Identidade    | 3        | 5                  | 15      |
+| 2 — Governanca    | 4        | 5                  | 20      |
+| 3 — IaC           | 3        | 5                  | 15      |
+| 4 — Rede          | 5        | 6                  | 30      |
+| 5 — Conectividade | 3        | 5                  | 15      |
+| 6 — Load Balancer | 3        | 5                  | 15      |
+| 7 — SSPR/Cost     | 2        | 5                  | 10      |
+| **Total**         | **23**   | —                  | **120** |
 
 ### Classificacao
 

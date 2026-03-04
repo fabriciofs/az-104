@@ -35,48 +35,55 @@ iam-gov-net (Semana 1)
                                         │
 storage-compute (Semana 2)              │
   ├─ Storage Account + File Share ──────┤
-  ├─ VMs (Windows, Linux) ─────────────┤
+  ├─ VMs (Windows, Linux) ──────────────┤
   ├─ Web Apps ──────────────────────────┤
   └─ Containers ────────────────────────┤
                                         │
                                         ▼
 Bloco 1 (VM Backup) ◄──── Protege VMs da Semana 2
-  ├─ Recovery Services Vault ──────────┐
-  └─ Backup Policy + On-demand backup ─┤
-                                       │
-                                       ▼
+  ├─ Recovery Services Vault ───────────┐
+  └─ Backup Policy + On-demand backup ──┤
+                                        │
+                                        ▼
 Bloco 2 (File/Blob Protection) ◄──── Protege Storage da Semana 2
-  ├─ File Share backup ────────────────┤
-  └─ Soft delete + versioning ─────────┤
-                                       │
-                                       ▼
+  ├─ File Share backup ─────────────────┤
+  └─ Soft delete + versioning ──────────┤
+                                        │
+                                        ▼
 Bloco 3 (Site Recovery) ◄──── DR para VMs criticas
-  ├─ Replicacao cross-region ──────────┤
-  └─ Recovery Plan + Test Failover ────┤
-                                       │
-                                       ▼
+  ├─ Replicacao cross-region ───────────┤
+  └─ Recovery Plan + Test Failover ─────┤
+                                        │
+                                        ▼
 Bloco 4 (Monitor & Alerts) ◄──── Monitora TODOS os recursos
-  ├─ Metricas de VMs da Semana 2 ─────┤
-  └─ Alerts + Action Groups ───────────┤
-                                       │
-                                       ▼
+  ├─ Metricas de VMs da Semana 2 ───────┤
+  └─ Alerts + Action Groups ────────────┤
+                                        │
+                                        ▼
 Bloco 5 (Log Analytics) ◄──── Analise avancada de tudo
-  ├─ Workspace conectado as VMs ───────┤
-  ├─ VM Insights ──────────────────────┤
-  └─ Network Watcher nas VNets ────────┤
+  ├─ Workspace conectado as VMs ────────┤
+  ├─ VM Insights ───────────────────────┤
+  └─ Network Watcher nas VNets ─────────┤
+                                        │
+                                        ▼
+Bloco 6 (Backup Vault + VM Move) ◄──── Complementa backup + compute
+  ├─ VM Move entre Resource Groups ─────┤
+  ├─ Backup Vault vs RSV (comparacao) ──┤
+  └─ Disk backup policy ────────────────┤
 ```
 
 ---
 
 ## Indice
 
-| Bloco | Descricao | Link |
-|-------|-----------|------|
-| 1 | VM Backup | [cenario/bloco1-vm-backup.md](cenario/bloco1-vm-backup.md) |
-| 2 | File & Blob Protection | [cenario/bloco2-file-blob.md](cenario/bloco2-file-blob.md) |
-| 3 | Site Recovery (DR) | [cenario/bloco3-site-recovery.md](cenario/bloco3-site-recovery.md) |
-| 4 | Monitor & Alerts | [cenario/bloco4-monitor.md](cenario/bloco4-monitor.md) |
-| 5 | Log Analytics & Network Watcher | [cenario/bloco5-log-analytics.md](cenario/bloco5-log-analytics.md) |
+| Bloco | Descricao                       | Link                                                                             |
+| ----- | ------------------------------- | -------------------------------------------------------------------------------- |
+| 1     | VM Backup                       | [cenario/bloco1-vm-backup.md](cenario/bloco1-vm-backup.md)                       |
+| 2     | File & Blob Protection          | [cenario/bloco2-file-blob.md](cenario/bloco2-file-blob.md)                       |
+| 3     | Site Recovery (DR)              | [cenario/bloco3-site-recovery.md](cenario/bloco3-site-recovery.md)               |
+| 4     | Monitor & Alerts                | [cenario/bloco4-monitor.md](cenario/bloco4-monitor.md)                           |
+| 5     | Log Analytics & Network Watcher | [cenario/bloco5-log-analytics.md](cenario/bloco5-log-analytics.md)               |
+| 6     | Backup Vault e VM Move          | [cenario/bloco6-backup-vault-vm-move.md](cenario/bloco6-backup-vault-vm-move.md) |
 
 - [Pausar entre Sessoes](#pausar-entre-sessoes)
 - [Cleanup Unificado](#cleanup-unificado)
@@ -314,6 +321,14 @@ Remove-AzDiagnosticSetting -Name az104-activity-to-law -ResourceId "/subscriptio
 - **Network Watcher:** IP Flow Verify (NSG), Next Hop (routing), Connection Troubleshoot (conectividade), Topology (visualizacao)
 - **Diagnostic Settings** enviam dados de plataforma; **DCR** enviam dados guest
 - KQL basico para prova: `where`, `summarize`, `project`, `render`, `ago()`, `bin()`
+
+## Bloco 6 - Backup Vault e VM Move
+- **VM Move entre RGs** (mesma regiao) nao requer downtime; move entre regioes requer ASR ou recriar
+- **Recursos dependentes** (NIC, Disk, IP) devem ser movidos junto com a VM
+- **Backup Vault** suporta Azure Disks, Blobs, PostgreSQL e AKS; **RSV** suporta VMs, File Shares e Site Recovery
+- **Disk backup** no Backup Vault usa snapshots incrementais (menor custo que VM backup completo)
+- **Backup Center** no portal unifica gestao de ambos os tipos de vault
+- Verifique a **support matrix** antes de mover qualquer recurso entre RGs ou subscriptions
 
 ## Integracao Geral (Semanas 1-3)
 - **Semana 1 (IAM/Gov/Net)** criou a base: identidade, governanca, rede

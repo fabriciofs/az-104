@@ -438,6 +438,64 @@ As tres opcoes possiveis (key incorreta, nome do file share errado, file share i
 
 ---
 
+## Q5.1 — AzCopy vs Object Replication
+
+**Resposta: B) Configurar Object Replication entre as storage accounts**
+
+Object Replication copia blobs automaticamente e continuamente entre storage accounts. Uma vez configurada a regra, todos os novos blobs no container de origem sao replicados para o destino. AzCopy (opcao A) requer agendamento manual e nao e continuo. GRS (opcao C) replica toda a conta para uma regiao pareada especifica — nao permite escolher o destino. Data Factory (opcao D) e overengineering para esse cenario.
+
+**Referencia no lab:** Bloco 6 — Task 6.3 (Object Replication)
+
+---
+
+## Q5.2 — Customer-Managed Keys e Key Vault
+
+**Respostas:**
+
+1. **A rotacao de chaves pode causar inacessibilidade** se a nova versao da chave nao for propagada corretamente para a Storage Account. Se a chave antiga foi desabilitada/deletada antes da Storage Account referenciar a nova versao, os dados ficam inacessiveis porque a Storage Account nao consegue descriptografar.
+
+2. **Diego deveria:** (a) Usar rotacao automatica de chaves (Key Vault auto-rotation); (b) Garantir que a Storage Account referencie a versao mais recente automaticamente (sem fixar versao); (c) Testar a rotacao em ambiente de desenvolvimento antes.
+
+3. **Purge protection** protege contra exclusao permanente de chaves. Com purge protection habilitado, chaves deletadas ficam em estado "soft deleted" por 90 dias e nao podem ser permanentemente removidas — garantindo que voce pode recuperar acesso aos dados.
+
+**Referencia no lab:** Bloco 6 — Task 6.4 (CMK via Key Vault)
+
+---
+
+## Q5.3 — ACR e Imagens Privadas
+
+**Resposta: C) Premium**
+
+Apenas a SKU Premium do ACR suporta geo-replicacao e Private Link. Basic e Standard nao oferecem esses recursos enterprise. Basic suporta 10 GiB e Standard suporta 100 GiB. Premium oferece 500 GiB, geo-replicacao, content trust, customer-managed keys e Private Link.
+
+**Referencia no lab:** Bloco 7 — Task 7.1 (Criar ACR)
+
+---
+
+## Q5.4 — App Service VNet Integration vs Private Endpoint
+
+**Respostas:**
+
+1. **VNet Integration (regional)** para acesso outbound. O App Service envia trafego pela VNet e pode acessar recursos com Private Endpoints, VMs e servicos em VNets peered.
+
+2. **App Service Private Endpoint** para acesso inbound. Um Private Endpoint e criado na VNet, atribuindo um IP privado ao App Service. Usuarios na VNet acessam o App Service via esse IP privado.
+
+3. **Sim, ambos podem ser configurados simultaneamente.** VNet Integration controla trafego de saida; Private Endpoint controla trafego de entrada. Sao recursos complementares e independentes.
+
+**Referencia no lab:** Bloco 7 — Task 7.7 (VNet Integration)
+
+---
+
+## Q5.5 — App Service Backup
+
+**Resposta: B) O backup falha porque Free tier nao suporta backup — requer Standard ou superior**
+
+App Service Backup requer plano Standard (S1) ou superior. Free (F1), Shared (D1) e Basic (B1) nao suportam backup automatico. O backup armazena codigo, configuracao e opcionalmente banco de dados em um container blob, com limite de 10 GB por app.
+
+**Referencia no lab:** Bloco 7 — Task 7.6 (App Service Backup)
+
+---
+
 ## Top 10 Gotchas — Consolidado
 
 | # | Gotcha | Questao | Por que Pega |

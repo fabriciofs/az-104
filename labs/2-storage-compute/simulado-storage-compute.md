@@ -311,15 +311,78 @@ Responda:
 
 ---
 
+### Q5.1 — AzCopy vs Object Replication (Multipla Escolha)
+
+Diego precisa garantir que todos os blobs criados no container `reports` da Storage Account primaria (`ntprodsa`) sejam automaticamente copiados para a Storage Account de DR (`ntdrsa`) na regiao West US. Ele quer que a copia seja continua e automatica, sem intervencao manual.
+
+Qual solucao Diego deve usar?
+
+A) Agendar um script AzCopy via Azure Automation a cada hora
+B) Configurar Object Replication entre as storage accounts
+C) Configurar GRS (geo-redundant storage) na storage account primaria
+D) Usar Azure Data Factory com trigger de evento
+
+---
+
+### Q5.2 — Customer-Managed Keys e Key Vault (Troubleshooting)
+
+Diego configurou CMK (Customer-Managed Keys) para a Storage Account `ntprodsa` usando um Key Vault. Apos uma rotacao de chaves no Key Vault, os dados da Storage Account ficaram inacessiveis. Usuarios reportam erro ao tentar listar blobs.
+
+1. Por que os dados ficaram inacessiveis apos a rotacao de chaves?
+2. O que Diego deveria ter feito para evitar esse problema?
+3. Qual configuracao do Key Vault protege contra exclusao acidental de chaves?
+
+---
+
+### Q5.3 — ACR e Imagens Privadas (Multipla Escolha)
+
+Diego precisa de um Azure Container Registry que suporte **geo-replicacao** para distribuir imagens para regioes East US e West Europe, e **Private Link** para acesso seguro sem internet publica.
+
+Qual SKU do ACR atende a esses requisitos?
+
+A) Basic
+B) Standard
+C) Premium
+D) Basic com add-on de geo-replicacao
+
+---
+
+### Q5.4 — App Service VNet Integration vs Private Endpoint (Design)
+
+Diego tem um App Service que precisa:
+- **Acessar** uma API interna hospedada em uma VM na NovaTechVnet (outbound)
+- **Ser acessado** por usuarios na NovaTechVnet sem passar pela internet (inbound)
+
+Responda:
+1. Qual recurso Diego configura para o acesso outbound do App Service a VNet?
+2. Qual recurso Diego configura para o acesso inbound da VNet ao App Service?
+3. Ambos os recursos podem ser configurados simultaneamente no mesmo App Service?
+
+---
+
+### Q5.5 — App Service Backup (Multipla Escolha)
+
+Diego quer configurar backup automatico diario do App Service de producao. O App Service esta no tier **Free F1**.
+
+O que acontece quando Diego tenta configurar o backup?
+
+A) O backup e configurado com sucesso — todos os tiers suportam backup
+B) O backup falha porque Free tier nao suporta backup — requer Standard ou superior
+C) O backup funciona mas com limite de 1 MB
+D) O backup requer apenas um container blob — nao depende do tier
+
+---
+
 ## Pontuacao
 
-| Secao             | Questoes | Pontos por Questao | Total  |
-| ----------------- | -------- | ------------------ | ------ |
-| 1 — Armazenamento | 6        | 5                  | 30     |
-| 2 — VMs           | 4        | 5                  | 20     |
-| 3 — Web Apps      | 4        | 5                  | 20     |
-| 4 — Containers    | 4        | 5                  | 20     |
-| **Total**         | **18**   | ---                | **90** |
+| Secao             | Questoes | Pontos por Questao | Total   |
+| ----------------- | -------- | ------------------ | ------- |
+| 1 — Armazenamento | 6        | 5                  | 30      |
+| 2 — VMs           | 4        | 5                  | 20      |
+| 3 — Web Apps      | 4        | 5                  | 20      |
+| 4 — Containers    | 4        | 5                  | 20      |
+| 5 — Storage/ACR/AppSvc Avancado | 5 | 5             | 25      |
+| **Total**         | **23**   | ---                | **115** |
 
 ### Classificacao
 

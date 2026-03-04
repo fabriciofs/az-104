@@ -557,6 +557,68 @@ Atribuir nos RGs necessarios.
 
 ---
 
+## Q6.1 — Load Balancer Standard e NSG
+
+**Resposta: B) Carlos esqueceu de configurar um NSG com regra permitindo trafego HTTP na subnet das VMs**
+
+O Standard Load Balancer bloqueia todo o trafego por padrao (zero-trust model). Diferente do Basic LB que permite trafego, o Standard requer um NSG explicito na subnet ou NIC com regra permitindo o trafego. Como os health probes estao healthy (probes usam o source IP `168.63.129.16` que e sempre permitido), o problema esta no trafego de clientes sendo bloqueado.
+
+**Referencia no lab:** Bloco 6 — Task 6.3 (Criar NSG e testar balanceamento)
+
+---
+
+## Q6.2 — Azure Bastion e Requisitos
+
+**Respostas:**
+
+1. **O deployment vai falhar.** O Azure Bastion requer que a subnet tenha o nome exato `AzureBastionSubnet` (nao `BastionSubnet`) e tamanho minimo `/26` (64 IPs). Uma /28 (16 IPs) e insuficiente.
+
+2. **Requisitos exatos:** Nome = `AzureBastionSubnet` (obrigatorio, sem variacoes). Tamanho minimo = `/26`. A subnet deve estar na mesma VNet das VMs que se deseja acessar.
+
+3. **Vantagens do Bastion:** (a) Elimina necessidade de IP publico nas VMs; (b) Conexao via TLS pelo portal (nao expoe porta 3389/22 na internet); (c) Protecao contra port scanning e ataques brute-force; (d) Nao requer agente ou software nas VMs.
+
+**Referencia no lab:** Bloco 6 — Task 6.7 (Implantar Azure Bastion)
+
+---
+
+## Q6.3 — Health Probe e Failover
+
+**Respostas:**
+
+1. **Health probes operam no nivel da aplicacao, nao da VM.** Se o servico (IIS, nginx, API) parou, travou ou nao responde na porta/path configurados, o probe falha mesmo com a VM running. O probe verifica a saude do servico, nao do SO.
+
+2. **Passos de diagnostico:** (a) Verificar Health Probe Status nas metricas do LB; (b) Confirmar que o servico esta running na VM (ex: `Get-Service W3SVC`); (c) Usar Network Watcher IP Flow Verify para testar se o NSG permite trafego na porta do probe; (d) Verificar se o path do probe retorna HTTP 200.
+
+3. **Trafego e redirecionado automaticamente** para as VMs healthy restantes. Nao ha enfileiramento — o LB simplesmente para de enviar novas conexoes para a VM unhealthy. Quando a VM volta a responder ao probe, ela e reincorporada ao pool.
+
+**Referencia no lab:** Bloco 6 — Tasks 6.4 e 6.6 (Failover e Troubleshoot)
+
+---
+
+## Q7.1 — SSPR e Metodos de Autenticacao
+
+**Resposta: B) O usuario nao registrou pelo menos 2 metodos de autenticacao**
+
+Quando SSPR exige 2 metodos para reset, o usuario precisa ter registrado pelo menos 2 metodos (email, telefone, Authenticator app, security questions). Se o usuario nunca registrou ou registrou apenas 1 metodo, ele recebe essa mensagem. A solucao e acessar `https://aka.ms/ssprsetup` e registrar os metodos.
+
+**Referencia no lab:** Bloco 7 — Tasks 7.1-7.3 (Configurar e testar SSPR)
+
+---
+
+## Q7.2 — Cost Management vs Azure Policy
+
+**Respostas:**
+
+1. **Nao, Budget alert sozinho NAO impede gastos.** Budgets enviam notificacoes mas nao param, bloqueiam ou reduzem recursos. Sao puramente informativos. Mesmo com alerta em 100%, recursos continuam gerando custo.
+
+2. **Combinacao recomendada:** (a) Budgets com alertas em 80%, 100% e 120% (forecasted) para notificacao; (b) Azure Policy com Deny para restringir SKUs caras (ex: permitir apenas VMs Standard_B2s); (c) Azure Automation runbook acionado pelo alerta para desligar VMs nao criticas quando o budget atingir 90%.
+
+3. **Azure Advisor complementa** identificando recursos ociosos ou superdimensionados (ex: VMs com CPU media < 5%). Advisor sugere downsizing e Reserved Instances, que reduzem custos de forma proativa — antes do budget ser atingido.
+
+**Referencia no lab:** Bloco 7 — Tasks 7.4-7.5 (Budget e Advisor)
+
+---
+
 ## Mapa de Dominios AZ-104
 
 | Questao | Dominio AZ-104 | Peso Estimado no Exame |
@@ -579,8 +641,13 @@ Atribuir nos RGs necessarios.
 | Q5.1 | Configure VNet connectivity (peering) | ~20-25% |
 | Q5.2 | Configure routing | ~20-25% |
 | Q5.3 | Configure VNet connectivity (peering) | ~20-25% |
+| Q6.1 | Configure load balancing | ~15-20% |
+| Q6.2 | Configure Azure Bastion | ~15-20% |
+| Q6.3 | Configure load balancing (troubleshooting) | ~15-20% |
+| Q7.1 | Manage Microsoft Entra ID (SSPR) | ~15-20% |
+| Q7.2 | Manage subscriptions and governance (Cost) | ~15-20% |
 
-> **Nota:** Os dominios de rede (VNets, NSG, DNS, Peering, Routing) representam o maior peso no exame AZ-104 (~20-25%), seguidos por Identidade e Governanca (~15-20%). IaC tem peso menor (~5-10%) mas aparece frequentemente combinado com outros dominios.
+> **Nota:** Os dominios de rede (VNets, NSG, DNS, Peering, Routing, Load Balancer) representam o maior peso no exame AZ-104 (~20-25%), seguidos por Identidade e Governanca (~15-20%). IaC tem peso menor (~5-10%) mas aparece frequentemente combinado com outros dominios.
 
 ---
 

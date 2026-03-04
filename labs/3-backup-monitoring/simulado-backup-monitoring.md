@@ -355,15 +355,53 @@ O Time SRE reporta que VMs na subnet `mc-app-subnet` nao conseguem conectar a um
 
 ---
 
+### Q5.1 — Backup Vault vs Recovery Services Vault (Multipla Escolha)
+
+Rafael precisa proteger discos gerenciados (Managed Disks) individuais de VMs criticas usando snapshots incrementais diarios. Ele ja tem um Recovery Services Vault configurado para backup de VMs.
+
+Qual recurso Rafael deve usar para o backup de discos individuais?
+
+A) O mesmo Recovery Services Vault ja existente
+B) Um novo Azure Backup Vault
+C) Azure Site Recovery
+D) Snapshots manuais via Azure CLI
+
+---
+
+### Q5.2 — VM Move entre Resource Groups (Multipla Escolha)
+
+Rafael precisa mover a VM `mc-prontuario` do resource group `mc-app-rg` para `mc-prod-rg`, ambos na mesma regiao (East US). A VM esta running e atende requisicoes de usuarios.
+
+Qual afirmacao e verdadeira sobre esse processo?
+
+A) A VM precisa ser parada (deallocated) antes do move
+B) A VM pode ser movida sem downtime — apenas o resource ID muda
+C) A VM sera recriada no novo RG com um novo IP privado
+D) Voce precisa primeiro exportar a VM como ARM template
+
+---
+
+### Q5.3 — Move entre Regioes (Design)
+
+Rafael precisa mover a VM `mc-portal` da regiao East US para West Europe para atender requisitos de compliance de dados (LGPD). A VM esta configurada com Azure Backup no RSV.
+
+Responda:
+1. O comando `az resource move` funciona para mover VMs entre regioes? Por que?
+2. Qual servico do Azure Rafael deve usar para migrar a VM para outra regiao com minimo downtime?
+3. O backup configurado no RSV de East US sera migrado automaticamente?
+
+---
+
 ## Pontuacao
 
-| Secao                 | Questoes | Pontos por Questao | Total  |
-| --------------------- | -------- | ------------------ | ------ |
-| 1 — Backup            | 6        | 5                  | 30     |
-| 2 — Site Recovery     | 4        | 5                  | 20     |
-| 3 — Monitor e Alertas | 4        | 5                  | 20     |
-| 4 — Log Analytics     | 4        | 5                  | 20     |
-| **Total**             | **18**   | ---                | **90** |
+| Secao                    | Questoes | Pontos por Questao | Total   |
+| ------------------------ | -------- | ------------------ | ------- |
+| 1 — Backup               | 6        | 5                  | 30      |
+| 2 — Site Recovery        | 4        | 5                  | 20      |
+| 3 — Monitor e Alertas    | 4        | 5                  | 20      |
+| 4 — Log Analytics        | 4        | 5                  | 20      |
+| 5 — Backup Vault/VM Move | 3        | 5                  | 15      |
+| **Total**                | **21**   | ---                | **105** |
 
 ### Classificacao
 

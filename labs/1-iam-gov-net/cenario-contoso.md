@@ -68,6 +68,21 @@ Bloco 5 (Connectivity) ◄──── VMs nas VNets do Bloco 4
   ├─ DNS privado resolve nome real da VM ✓
   ├─ az104-user1 gerencia VMs (VM Contributor) ✓
   └─ Route table + NVA + custom route
+                                   │
+                                   ▼
+Bloco 6 (Load Balancer & Bastion) ◄──── VMs nas VNets do Bloco 4
+  │
+  ├─ Public Load Balancer (Standard) + backend pool
+  ├─ Internal Load Balancer (IP privado)
+  ├─ Health probes + failover automatico
+  └─ Azure Bastion (AzureBastionSubnet /26)
+                                   │
+                                   ▼
+Bloco 7 (SSPR, Cost, NSG) ◄──── Complementa Identity + Governance
+  │
+  ├─ SSPR configurado para SSPR-TestGroup (az104-user1)
+  ├─ Budget + Cost Analysis + Advisor alerts
+  └─ NSG Effective Rules + IP Flow Verify (Network Watcher)
 ```
 
 ---
@@ -82,6 +97,8 @@ Bloco 5 (Connectivity) ◄──── VMs nas VNets do Bloco 4
 | 3 | Azure Resources & IaC | [cenario/bloco3-iac.md](cenario/bloco3-iac.md) |
 | 4 | Virtual Networking | [cenario/bloco4-networking.md](cenario/bloco4-networking.md) |
 | 5 | Intersite Connectivity | [cenario/bloco5-connectivity.md](cenario/bloco5-connectivity.md) |
+| 6 | Load Balancer e Azure Bastion | [cenario/bloco6-load-balancer.md](cenario/bloco6-load-balancer.md) |
+| 7 | SSPR, Cost Management e NSG Effective Rules | [cenario/bloco7-sspr-cost-nsg.md](cenario/bloco7-sspr-cost-nsg.md) |
 
 - [Pausar entre Sessoes](#pausar-entre-sessoes)
 - [Cleanup Unificado](#cleanup-unificado)
@@ -281,6 +298,22 @@ Remove-AzADGroup -DisplayName "helpdesk"
 - **UDRs** sobrescrevem rotas do sistema; trafego sem next hop alcancavel e descartado
 - **DNS privado + VNet links** permitem resolucao de nomes entre VNets
 - **RBAC + Locks** funcionam de ponta a ponta: VM Contributor gerencia VMs, Lock protege RGs
+
+## Bloco 6 - Load Balancer e Azure Bastion
+- **Standard Load Balancer** bloqueia trafego por padrao — NSG explicito e obrigatorio
+- **Health probes** detectam falhas no nivel da aplicacao (nao apenas da VM)
+- **Public LB** = trafego externo; **Internal LB** = trafego entre tiers internos
+- **Availability Set** distribui VMs entre fault domains e update domains
+- **Azure Bastion** requer subnet `/26` chamada exatamente `AzureBastionSubnet`
+- Bastion elimina necessidade de IP publico para RDP/SSH — acesso seguro via portal
+
+## Bloco 7 - SSPR, Cost Management e NSG Effective Rules
+- **SSPR** permite reset de senha self-service; requer registro de metodos de autenticacao
+- **Budgets** alertam sobre gastos mas NAO param recursos automaticamente
+- **Azure Advisor** fornece recomendacoes personalizadas de Cost, Security, Reliability
+- **Effective Security Rules** mostra todas as regras NSG combinadas aplicadas a uma NIC
+- **IP Flow Verify** testa se um pacote especifico seria permitido ou bloqueado pelo NSG
+- Quando ha NSG na subnet E na NIC, o trafego precisa ser permitido por **AMBOS**
 
 ## Integracao Geral
 - **Identidade (Bloco 1)** e a base de toda governanca e acesso
