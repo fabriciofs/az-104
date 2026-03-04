@@ -2241,6 +2241,432 @@ D) Diagnostic Settings
 
 ---
 
+# Bloco 6 - Backup Vault e VM Move
+
+> **Contexto:** O Backup Vault e o servico mais recente de backup do Azure, projetado para workloads
+> que o Recovery Services Vault nao suporta (Disks, Blobs, PostgreSQL, AKS). Neste bloco voce tambem
+> pratica mover VMs entre Resource Groups — topico cobrado no AZ-104 (dominio Compute).
+>
+> **Resource Groups:** `az104-rg7` (VMs da Semana 2) + `az104-rg-bv` (Backup Vault) + `az104-rg-moved` (destino do move)
+>
+> **Modulo principal:** `Az.DataProtection` (Backup Vault) + `Az.Resources` (VM Move)
+
+---
+
+### Task 6.1: Mover VM para outro Resource Group (PowerShell)
+
+```powershell
+# ============================================================
+# TASK 6.1 - Mover VM entre Resource Groups
+# ============================================================
+# Move de recursos entre RGs:
+# - NAO requer downtime (VM continua running)
+# - Altera o resource ID (novo RG no path)
+# - Regiao e configuracoes permanecem iguais
+# - Recursos dependentes (NIC, Disk, PIP) devem ser movidos JUNTOS
+#
+# Cmdlet principal: Move-AzResource (modulo Az.Resources)
+# - Aceita um array de resource IDs
+# - -DestinationResourceGroupName: RG de destino
+# ============================================================
+
+# Criar RG de destino
+New-AzResourceGroup -Name "az104-rg-moved" -Location "eastus"
+
+# Obter a VM e seus recursos dependentes
+$vm = Get-AzVM -ResourceGroupName "az104-rg7" -Name "az104-vm-linux"
+
+# Obter IDs dos recursos dependentes
+# IMPORTANTE: VM + NIC + Disk devem ir juntos
+$vmId = $vm.Id
+$nicId = $vm.NetworkProfile.NetworkInterfaces[0].Id
+$diskId = $vm.StorageProfile.OsDisk.ManagedDisk.Id
+
+Write-Host "VM ID: $vmId"
+Write-Host "NIC ID: $nicId"
+Write-Host "Disk ID: $diskId"
+
+# Move-AzResource: move recursos entre Resource Groups
+# - Aceita array de IDs: todos movidos atomicamente
+# - -Force: nao pede confirmacao interativa
+# - NAO desliga a VM (move entre RGs e sem downtime)
+Move-AzResource `
+    -DestinationResourceGroupName "az104-rg-moved" `
+    -ResourceId @($vmId, $nicId, $diskId) `
+    -Force
+
+# Validar: VM agora esta no novo RG
+Get-AzVM -ResourceGroupName "az104-rg-moved" -Name "az104-vm-linux" |
+    Select-Object Name, ResourceGroupName, Location |
+    Format-Table
+```
+
+> **Conceito AZ-104:** `Move-AzResource` altera o Resource Group no resource ID mas NAO altera
+> a regiao, configuracao ou estado do recurso. A VM continua running durante o move.
+
+---
+
+### Task 6.2: Entender limitacoes de move e mover VM de volta
+
+```powershell
+# ============================================================
+# TASK 6.2 - Limitacoes de Move e reverter
+# ============================================================
+# Tipos de move no Azure:
+#
+# | Cenario                       | Metodo                       | Downtime |
+# |-------------------------------|------------------------------|----------|
+# | Move entre RGs (mesma regiao) | Move-AzResource              | Nenhum   |
+# | Move entre regioes            | ASR / Azure Resource Mover   | Minimo   |
+# | Move entre subscriptions      | Move-AzResource              | Nenhum   |
+#
+# LIMITACOES IMPORTANTES:
+# - Nem todos os recursos suportam move (verificar support matrix)
+# - Recursos com locks NAO podem ser movidos (remover lock antes)
+# - Move entre regioes NAO usa Move-AzResource — requer ASR ou recriar
+# - Recursos dependentes DEVEM ser movidos juntos
+# ============================================================
+
+# Obter recursos no RG de destino
+$vm = Get-AzVM -ResourceGroupName "az104-rg-moved" -Name "az104-vm-linux"
+$vmId = $vm.Id
+$nicId = $vm.NetworkProfile.NetworkInterfaces[0].Id
+$diskId = $vm.StorageProfile.OsDisk.ManagedDisk.Id
+
+# Mover VM de volta ao RG original
+Move-AzResource `
+    -DestinationResourceGroupName "az104-rg7" `
+    -ResourceId @($vmId, $nicId, $diskId) `
+    -Force
+
+# Validar: VM de volta ao RG original
+Get-AzVM -ResourceGroupName "az104-rg7" -Name "az104-vm-linux" |
+    Select-Object Name, ResourceGroupName |
+    Format-Table
+
+Write-Host "VM movida de volta para az104-rg7 com sucesso" -ForegroundColor Green
+```
+
+> **Conexao com Bloco 3:** Para mover VMs entre regioes, use Azure Site Recovery (configurado no Bloco 3).
+> `Move-AzResource` NAO suporta move cross-region para VMs.
+
+---
+
+### Task 6.3: Criar Azure Backup Vault via PowerShell
+
+```powershell
+# ============================================================
+# TASK 6.3 - Criar Backup Vault + Disk Backup Policy
+# ============================================================
+# Modulo: Az.DataProtection
+# - New-AzDataProtectionBackupVault: cria o Backup Vault
+# - New-AzDataProtectionBackupPolicy: cria policy de backup
+#
+# Backup Vault vs Recovery Services Vault:
+# - Backup Vault (Microsoft.DataProtection): Disks, Blobs, PostgreSQL, AKS
+# - Recovery Services Vault (Microsoft.RecoveryServices): VMs, Files, ASR
+#
+# O Backup Vault e o servico mais recente. A Microsoft esta migrando
+# workloads gradualmente. No AZ-104, saber qual vault suporta
+# qual workload e critico para a prova.
+# ============================================================
+
+# Variaveis
+$bvRg = "az104-rg-bv"
+$bvName = "az104-bv"
+$location = "eastus"
+$policyName = "az104-bv-disk-policy"
+
+# Criar Resource Group
+New-AzResourceGroup -Name $bvRg -Location $location
+
+# ============================================================
+# Criar Backup Vault
+# ============================================================
+# New-AzDataProtectionBackupVault:
+# - StorageSetting: define redundancia e tipo de datastore
+#   New-AzDataProtectionBackupVaultStorageSetting cria o objeto
+# - -IdentityType: SystemAssigned = managed identity para acesso a discos
+#   O vault precisa de roles: Disk Backup Reader + Disk Snapshot Contributor
+# ============================================================
+
+# Criar storage setting (LRS para lab, GRS para producao)
+$storageSetting = New-AzDataProtectionBackupVaultStorageSetting `
+    -DataStoreType VaultStore `
+    -Type LocallyRedundant
+
+# Criar o Backup Vault
+$backupVault = New-AzDataProtectionBackupVault `
+    -ResourceGroupName $bvRg `
+    -VaultName $bvName `
+    -Location $location `
+    -StorageSetting $storageSetting `
+    -IdentityType "SystemAssigned"
+
+Write-Host "Backup Vault criado: $($backupVault.Name)" -ForegroundColor Green
+Write-Host "Principal ID: $($backupVault.IdentityPrincipalId)"
+
+# ============================================================
+# Criar Disk Backup Policy
+# ============================================================
+# New-AzDataProtectionBackupPolicy:
+# - Usa um "policy template" como base (Get-AzDataProtectionPolicyTemplate)
+# - O template traz as regras padrao para o tipo de datasource
+# - Voce pode customizar schedule e retention antes de criar
+#
+# Disk backup usa snapshots incrementais:
+# - Primeiro snapshot: copia completa do disco
+# - Snapshots seguintes: apenas deltas (blocos alterados)
+# - Menor custo e tempo que VM backup completo do RSV
+# ============================================================
+
+# Obter policy template para Azure Disk
+# Get-AzDataProtectionPolicyTemplate: retorna o esqueleto da policy
+# -DatasourceType: AzureDisk para backup de discos gerenciados
+$policyTemplate = Get-AzDataProtectionPolicyTemplate -DatasourceType AzureDisk
+
+# Customizar retencao: 30 dias (padrao pode ser 7)
+# O template retorna um objeto que pode ser modificado antes de criar
+# policyRules[1] = regra de retencao (Default)
+# lifecycles[0].deleteAfter.duration = periodo ISO 8601
+$policyTemplate.PolicyRule[1].Lifecycle[0].DeleteAfterDuration = "P30D"
+
+# Criar a policy no vault
+$diskPolicy = New-AzDataProtectionBackupPolicy `
+    -ResourceGroupName $bvRg `
+    -VaultName $bvName `
+    -Name $policyName `
+    -Policy $policyTemplate
+
+Write-Host "Disk Backup Policy criada: $($diskPolicy.Name)" -ForegroundColor Green
+Write-Host "Retencao: $($diskPolicy.Property.PolicyRule[1].Lifecycle[0].DeleteAfterDuration)"
+
+# Validar
+Get-AzDataProtectionBackupPolicy `
+    -ResourceGroupName $bvRg `
+    -VaultName $bvName |
+    Select-Object Name |
+    Format-Table
+```
+
+---
+
+### Task 6.4: Comparar Backup Vault vs Recovery Services Vault
+
+> **Esta task e conceitual — nao requer script PowerShell.**
+> A tabela abaixo e a referencia principal para o AZ-104.
+
+| Aspecto | Recovery Services Vault (RSV) | Backup Vault (BV) |
+|---------|-------------------------------|---------------------|
+| **Tipo ARM** | `Microsoft.RecoveryServices/vaults` | `Microsoft.DataProtection/backupVaults` |
+| **Modulo PowerShell** | `Az.RecoveryServices` | `Az.DataProtection` |
+| **VM Backup** | Sim (Windows + Linux) | Nao |
+| **Azure Files** | Sim (File Share backup) | Nao |
+| **Site Recovery** | Sim (DR/replicacao) | Nao |
+| **Azure Disks** | Nao | Sim (snapshot-based) |
+| **Azure Blobs** | Nao | Sim (vaulted + operational) |
+| **PostgreSQL** | Nao | Sim |
+| **AKS** | Nao | Sim |
+| **SAP HANA** | Sim | Nao |
+| **SQL in VM** | Sim | Nao |
+| **Cross Region Restore** | Sim (com GRS) | Sim (com GRS) |
+| **Soft Delete** | 14 dias (configuravel) | Habilitado por padrao |
+| **Criar vault** | `New-AzRecoveryServicesVault` | `New-AzDataProtectionBackupVault` |
+| **Criar policy** | `New-AzRecoveryServicesBackupProtectionPolicy` | `New-AzDataProtectionBackupPolicy` |
+
+> **Dica AZ-104:** Na prova, saber qual vault suporta qual workload e critico.
+> VM backup = RSV. Disk backup = BV. File Share = RSV. Blob backup = BV. Site Recovery = RSV apenas.
+> O **Backup Center** no portal unifica a gestao de ambos os vaults.
+
+---
+
+### Task 6.5: Configurar backup de disco no Backup Vault
+
+```powershell
+# ============================================================
+# TASK 6.5 - Configurar Disk Backup Instance
+# ============================================================
+# Passos:
+# 1. Atribuir roles ao Backup Vault (managed identity)
+# 2. Inicializar e criar a backup instance
+#
+# Roles necessarias:
+# - Disk Backup Reader: no RG do disco (para ler dados)
+# - Disk Snapshot Contributor: no RG de snapshots (para criar snapshots)
+#
+# Cmdlets principais:
+# - Initialize-AzDataProtectionBackupInstance: prepara configuracao
+# - New-AzDataProtectionBackupInstance: cria e ativa protecao
+# ============================================================
+
+# Variaveis
+$bvRg = "az104-rg-bv"
+$bvName = "az104-bv"
+$vmRg = "az104-rg7"
+$vmName = "az104-vm-linux"
+$policyName = "az104-bv-disk-policy"
+
+# Obter o Backup Vault e a VM
+$backupVault = Get-AzDataProtectionBackupVault -ResourceGroupName $bvRg -VaultName $bvName
+$vm = Get-AzVM -ResourceGroupName $vmRg -Name $vmName
+$diskId = $vm.StorageProfile.OsDisk.ManagedDisk.Id
+
+# Obter IDs para role assignments
+$principalId = $backupVault.IdentityPrincipalId
+$diskRgId = (Get-AzResourceGroup -Name $vmRg).ResourceId
+$snapshotRgId = (Get-AzResourceGroup -Name $bvRg).ResourceId
+
+Write-Host "Vault Principal ID: $principalId"
+Write-Host "Disk ID: $diskId"
+
+# ============================================================
+# 1. Atribuir roles ao vault
+# ============================================================
+# New-AzRoleAssignment: atribui role RBAC
+# - Disk Backup Reader: permite ao vault ler dados do disco
+# - Disk Snapshot Contributor: permite criar snapshots
+# ============================================================
+
+# Role: Disk Backup Reader no RG do disco
+New-AzRoleAssignment `
+    -ObjectId $principalId `
+    -RoleDefinitionName "Disk Backup Reader" `
+    -Scope $diskRgId `
+    -ErrorAction SilentlyContinue
+
+# Role: Disk Snapshot Contributor no RG de snapshots
+New-AzRoleAssignment `
+    -ObjectId $principalId `
+    -RoleDefinitionName "Disk Snapshot Contributor" `
+    -Scope $snapshotRgId `
+    -ErrorAction SilentlyContinue
+
+Write-Host "Roles atribuidas. Aguardando propagacao (30s)..." -ForegroundColor Yellow
+Start-Sleep -Seconds 30
+
+# ============================================================
+# 2. Criar Backup Instance
+# ============================================================
+# Initialize-AzDataProtectionBackupInstance:
+# - Prepara o objeto de configuracao (nao cria ainda)
+# - -DatasourceType: AzureDisk
+# - -DatasourceId: ID do disco a proteger
+# - -PolicyId: ID da policy de backup
+# - -SnapshotResourceGroupId: RG onde ficam os snapshots
+#
+# New-AzDataProtectionBackupInstance:
+# - Cria a backup instance (ativa a protecao)
+# - Usa o objeto retornado por Initialize-
+# ============================================================
+
+# Obter a policy
+$policy = Get-AzDataProtectionBackupPolicy `
+    -ResourceGroupName $bvRg `
+    -VaultName $bvName `
+    -Name $policyName
+
+# Inicializar (preparar configuracao)
+$backupInstance = Initialize-AzDataProtectionBackupInstance `
+    -DatasourceType AzureDisk `
+    -DatasourceLocation $backupVault.Location `
+    -DatasourceId $diskId `
+    -PolicyId $policy.Id `
+    -SnapshotResourceGroupId $snapshotRgId
+
+# Criar a backup instance (ativar protecao)
+New-AzDataProtectionBackupInstance `
+    -ResourceGroupName $bvRg `
+    -VaultName $bvName `
+    -BackupInstance $backupInstance
+
+# Validar: disco protegido
+Get-AzDataProtectionBackupInstance `
+    -ResourceGroupName $bvRg `
+    -VaultName $bvName |
+    Select-Object Name, @{N="Status";E={$_.Property.CurrentProtectionState}} |
+    Format-Table
+
+Write-Host ""
+Write-Host "=== Disk Backup Configurado ===" -ForegroundColor Green
+Write-Host "O Backup Vault criara snapshots incrementais conforme a policy"
+Write-Host "Snapshots ficam no OperationalStore (rapido para restore)"
+```
+
+> **Conceito:** Disk backup usa snapshots incrementais — apenas blocos alterados desde o ultimo snapshot
+> sao capturados. Isso e mais eficiente que VM backup completo do RSV.
+> Ideal para proteger discos individuais sem overhead de backup de VM.
+
+---
+
+## Modo Desafio - Bloco 6
+
+- [ ] Criar RG `az104-rg-moved` e mover VM Linux via `Move-AzResource`
+- [ ] Verificar recursos dependentes movidos junto (NIC, Disk)
+- [ ] Entender as diferencas entre move entre RGs vs move entre regioes
+- [ ] Mover VM de volta ao RG original
+- [ ] Criar Backup Vault `az104-bv` (LRS) com `New-AzDataProtectionBackupVault`
+- [ ] Criar disk backup policy com `New-AzDataProtectionBackupPolicy`
+- [ ] Comparar workloads suportados: RSV vs Backup Vault (tabela conceitual)
+- [ ] Configurar backup de disco via `Initialize-`/`New-AzDataProtectionBackupInstance`
+- [ ] Validar backup instance no Backup Vault
+
+---
+
+## Questoes de Prova - Bloco 6
+
+### Questao 6.1
+**Voce precisa mover uma VM para outro Resource Group na mesma regiao usando PowerShell. Qual cmdlet usar?**
+
+A) `Set-AzResource -ResourceGroupName`
+B) `Move-AzResource -DestinationResourceGroupName`
+C) `Copy-AzResource -DestinationResourceGroupName`
+D) `New-AzResourceGroupDeployment`
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: B) `Move-AzResource -DestinationResourceGroupName`**
+
+`Move-AzResource` move recursos entre Resource Groups ou subscriptions. Aceita um array de `-ResourceId` para mover recursos dependentes juntos. A VM NAO precisa ser desligada para move entre RGs na mesma regiao.
+
+</details>
+
+### Questao 6.2
+**Qual modulo PowerShell contem os cmdlets para Azure Backup Vault?**
+
+A) Az.RecoveryServices
+B) Az.DataProtection
+C) Az.Backup
+D) Az.Storage
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: B) Az.DataProtection**
+
+O modulo `Az.DataProtection` contem cmdlets para o Backup Vault (`New-AzDataProtectionBackupVault`, `New-AzDataProtectionBackupPolicy`, etc.). O modulo `Az.RecoveryServices` e para o Recovery Services Vault. Sao modulos diferentes para vaults diferentes.
+
+</details>
+
+### Questao 6.3
+**Qual cmdlet PowerShell prepara a configuracao de uma backup instance ANTES de cria-la no Backup Vault?**
+
+A) `New-AzDataProtectionBackupInstance`
+B) `Set-AzDataProtectionBackupInstance`
+C) `Initialize-AzDataProtectionBackupInstance`
+D) `Enable-AzDataProtectionBackupInstance`
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: C) `Initialize-AzDataProtectionBackupInstance`**
+
+O padrao em Az.DataProtection e: `Initialize-` prepara o objeto de configuracao (datasource, policy, snapshot RG), depois `New-` cria efetivamente a backup instance no vault. Isso permite validar a configuracao antes de criar.
+
+</details>
+
+---
+
 ## Pausar entre Sessoes
 
 Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos para evitar cobrancas desnecessarias.
@@ -2263,7 +2689,7 @@ Start-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-linux
 
 > **IMPORTANTE:** Remova todos os recursos para evitar custos.
 > Execute os comandos na ordem indicada: desabilitar backup ANTES de deletar o vault,
-> depois Resource Groups.
+> depois Resource Groups. O Backup Vault tambem requer remover backup instances antes da exclusao.
 
 ```powershell
 # ============================================================
@@ -2360,8 +2786,33 @@ if ($vaultDR) {
     Write-Host "  Vault DR removido"
 }
 
-# 5. Remover Connection Monitor
-Write-Host "5. Removendo Connection Monitor..." -ForegroundColor Yellow
+# 5. Remover backup instances do Backup Vault (Bloco 6)
+Write-Host "5. Removendo Backup Vault instances..." -ForegroundColor Yellow
+$bvInstances = Get-AzDataProtectionBackupInstance `
+    -ResourceGroupName "az104-rg-bv" `
+    -VaultName "az104-bv" `
+    -ErrorAction SilentlyContinue
+
+foreach ($inst in $bvInstances) {
+    # Suspender protecao antes de remover
+    Suspend-AzDataProtectionBackupInstanceBackup `
+        -ResourceGroupName "az104-rg-bv" `
+        -VaultName "az104-bv" `
+        -BackupInstanceName $inst.Name `
+        -ErrorAction SilentlyContinue
+
+    # Remover backup instance
+    Remove-AzDataProtectionBackupInstance `
+        -ResourceGroupName "az104-rg-bv" `
+        -VaultName "az104-bv" `
+        -Name $inst.Name `
+        -ErrorAction SilentlyContinue
+
+    Write-Host "  Backup instance $($inst.Name) removida"
+}
+
+# 6. Remover Connection Monitor
+Write-Host "6. Removendo Connection Monitor..." -ForegroundColor Yellow
 $networkWatcher = Get-AzNetworkWatcher | Where-Object { $_.Location -eq $location }
 if ($networkWatcher) {
     Remove-AzNetworkWatcherConnectionMonitor `
@@ -2372,8 +2823,8 @@ if ($networkWatcher) {
     Write-Host "  Connection Monitor removido"
 }
 
-# 6. Remover extensoes da VM (AMA, Dependency Agent, Network Watcher)
-Write-Host "6. Removendo extensoes da VM..." -ForegroundColor Yellow
+# 7. Remover extensoes da VM (AMA, Dependency Agent, Network Watcher)
+Write-Host "7. Removendo extensoes da VM..." -ForegroundColor Yellow
 @("AzureMonitorWindowsAgent", "DependencyAgentWindows", "NetworkWatcherAgentWindows") | ForEach-Object {
     Remove-AzVMExtension `
         -ResourceGroupName $vmRg `
@@ -2384,8 +2835,8 @@ Write-Host "6. Removendo extensoes da VM..." -ForegroundColor Yellow
     Write-Host "  Extensao $_ removida"
 }
 
-# 7. Remover cache storage account
-Write-Host "7. Removendo cache storage account..." -ForegroundColor Yellow
+# 8. Remover cache storage account
+Write-Host "8. Removendo cache storage account..." -ForegroundColor Yellow
 Get-AzStorageAccount -ResourceGroupName $rg11 |
     Where-Object { $_.StorageAccountName -like "az104cache*" } |
     ForEach-Object {
@@ -2393,15 +2844,17 @@ Get-AzStorageAccount -ResourceGroupName $rg11 |
         Write-Host "  Storage account $($_.StorageAccountName) removida"
     }
 
-# 8. Deletar Resource Groups (todos os recursos restantes)
-Write-Host "8. Deletando Resource Groups..." -ForegroundColor Yellow
-Remove-AzResourceGroup -Name $rg11 -Force -AsJob   # Backup vault + policies
-Remove-AzResourceGroup -Name $rg12 -Force -AsJob   # Site Recovery
-Remove-AzResourceGroup -Name $rg13 -Force -AsJob   # Monitor + Log Analytics
+# 9. Deletar Resource Groups (todos os recursos restantes)
+Write-Host "9. Deletando Resource Groups..." -ForegroundColor Yellow
+Remove-AzResourceGroup -Name $rg11 -Force -AsJob            # Backup vault + policies
+Remove-AzResourceGroup -Name $rg12 -Force -AsJob            # Site Recovery
+Remove-AzResourceGroup -Name $rg13 -Force -AsJob            # Monitor + Log Analytics
+Remove-AzResourceGroup -Name "az104-rg-bv" -Force -AsJob    # Backup Vault
+Remove-AzResourceGroup -Name "az104-rg-moved" -Force -AsJob -ErrorAction SilentlyContinue  # Move RG
 Write-Host "  RGs sendo deletados em background..."
 
-# 9. Reverter configuracoes de protecao de blobs (opcional)
-Write-Host "9. Revertendo protecao de blobs..." -ForegroundColor Yellow
+# 10. Reverter configuracoes de protecao de blobs (opcional)
+Write-Host "10. Revertendo protecao de blobs..." -ForegroundColor Yellow
 $storageAcct = Get-AzStorageAccount -ResourceGroupName $storageRg -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($storageAcct) {
     Disable-AzStorageBlobRestorePolicy `
@@ -2429,8 +2882,8 @@ if ($storageAcct) {
     Write-Host "  Protecao de blobs revertida"
 }
 
-# 10. Aguardar RGs serem deletados
-Write-Host "`n10. Aguardando exclusao dos RGs..." -ForegroundColor Yellow
+# 11. Aguardar RGs serem deletados
+Write-Host "`n11. Aguardando exclusao dos RGs..." -ForegroundColor Yellow
 Get-Job | Wait-Job | Out-Null
 Write-Host "  Todos os RGs deletados"
 
@@ -2479,6 +2932,15 @@ Write-Host "`n=== CLEANUP COMPLETO ===" -ForegroundColor Green
 - VM Insights requer: AMA + Dependency Agent + Log Analytics Workspace
 - Network Watcher: Connection Monitor (continuo), IP Flow Verify (pontual), Next Hop (rota)
 
+## Bloco 6 - Backup Vault e VM Move (Az.DataProtection + Az.Resources)
+- `Move-AzResource` move recursos entre RGs (sem downtime, mesma regiao)
+- Move entre regioes requer ASR ou recriar (NAO usa Move-AzResource)
+- `New-AzDataProtectionBackupVault` cria Backup Vault (diferente de RSV)
+- `New-AzDataProtectionBackupPolicy` cria policy usando template (`Get-AzDataProtectionPolicyTemplate`)
+- `Initialize-AzDataProtectionBackupInstance` → `New-AzDataProtectionBackupInstance` (padrao Initialize/New)
+- Roles necessarias: Disk Backup Reader + Disk Snapshot Contributor
+- Disk backup usa snapshots incrementais (menor custo que VM backup do RSV)
+
 ## Resumo de Cmdlets por Categoria
 
 | Categoria | Cmdlet principal | Modulo |
@@ -2511,3 +2973,8 @@ Write-Host "`n=== CLEANUP COMPLETO ===" -ForegroundColor Green
 | Conn Monitor | `New-AzNetworkWatcherConnectionMonitor` | Az.Network |
 | IP Flow Verify | `Test-AzNetworkWatcherIPFlow` | Az.Network |
 | Next Hop | `Get-AzNetworkWatcherNextHop` | Az.Network |
+| VM Move | `Move-AzResource` | Az.Resources |
+| Backup Vault | `New-AzDataProtectionBackupVault` | Az.DataProtection |
+| BV Policy | `New-AzDataProtectionBackupPolicy` | Az.DataProtection |
+| BV Instance | `New-AzDataProtectionBackupInstance` | Az.DataProtection |
+| BV Policy Template | `Get-AzDataProtectionPolicyTemplate` | Az.DataProtection |

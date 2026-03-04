@@ -2221,6 +2221,513 @@ IP Flow Verify simula um pacote com source/destination/port/protocol e diz se o 
 
 ---
 
+# Bloco 6 - Backup Vault e VM Move
+
+> **Contexto:** O Backup Vault e o servico mais recente de backup do Azure, projetado para workloads
+> que o Recovery Services Vault nao suporta (Disks, Blobs, PostgreSQL, AKS). Neste bloco voce tambem
+> pratica mover VMs entre Resource Groups — topico cobrado no AZ-104 (dominio Compute).
+>
+> **Resource Groups:** `az104-rg7` (VMs da Semana 2) + `az104-rg-bv` (Backup Vault) + `az104-rg-moved` (destino do move)
+
+---
+
+### Task 6.1: Mover VM para outro Resource Group (CLI)
+
+> **Por que CLI e nao Bicep?** Move de recursos e uma operacao imperativa (`az resource move`),
+> nao um provisionamento declarativo. Bicep descreve o estado desejado de recursos;
+> mover um recurso existente entre RGs nao e algo que se modela em template.
+
+```bash
+# ============================================================
+# TASK 6.1 - Mover VM entre Resource Groups
+# ============================================================
+# Move de recursos entre RGs:
+# - NAO requer downtime (VM continua running)
+# - Altera o resource ID (novo RG no path)
+# - Regiao e configuracoes permanecem iguais
+# - Recursos dependentes (NIC, Disk, PIP) devem ser movidos JUNTOS
+# ============================================================
+
+# Criar RG de destino
+az group create --name az104-rg-moved --location eastus
+
+# Obter IDs dos recursos a mover
+# IMPORTANTE: VM + NIC + Disk devem ir juntos (dependencias)
+VM_ID=$(az vm show -g az104-rg7 -n az104-vm-linux --query id -o tsv)
+NIC_ID=$(az vm show -g az104-rg7 -n az104-vm-linux \
+    --query "networkProfile.networkInterfaces[0].id" -o tsv)
+DISK_ID=$(az vm show -g az104-rg7 -n az104-vm-linux \
+    --query "storageProfile.osDisk.managedDisk.id" -o tsv)
+
+echo "VM ID: $VM_ID"
+echo "NIC ID: $NIC_ID"
+echo "Disk ID: $DISK_ID"
+
+# Mover todos os recursos dependentes de uma vez
+# az resource move: operacao imperativa (nao declarativa)
+# --destination-group: RG de destino (mesma subscription)
+# --ids: lista de resource IDs a mover
+az resource move \
+    --destination-group az104-rg-moved \
+    --ids $VM_ID $NIC_ID $DISK_ID
+
+# Validar: VM agora esta no novo RG
+az vm show -g az104-rg-moved -n az104-vm-linux --query "{name:name, rg:resourceGroup, location:location}" -o table
+```
+
+> **Conceito AZ-104:** `az resource move` altera o Resource Group no resource ID mas NAO altera
+> a regiao, configuracao ou estado do recurso. A VM continua running durante o move.
+
+---
+
+### Task 6.2: Entender limitacoes de move e mover VM de volta
+
+```bash
+# ============================================================
+# TASK 6.2 - Limitacoes de Move e reverter
+# ============================================================
+# Tipos de move no Azure:
+#
+# | Cenario                       | Metodo               | Downtime |
+# |-------------------------------|----------------------|----------|
+# | Move entre RGs (mesma regiao) | az resource move     | Nenhum   |
+# | Move entre regioes            | ASR / Resource Mover | Minimo   |
+# | Move entre subscriptions      | az resource move     | Nenhum   |
+#
+# LIMITACOES IMPORTANTES:
+# - Nem todos os recursos suportam move (verificar support matrix)
+# - Recursos com locks NAO podem ser movidos (remover lock antes)
+# - Move entre regioes NAO usa az resource move — requer ASR ou recriar
+# - Recursos dependentes DEVEM ser movidos juntos
+# ============================================================
+
+# Mover VM de volta ao RG original
+VM_ID=$(az vm show -g az104-rg-moved -n az104-vm-linux --query id -o tsv)
+NIC_ID=$(az vm show -g az104-rg-moved -n az104-vm-linux \
+    --query "networkProfile.networkInterfaces[0].id" -o tsv)
+DISK_ID=$(az vm show -g az104-rg-moved -n az104-vm-linux \
+    --query "storageProfile.osDisk.managedDisk.id" -o tsv)
+
+az resource move \
+    --destination-group az104-rg7 \
+    --ids $VM_ID $NIC_ID $DISK_ID
+
+# Validar: VM de volta ao RG original
+az vm show -g az104-rg7 -n az104-vm-linux --query "{name:name, rg:resourceGroup}" -o table
+echo "VM movida de volta para az104-rg7 com sucesso"
+```
+
+> **Conexao com Bloco 3:** Para mover VMs entre regioes, use Azure Site Recovery (configurado no Bloco 3).
+> `az resource move` NAO suporta move cross-region para VMs.
+
+---
+
+### Task 6.3: Criar Azure Backup Vault via Bicep
+
+Crie o arquivo `bloco6-backup-vault.bicep`:
+
+```bicep
+// ============================================================
+// BLOCO 6 - Azure Backup Vault + Disk Backup Policy
+// ============================================================
+// Backup Vault vs Recovery Services Vault:
+// - Backup Vault: Azure Disks, Blobs, PostgreSQL, AKS
+// - Recovery Services Vault: VMs, File Shares, Site Recovery, SAP HANA, SQL in VM
+//
+// O Backup Vault e o servico mais recente de backup da Microsoft.
+// A Microsoft esta gradualmente migrando workloads para ele.
+// No AZ-104, saber QUAL vault suporta QUAL workload e critico.
+//
+// Tipo ARM: Microsoft.DataProtection/backupVaults
+// (diferente de Microsoft.RecoveryServices/vaults usado no Bloco 1)
+// ============================================================
+
+@description('Localizacao dos recursos. Deve ser a mesma regiao dos discos a proteger.')
+param location string = resourceGroup().location
+
+@description('Nome do Backup Vault.')
+param backupVaultName string = 'az104-bv'
+
+@description('Redundancia do storage do vault. LRS para labs, GRS para producao.')
+@allowed([
+  'LocallyRedundant'
+  'GeoRedundant'
+])
+param storageRedundancy string = 'LocallyRedundant'
+
+@description('Nome da politica de backup para Azure Disks.')
+param diskPolicyName string = 'az104-bv-disk-policy'
+
+@description('Retencao em dias para os snapshots de disco.')
+@minValue(1)
+@maxValue(360)
+param retentionDays int = 30
+
+// ============================================================
+// Backup Vault
+// ============================================================
+// Microsoft.DataProtection/backupVaults:
+// - storageSettings: define redundancia (LRS/GRS)
+//   Diferente do RSV, aqui e um ARRAY de storage settings
+// - Nao tem propriedade de soft delete no template (habilitado por padrao)
+// ============================================================
+resource backupVault 'Microsoft.DataProtection/backupVaults@2023-11-01' = {
+  name: backupVaultName
+  location: location
+  identity: {
+    // System-assigned managed identity: necessaria para acessar discos
+    // O vault precisa de roles nos discos: Disk Backup Reader + Disk Snapshot Contributor
+    type: 'SystemAssigned'
+  }
+  properties: {
+    storageSettings: [
+      {
+        // datastoreType: VaultStore para dados no vault, OperationalStore para snapshots locais
+        // Disk backup usa OperationalStore (snapshots ficam na subscription, nao no vault)
+        datastoreType: 'VaultStore'
+        type: storageRedundancy
+      }
+    ]
+  }
+}
+
+// ============================================================
+// Disk Backup Policy
+// ============================================================
+// Microsoft.DataProtection/backupVaults/backupPolicies:
+// - datasourceTypes: ['Microsoft.Compute/disks'] para backup de discos
+// - policyRules: define schedule (quando) e retention (quanto tempo)
+//
+// Disk backup usa snapshots incrementais:
+// - Primeiro snapshot: copia completa do disco
+// - Snapshots seguintes: apenas deltas (blocos alterados)
+// - Menor custo e tempo que VM backup completo do RSV
+//
+// Conceito Bicep: recurso FILHO usa 'parent:' para declarar hierarquia
+// O Bicep gera automaticamente o dependsOn e nome composto
+// ============================================================
+resource diskBackupPolicy 'Microsoft.DataProtection/backupVaults/backupPolicies@2023-11-01' = {
+  parent: backupVault
+  name: diskPolicyName
+  properties: {
+    datasourceTypes: [
+      'Microsoft.Compute/disks'
+    ]
+    objectType: 'BackupPolicy'
+    policyRules: [
+      {
+        // Regra de BACKUP: define quando executar
+        name: 'BackupDaily'
+        objectType: 'AzureBackupRule'
+        backupParameters: {
+          objectType: 'AzureBackupParams'
+          // backupType: Incremental = apenas blocos alterados (menor custo)
+          // Full nao e suportado para disk backup
+          backupType: 'Incremental'
+        }
+        trigger: {
+          objectType: 'ScheduleBasedTriggerContext'
+          schedule: {
+            // Formato ISO 8601: backup diario as 02:00 UTC
+            repeatingTimeIntervals: [
+              'R/2024-01-01T02:00:00+00:00/P1D'
+            ]
+            // P1D = Period 1 Day (diario)
+            // Outros exemplos: PT4H (a cada 4h), P1W (semanal)
+          }
+          taggingCriteria: [
+            {
+              // Tag padrao: aplica retencao default a todos os recovery points
+              isDefault: true
+              tagInfo: {
+                tagName: 'Default'
+              }
+              taggingPriority: 99
+            }
+          ]
+        }
+        dataStore: {
+          // OperationalStore: snapshots ficam na subscription (rapido para restore)
+          // VaultStore: dados copiados para o vault (mais seguro, mais lento)
+          // Disk backup usa OperationalStore por padrao
+          datastoreType: 'OperationalStore'
+          objectType: 'DataStoreInfoBase'
+        }
+      }
+      {
+        // Regra de RETENCAO: define quanto tempo manter
+        name: 'Default'
+        objectType: 'AzureRetentionRule'
+        isDefault: true
+        lifecycles: [
+          {
+            // deleteAfter: quando excluir os recovery points
+            // P30D = Period 30 Days
+            deleteAfter: {
+              objectType: 'AbsoluteDeleteOption'
+              duration: 'P${retentionDays}D'
+            }
+            sourceDataStore: {
+              datastoreType: 'OperationalStore'
+              objectType: 'DataStoreInfoBase'
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
+
+// ============================================================
+// Outputs
+// ============================================================
+@description('Resource ID do Backup Vault (necessario para configurar backup instances via CLI)')
+output backupVaultId string = backupVault.id
+
+@description('Nome do Backup Vault')
+output backupVaultName string = backupVault.name
+
+@description('Principal ID da managed identity do vault (necessario para role assignments)')
+output backupVaultPrincipalId string = backupVault.identity.principalId
+
+@description('Nome da politica de backup de disco')
+output diskPolicyName string = diskBackupPolicy.name
+
+@description('Resource ID da politica de backup')
+output diskPolicyId string = diskBackupPolicy.id
+```
+
+Deploy:
+
+```bash
+# ============================================================
+# DEPLOY - Backup Vault + Disk Policy
+# ============================================================
+
+# Criar Resource Group para o Backup Vault
+az group create --name az104-rg-bv --location eastus
+
+# Deploy do template
+az deployment group create \
+    -g az104-rg-bv \
+    -f bloco6-backup-vault.bicep \
+    --query "properties.outputs" -o table
+
+# Validar: Backup Vault criado com LRS
+az dataprotection backup-vault show \
+    -g az104-rg-bv \
+    --vault-name az104-bv \
+    --query "{name:name, location:location, redundancy:properties.storageSettings[0].type}" \
+    -o table
+
+# Validar: Policy criada
+az dataprotection backup-policy show \
+    -g az104-rg-bv \
+    --vault-name az104-bv \
+    --name az104-bv-disk-policy \
+    --query "{name:name, datasources:properties.datasourceTypes[0]}" \
+    -o table
+```
+
+---
+
+### Task 6.4: Comparar Backup Vault vs Recovery Services Vault
+
+> **Esta task e conceitual — nao requer template Bicep.**
+> A tabela abaixo e a referencia principal para o AZ-104.
+
+| Aspecto | Recovery Services Vault (RSV) | Backup Vault (BV) |
+|---------|-------------------------------|---------------------|
+| **Tipo ARM** | `Microsoft.RecoveryServices/vaults` | `Microsoft.DataProtection/backupVaults` |
+| **VM Backup** | Sim (Windows + Linux) | Nao |
+| **Azure Files** | Sim (File Share backup) | Nao |
+| **Site Recovery** | Sim (DR/replicacao) | Nao |
+| **Azure Disks** | Nao | Sim (snapshot-based) |
+| **Azure Blobs** | Nao | Sim (vaulted + operational) |
+| **PostgreSQL** | Nao | Sim |
+| **AKS** | Nao | Sim |
+| **SAP HANA** | Sim | Nao |
+| **SQL in VM** | Sim | Nao |
+| **Cross Region Restore** | Sim (com GRS) | Sim (com GRS) |
+| **Soft Delete** | 14 dias (configuravel) | Habilitado por padrao |
+| **Bicep parent keyword** | Policy filho do vault | Policy filho do vault |
+
+> **Dica AZ-104:** Na prova, saber qual vault suporta qual workload e critico.
+> VM backup = RSV. Disk backup = BV. File Share = RSV. Blob backup = BV. Site Recovery = RSV apenas.
+> O **Backup Center** no portal unifica a gestao de ambos os vaults.
+
+---
+
+### Task 6.5: Configurar backup de disco no Backup Vault (CLI)
+
+> **Por que CLI e nao Bicep?** Configurar uma backup instance (associar um disco especifico ao vault)
+> depende de IDs de recursos existentes e role assignments. Embora seja possivel em Bicep
+> (`Microsoft.DataProtection/backupVaults/backupInstances`), na pratica usa-se CLI
+> para flexibilidade e porque o portal guia as permissoes necessarias.
+
+```bash
+# ============================================================
+# TASK 6.5 - Configurar Disk Backup Instance via CLI
+# ============================================================
+# Passos:
+# 1. Atribuir roles ao Backup Vault (managed identity)
+# 2. Criar snapshot resource group (onde os snapshots serao armazenados)
+# 3. Inicializar e criar a backup instance
+#
+# Roles necessarias:
+# - Disk Backup Reader: no disco (para ler dados do disco)
+# - Disk Snapshot Contributor: no snapshot RG (para criar snapshots)
+# ============================================================
+
+# Variaveis
+BV_NAME="az104-bv"
+BV_RG="az104-rg-bv"
+VM_RG="az104-rg7"
+VM_NAME="az104-vm-linux"
+POLICY_NAME="az104-bv-disk-policy"
+
+# Obter IDs necessarios
+BV_PRINCIPAL_ID=$(az dataprotection backup-vault show \
+    -g "$BV_RG" --vault-name "$BV_NAME" \
+    --query "identity.principalId" -o tsv)
+
+DISK_ID=$(az vm show -g "$VM_RG" -n "$VM_NAME" \
+    --query "storageProfile.osDisk.managedDisk.id" -o tsv)
+
+DISK_RG_ID=$(az group show -g "$VM_RG" --query id -o tsv)
+SNAPSHOT_RG_ID=$(az group show -g "$BV_RG" --query id -o tsv)
+
+echo "Backup Vault Principal ID: $BV_PRINCIPAL_ID"
+echo "Disk ID: $DISK_ID"
+
+# 1. Atribuir role: Disk Backup Reader no RG do disco
+#    Permite ao vault ler os dados do disco para criar snapshots
+az role assignment create \
+    --assignee-object-id "$BV_PRINCIPAL_ID" \
+    --assignee-principal-type ServicePrincipal \
+    --role "Disk Backup Reader" \
+    --scope "$DISK_RG_ID"
+
+# 2. Atribuir role: Disk Snapshot Contributor no RG de snapshots
+#    Permite ao vault criar e gerenciar snapshots neste RG
+az role assignment create \
+    --assignee-object-id "$BV_PRINCIPAL_ID" \
+    --assignee-principal-type ServicePrincipal \
+    --role "Disk Snapshot Contributor" \
+    --scope "$SNAPSHOT_RG_ID"
+
+echo "Roles atribuidas. Aguardando propagacao (30s)..."
+sleep 30
+
+# 3. Inicializar backup instance (prepara configuracao)
+#    az dataprotection backup-instance initialize:
+#    - Gera o JSON de configuracao necessario para criar a instance
+#    - --datasource-id: recurso a proteger (disco)
+#    - --datasource-type: tipo do recurso (AzureDisk)
+#    - --policy-id: policy que define schedule/retention
+#    - --snapshot-resource-group-name: RG onde ficam os snapshots
+az dataprotection backup-instance initialize \
+    --datasource-id "$DISK_ID" \
+    --datasource-type AzureDisk \
+    --policy-id $(az dataprotection backup-policy show \
+        -g "$BV_RG" --vault-name "$BV_NAME" \
+        --name "$POLICY_NAME" --query id -o tsv) \
+    --snapshot-resource-group-name "$BV_RG" \
+    > backup-instance.json
+
+# 4. Criar backup instance (ativa a protecao)
+az dataprotection backup-instance create \
+    -g "$BV_RG" \
+    --vault-name "$BV_NAME" \
+    --backup-instance @backup-instance.json
+
+# 5. Validar: disco protegido
+az dataprotection backup-instance list \
+    -g "$BV_RG" \
+    --vault-name "$BV_NAME" \
+    --query "[].{name:name, status:properties.currentProtectionState, datasource:properties.dataSourceInfo.resourceName}" \
+    -o table
+
+echo ""
+echo "=== Disk Backup Configurado ==="
+echo "O Backup Vault criara snapshots incrementais conforme a policy"
+echo "Snapshots ficam no OperationalStore (rapido para restore)"
+```
+
+> **Conceito:** Disk backup usa snapshots incrementais — apenas blocos alterados desde o ultimo snapshot
+> sao capturados. Isso e mais eficiente que VM backup completo do RSV.
+> Ideal para proteger discos individuais sem overhead de backup de VM.
+
+---
+
+## Modo Desafio - Bloco 6
+
+- [ ] Criar RG `az104-rg-moved` e mover VM Linux para ele via CLI (`az resource move`)
+- [ ] Verificar recursos dependentes movidos junto (NIC, Disk)
+- [ ] Entender as diferencas entre move entre RGs vs move entre regioes
+- [ ] Mover VM de volta ao RG original
+- [ ] Deploy `bloco6-backup-vault.bicep` (Backup Vault + disk policy)
+- [ ] Comparar workloads suportados: RSV vs Backup Vault (tabela conceitual)
+- [ ] Configurar backup de disco de VM no Backup Vault via CLI
+- [ ] Validar backup instance no Backup Vault
+
+---
+
+## Questoes de Prova - Bloco 6
+
+### Questao 6.1
+**Voce precisa mover uma VM para outro Resource Group na mesma regiao. A VM precisa ser desligada?**
+
+A) Sim, a VM deve estar parada (deallocated) para mover
+B) Nao, a VM pode ser movida enquanto esta running
+C) Sim, mas apenas se a VM tiver data disks
+D) Depende do tamanho da VM
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: B) Nao, a VM pode ser movida enquanto esta running**
+
+Move entre Resource Groups na mesma regiao nao requer downtime. O Azure atualiza o resource ID mas a VM continua operando normalmente. Todos os recursos dependentes (NIC, disks, public IP) devem ser movidos juntos.
+
+</details>
+
+### Questao 6.2
+**Qual vault do Azure suporta backup de Azure Managed Disks (snapshots incrementais)?**
+
+A) Recovery Services Vault
+B) Backup Vault
+C) Ambos
+D) Nenhum — discos usam Azure Site Recovery
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: B) Backup Vault**
+
+O backup de Azure Managed Disks (baseado em snapshots incrementais) e suportado pelo Backup Vault (`Microsoft.DataProtection/backupVaults`), nao pelo Recovery Services Vault. O RSV suporta backup de VMs completas (que inclui os discos), mas nao backup de discos individuais.
+
+</details>
+
+### Questao 6.3
+**Em Bicep, como voce declara um Backup Policy como recurso filho do Backup Vault?**
+
+A) Usando `scope: backupVault`
+B) Usando `parent: backupVault`
+C) Usando `dependsOn: [backupVault]`
+D) Concatenando o nome: `'${backupVaultName}/${policyName}'`
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: B) Usando `parent: backupVault`**
+
+Em Bicep, `parent:` declara hierarquia pai-filho. O Bicep gera automaticamente o nome composto e o `dependsOn`. `scope:` e para extension resources (como Diagnostic Settings). A opcao D funciona em ARM JSON mas nao e o padrao idiomatico em Bicep.
+
+</details>
+
+---
+
 ## Pausar entre Sessoes
 
 Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos para evitar cobrancas desnecessarias.
@@ -2299,36 +2806,55 @@ if [ -n "$FS_CONTAINER" ] && [ -n "$FS_ITEM" ]; then
     echo "Protecao File Share desabilitada"
 fi
 
-# 2. Remover Diagnostic Settings
-echo "2. Removendo diagnostic settings..."
+# 2. Desabilitar backup instances no Backup Vault (Bloco 6)
+echo "2. Desabilitando Backup Vault instances..."
+BV_INSTANCES=$(az dataprotection backup-instance list \
+    -g az104-rg-bv --vault-name az104-bv \
+    --query "[].name" -o tsv 2>/dev/null)
+
+for INST in $BV_INSTANCES; do
+    az dataprotection backup-instance stop-protection \
+        -g az104-rg-bv --vault-name az104-bv \
+        --backup-instance-name "$INST" 2>/dev/null
+    az dataprotection backup-instance delete \
+        -g az104-rg-bv --vault-name az104-bv \
+        --backup-instance-name "$INST" --yes 2>/dev/null
+    echo "  Backup instance $INST removida"
+done
+
+# 3. Remover Diagnostic Settings
+echo "3. Removendo diagnostic settings..."
 az monitor diagnostic-settings delete \
     --name "vault-to-law" \
     --resource "$VAULT_NAME" \
     --resource-group "$RG11" \
     --resource-type "Microsoft.RecoveryServices/vaults" 2>/dev/null
 
-# 3. Remover DCR association
-echo "3. Removendo DCR association..."
+# 4. Remover DCR association
+echo "4. Removendo DCR association..."
 VM_RESOURCE_ID=$(az vm show -g "$RG11" -n "az104-vm11" --query id -o tsv 2>/dev/null)
 az monitor data-collection rule association delete \
     --name "az104-vm11-dcr-association" \
     --resource "$VM_RESOURCE_ID" \
     --yes 2>/dev/null
 
-# 4. Deletar Resource Groups
-echo "4. Deletando Resource Groups..."
+# 5. Deletar Resource Groups
+echo "5. Deletando Resource Groups..."
 az group delete --name "$RG11" --yes --no-wait
 az group delete --name "$RG12" --yes --no-wait
 az group delete --name "$RG13" --yes --no-wait
+az group delete --name az104-rg-bv --yes --no-wait
+az group delete --name az104-rg-moved --yes --no-wait 2>/dev/null
 
 echo ""
 echo "=== CLEANUP INICIADO ==="
 echo "RGs estao sendo deletados em background (pode levar 5-10 min)"
-echo "Verifique no portal: Resource Groups → filtrar por 'az104-rg1'"
+echo "Verifique no portal: Resource Groups → filtrar por 'az104-rg'"
 ```
 
 > **IMPORTANTE:** O Recovery Services Vault NAO pode ser deletado se houver itens protegidos.
 > Por isso, o cleanup desabilita backup + deleta dados ANTES de remover o RG.
+> O Backup Vault tambem requer remover backup instances antes da exclusao do RG.
 
 ---
 
@@ -2350,13 +2876,16 @@ echo "Verifique no portal: Resource Groups → filtrar por 'az104-rg1'"
 | Conceito | Onde no lab |
 |----------|-------------|
 | `parent:` (recurso filho) | `bloco1-backup.bicep` (policy filho do vault) |
+| `parent:` (recurso filho) | `bloco6-backup-vault.bicep` (disk policy filho do Backup Vault) |
 | `existing` keyword | `bloco2-fileshare-backup.bicep` (vault existente) |
 | `scope:` (extension resource) | `bloco5-vault-diagnostics.bicep` (diagnostic settings) |
 | `targetScope = 'subscription'` | `bloco3-asr-infra.bicep` (criar RG) |
-| `@description`, `@minValue`, `@maxValue` | `bloco5-loganalytics.bicep` |
+| `@description`, `@minValue`, `@maxValue` | `bloco5-loganalytics.bicep`, `bloco6-backup-vault.bicep` |
 | `dependsOn` explicito (quando necessario) | `bloco2-fileshare-backup.bicep` |
 | Hierarquia profunda (3 niveis) | `bloco2-storage.bicep` (storage/blobServices/containers) |
 | Dependencias implicitas | `bloco4-monitor.bicep` (alert → action group) |
+| String interpolation em duracoes | `bloco6-backup-vault.bicep` (`'P${retentionDays}D'`) |
+| `identity` (managed identity) | `bloco6-backup-vault.bicep` (SystemAssigned para acesso a discos) |
 
 ## Comandos de Deploy por Scope
 
@@ -2381,6 +2910,7 @@ echo "Verifique no portal: Resource Groups → filtrar por 'az104-rg1'"
 | `bloco5-vm-agent.bicep` | resourceGroup | AMA extension na VM |
 | `bloco5-diagnostics.bicep` | resourceGroup | Data Collection Rule |
 | `bloco5-vault-diagnostics.bicep` | resourceGroup | Diagnostic Settings no vault |
+| `bloco6-backup-vault.bicep` | resourceGroup | Backup Vault (LRS) + disk backup policy |
 
 ## Operacoes que Usam CLI (nao Bicep)
 
@@ -2393,3 +2923,5 @@ echo "Verifique no portal: Resource Groups → filtrar por 'az104-rg1'"
 | DCR Association (cross-RG) | Scope da VM em outro RG |
 | Network Watcher (testes) | Ferramenta operacional |
 | Consultas KQL | Leitura de dados |
+| VM Move entre RGs | Operacao imperativa (`az resource move`), nao provisionamento |
+| Disk backup instance | Depende de IDs de recursos existentes + role assignments |

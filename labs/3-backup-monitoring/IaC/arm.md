@@ -2642,6 +2642,541 @@ Formato completo: `[resourceId(subscriptionId, resourceGroupName, 'type', 'name'
 
 ---
 
+# Bloco 6 - Backup Vault e VM Move
+
+> **Contexto:** O Backup Vault e o servico mais recente de backup do Azure, projetado para workloads
+> que o Recovery Services Vault nao suporta (Disks, Blobs, PostgreSQL, AKS). Neste bloco voce tambem
+> pratica mover VMs entre Resource Groups — topico cobrado no AZ-104 (dominio Compute).
+>
+> **Resource Groups:** `az104-rg7` (VMs da Semana 2) + `az104-rg-bv` (Backup Vault) + `az104-rg-moved` (destino do move)
+
+---
+
+### Task 6.1: Mover VM para outro Resource Group (CLI)
+
+> **Por que CLI e nao ARM?** Move de recursos e uma operacao imperativa (`az resource move`),
+> nao um provisionamento declarativo. ARM templates descrevem o estado desejado de recursos;
+> mover um recurso existente entre RGs nao e algo que se modela em template.
+
+```bash
+# ============================================================
+# TASK 6.1 - Mover VM entre Resource Groups
+# ============================================================
+# Move de recursos entre RGs:
+# - NAO requer downtime (VM continua running)
+# - Altera o resource ID (novo RG no path)
+# - Regiao e configuracoes permanecem iguais
+# - Recursos dependentes (NIC, Disk, PIP) devem ser movidos JUNTOS
+# ============================================================
+
+# Criar RG de destino
+az group create --name az104-rg-moved --location eastus
+
+# Obter IDs dos recursos a mover
+# IMPORTANTE: VM + NIC + Disk devem ir juntos (dependencias)
+VM_ID=$(az vm show -g az104-rg7 -n az104-vm-linux --query id -o tsv)
+NIC_ID=$(az vm show -g az104-rg7 -n az104-vm-linux \
+    --query "networkProfile.networkInterfaces[0].id" -o tsv)
+DISK_ID=$(az vm show -g az104-rg7 -n az104-vm-linux \
+    --query "storageProfile.osDisk.managedDisk.id" -o tsv)
+
+echo "VM ID: $VM_ID"
+echo "NIC ID: $NIC_ID"
+echo "Disk ID: $DISK_ID"
+
+# Mover todos os recursos dependentes de uma vez
+# az resource move: operacao imperativa (nao declarativa)
+# --destination-group: RG de destino (mesma subscription)
+# --ids: lista de resource IDs a mover
+az resource move \
+    --destination-group az104-rg-moved \
+    --ids $VM_ID $NIC_ID $DISK_ID
+
+# Validar: VM agora esta no novo RG
+az vm show -g az104-rg-moved -n az104-vm-linux --query "{name:name, rg:resourceGroup, location:location}" -o table
+```
+
+> **Conceito AZ-104:** `az resource move` altera o Resource Group no resource ID mas NAO altera
+> a regiao, configuracao ou estado do recurso. A VM continua running durante o move.
+
+---
+
+### Task 6.2: Entender limitacoes de move e mover VM de volta
+
+```bash
+# ============================================================
+# TASK 6.2 - Limitacoes de Move e reverter
+# ============================================================
+# Tipos de move no Azure:
+#
+# | Cenario                       | Metodo               | Downtime |
+# |-------------------------------|----------------------|----------|
+# | Move entre RGs (mesma regiao) | az resource move     | Nenhum   |
+# | Move entre regioes            | ASR / Resource Mover | Minimo   |
+# | Move entre subscriptions      | az resource move     | Nenhum   |
+#
+# LIMITACOES IMPORTANTES:
+# - Nem todos os recursos suportam move (verificar support matrix)
+# - Recursos com locks NAO podem ser movidos (remover lock antes)
+# - Move entre regioes NAO usa az resource move — requer ASR ou recriar
+# - Recursos dependentes DEVEM ser movidos juntos
+# ============================================================
+
+# Mover VM de volta ao RG original
+VM_ID=$(az vm show -g az104-rg-moved -n az104-vm-linux --query id -o tsv)
+NIC_ID=$(az vm show -g az104-rg-moved -n az104-vm-linux \
+    --query "networkProfile.networkInterfaces[0].id" -o tsv)
+DISK_ID=$(az vm show -g az104-rg-moved -n az104-vm-linux \
+    --query "storageProfile.osDisk.managedDisk.id" -o tsv)
+
+az resource move \
+    --destination-group az104-rg7 \
+    --ids $VM_ID $NIC_ID $DISK_ID
+
+# Validar: VM de volta ao RG original
+az vm show -g az104-rg7 -n az104-vm-linux --query "{name:name, rg:resourceGroup}" -o table
+echo "VM movida de volta para az104-rg7 com sucesso"
+```
+
+> **Conexao com Bloco 3:** Para mover VMs entre regioes, use Azure Site Recovery (configurado no Bloco 3).
+> `az resource move` NAO suporta move cross-region para VMs.
+
+---
+
+### Task 6.3: Criar Azure Backup Vault via ARM JSON
+
+Crie o arquivo `bloco6-backup-vault.json`:
+
+```json
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+
+    "_comment": "================================================================",
+    "_comment2": "BLOCO 6 - Azure Backup Vault + Disk Backup Policy",
+    "_comment3": "================================================================",
+    "_comment4": "Backup Vault vs Recovery Services Vault:",
+    "_comment5": "- Backup Vault: Azure Disks, Blobs, PostgreSQL, AKS",
+    "_comment6": "- Recovery Services Vault: VMs, File Shares, Site Recovery, SAP HANA, SQL in VM",
+    "_comment7": "",
+    "_comment8": "Tipo ARM: Microsoft.DataProtection/backupVaults",
+    "_comment9": "(diferente de Microsoft.RecoveryServices/vaults usado no Bloco 1)",
+    "_comment10": "================================================================",
+
+    "parameters": {
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "Localizacao dos recursos. Deve ser a mesma regiao dos discos a proteger."
+            }
+        },
+        "backupVaultName": {
+            "type": "string",
+            "defaultValue": "az104-bv",
+            "metadata": {
+                "description": "Nome do Backup Vault."
+            }
+        },
+        "storageRedundancy": {
+            "type": "string",
+            "defaultValue": "LocallyRedundant",
+            "allowedValues": [
+                "LocallyRedundant",
+                "GeoRedundant"
+            ],
+            "metadata": {
+                "description": "Redundancia do storage do vault. LRS para labs, GRS para producao."
+            }
+        },
+        "diskPolicyName": {
+            "type": "string",
+            "defaultValue": "az104-bv-disk-policy",
+            "metadata": {
+                "description": "Nome da politica de backup para Azure Disks."
+            }
+        },
+        "retentionDays": {
+            "type": "int",
+            "defaultValue": 30,
+            "minValue": 1,
+            "maxValue": 360,
+            "metadata": {
+                "description": "Retencao em dias para os snapshots de disco."
+            }
+        }
+    },
+
+    "resources": [
+        {
+            "_comment": "=========================================",
+            "_comment2": "Backup Vault",
+            "_comment3": "=========================================",
+            "_comment4": "Microsoft.DataProtection/backupVaults:",
+            "_comment5": "- storageSettings: define redundancia (LRS/GRS)",
+            "_comment6": "  Diferente do RSV, aqui e um ARRAY de storage settings",
+            "_comment7": "- identity: SystemAssigned para acessar discos",
+            "_comment8": "  O vault precisa de roles: Disk Backup Reader + Disk Snapshot Contributor",
+            "_comment9": "=========================================",
+
+            "type": "Microsoft.DataProtection/backupVaults",
+            "apiVersion": "2023-11-01",
+            "name": "[parameters('backupVaultName')]",
+            "location": "[parameters('location')]",
+            "identity": {
+                "type": "SystemAssigned"
+            },
+            "properties": {
+                "storageSettings": [
+                    {
+                        "datastoreType": "VaultStore",
+                        "type": "[parameters('storageRedundancy')]"
+                    }
+                ]
+            }
+        },
+        {
+            "_comment": "=========================================",
+            "_comment2": "Disk Backup Policy",
+            "_comment3": "=========================================",
+            "_comment4": "Microsoft.DataProtection/backupVaults/backupPolicies:",
+            "_comment5": "- datasourceTypes: ['Microsoft.Compute/disks'] para discos",
+            "_comment6": "- policyRules: define schedule (quando) e retention (quanto tempo)",
+            "_comment7": "",
+            "_comment8": "Disk backup usa snapshots incrementais:",
+            "_comment9": "- Primeiro snapshot: copia completa do disco",
+            "_commentA": "- Snapshots seguintes: apenas deltas (blocos alterados)",
+            "_commentB": "- Menor custo e tempo que VM backup completo do RSV",
+            "_commentC": "",
+            "_commentD": "ARM JSON: recurso filho usa nome composto (vault/policy)",
+            "_commentE": "e dependsOn explicito (diferente do Bicep que usa parent:)",
+            "_commentF": "=========================================",
+
+            "type": "Microsoft.DataProtection/backupVaults/backupPolicies",
+            "apiVersion": "2023-11-01",
+            "name": "[format('{0}/{1}', parameters('backupVaultName'), parameters('diskPolicyName'))]",
+            "dependsOn": [
+                "[resourceId('Microsoft.DataProtection/backupVaults', parameters('backupVaultName'))]"
+            ],
+            "properties": {
+                "datasourceTypes": [
+                    "Microsoft.Compute/disks"
+                ],
+                "objectType": "BackupPolicy",
+                "policyRules": [
+                    {
+                        "name": "BackupDaily",
+                        "objectType": "AzureBackupRule",
+                        "backupParameters": {
+                            "objectType": "AzureBackupParams",
+                            "backupType": "Incremental"
+                        },
+                        "trigger": {
+                            "objectType": "ScheduleBasedTriggerContext",
+                            "schedule": {
+                                "repeatingTimeIntervals": [
+                                    "R/2024-01-01T02:00:00+00:00/P1D"
+                                ]
+                            },
+                            "taggingCriteria": [
+                                {
+                                    "isDefault": true,
+                                    "tagInfo": {
+                                        "tagName": "Default"
+                                    },
+                                    "taggingPriority": 99
+                                }
+                            ]
+                        },
+                        "dataStore": {
+                            "datastoreType": "OperationalStore",
+                            "objectType": "DataStoreInfoBase"
+                        }
+                    },
+                    {
+                        "name": "Default",
+                        "objectType": "AzureRetentionRule",
+                        "isDefault": true,
+                        "lifecycles": [
+                            {
+                                "deleteAfter": {
+                                    "objectType": "AbsoluteDeleteOption",
+                                    "duration": "[format('P{0}D', parameters('retentionDays'))]"
+                                },
+                                "sourceDataStore": {
+                                    "datastoreType": "OperationalStore",
+                                    "objectType": "DataStoreInfoBase"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+
+    "outputs": {
+        "backupVaultId": {
+            "type": "string",
+            "value": "[resourceId('Microsoft.DataProtection/backupVaults', parameters('backupVaultName'))]",
+            "metadata": {
+                "description": "Resource ID do Backup Vault (necessario para configurar backup instances via CLI)"
+            }
+        },
+        "backupVaultName": {
+            "type": "string",
+            "value": "[parameters('backupVaultName')]"
+        },
+        "backupVaultPrincipalId": {
+            "type": "string",
+            "value": "[reference(resourceId('Microsoft.DataProtection/backupVaults', parameters('backupVaultName')), '2023-11-01', 'full').identity.principalId]",
+            "metadata": {
+                "description": "Principal ID da managed identity do vault (necessario para role assignments)"
+            }
+        },
+        "diskPolicyName": {
+            "type": "string",
+            "value": "[parameters('diskPolicyName')]"
+        },
+        "diskPolicyId": {
+            "type": "string",
+            "value": "[resourceId('Microsoft.DataProtection/backupVaults/backupPolicies', parameters('backupVaultName'), parameters('diskPolicyName'))]"
+        }
+    }
+}
+```
+
+Deploy:
+
+```bash
+# ============================================================
+# DEPLOY - Backup Vault + Disk Policy (ARM JSON)
+# ============================================================
+
+# Criar Resource Group para o Backup Vault
+az group create --name az104-rg-bv --location eastus
+
+# Deploy do template ARM
+az deployment group create \
+    -g az104-rg-bv \
+    --template-file bloco6-backup-vault.json \
+    --query "properties.outputs" -o table
+
+# Validar: Backup Vault criado com LRS
+az dataprotection backup-vault show \
+    -g az104-rg-bv \
+    --vault-name az104-bv \
+    --query "{name:name, location:location, redundancy:properties.storageSettings[0].type}" \
+    -o table
+
+# Validar: Policy criada
+az dataprotection backup-policy show \
+    -g az104-rg-bv \
+    --vault-name az104-bv \
+    --name az104-bv-disk-policy \
+    --query "{name:name, datasources:properties.datasourceTypes[0]}" \
+    -o table
+```
+
+---
+
+### Task 6.4: Comparar Backup Vault vs Recovery Services Vault
+
+> **Esta task e conceitual — nao requer template ARM.**
+> A tabela abaixo e a referencia principal para o AZ-104.
+
+| Aspecto | Recovery Services Vault (RSV) | Backup Vault (BV) |
+|---------|-------------------------------|---------------------|
+| **Tipo ARM** | `Microsoft.RecoveryServices/vaults` | `Microsoft.DataProtection/backupVaults` |
+| **VM Backup** | Sim (Windows + Linux) | Nao |
+| **Azure Files** | Sim (File Share backup) | Nao |
+| **Site Recovery** | Sim (DR/replicacao) | Nao |
+| **Azure Disks** | Nao | Sim (snapshot-based) |
+| **Azure Blobs** | Nao | Sim (vaulted + operational) |
+| **PostgreSQL** | Nao | Sim |
+| **AKS** | Nao | Sim |
+| **SAP HANA** | Sim | Nao |
+| **SQL in VM** | Sim | Nao |
+| **Cross Region Restore** | Sim (com GRS) | Sim (com GRS) |
+| **Soft Delete** | 14 dias (configuravel) | Habilitado por padrao |
+| **ARM JSON child resource** | Nome composto + `dependsOn` | Nome composto + `dependsOn` |
+
+> **Dica AZ-104:** Na prova, saber qual vault suporta qual workload e critico.
+> VM backup = RSV. Disk backup = BV. File Share = RSV. Blob backup = BV. Site Recovery = RSV apenas.
+> O **Backup Center** no portal unifica a gestao de ambos os vaults.
+
+---
+
+### Task 6.5: Configurar backup de disco no Backup Vault (CLI)
+
+> **Por que CLI e nao ARM?** Configurar uma backup instance (associar um disco especifico ao vault)
+> depende de IDs de recursos existentes e role assignments. Embora seja possivel em ARM
+> (`Microsoft.DataProtection/backupVaults/backupInstances`), na pratica usa-se CLI
+> para flexibilidade e porque o portal guia as permissoes necessarias.
+
+```bash
+# ============================================================
+# TASK 6.5 - Configurar Disk Backup Instance via CLI
+# ============================================================
+# Passos:
+# 1. Atribuir roles ao Backup Vault (managed identity)
+# 2. Criar snapshot resource group (onde os snapshots serao armazenados)
+# 3. Inicializar e criar a backup instance
+#
+# Roles necessarias:
+# - Disk Backup Reader: no disco (para ler dados do disco)
+# - Disk Snapshot Contributor: no snapshot RG (para criar snapshots)
+# ============================================================
+
+# Variaveis
+BV_NAME="az104-bv"
+BV_RG="az104-rg-bv"
+VM_RG="az104-rg7"
+VM_NAME="az104-vm-linux"
+POLICY_NAME="az104-bv-disk-policy"
+
+# Obter IDs necessarios
+BV_PRINCIPAL_ID=$(az dataprotection backup-vault show \
+    -g "$BV_RG" --vault-name "$BV_NAME" \
+    --query "identity.principalId" -o tsv)
+
+DISK_ID=$(az vm show -g "$VM_RG" -n "$VM_NAME" \
+    --query "storageProfile.osDisk.managedDisk.id" -o tsv)
+
+DISK_RG_ID=$(az group show -g "$VM_RG" --query id -o tsv)
+SNAPSHOT_RG_ID=$(az group show -g "$BV_RG" --query id -o tsv)
+
+echo "Backup Vault Principal ID: $BV_PRINCIPAL_ID"
+echo "Disk ID: $DISK_ID"
+
+# 1. Atribuir role: Disk Backup Reader no RG do disco
+#    Permite ao vault ler os dados do disco para criar snapshots
+az role assignment create \
+    --assignee-object-id "$BV_PRINCIPAL_ID" \
+    --assignee-principal-type ServicePrincipal \
+    --role "Disk Backup Reader" \
+    --scope "$DISK_RG_ID"
+
+# 2. Atribuir role: Disk Snapshot Contributor no RG de snapshots
+#    Permite ao vault criar e gerenciar snapshots neste RG
+az role assignment create \
+    --assignee-object-id "$BV_PRINCIPAL_ID" \
+    --assignee-principal-type ServicePrincipal \
+    --role "Disk Snapshot Contributor" \
+    --scope "$SNAPSHOT_RG_ID"
+
+echo "Roles atribuidas. Aguardando propagacao (30s)..."
+sleep 30
+
+# 3. Inicializar backup instance (prepara configuracao)
+#    az dataprotection backup-instance initialize:
+#    - Gera o JSON de configuracao necessario para criar a instance
+#    - --datasource-id: recurso a proteger (disco)
+#    - --datasource-type: tipo do recurso (AzureDisk)
+#    - --policy-id: policy que define schedule/retention
+#    - --snapshot-resource-group-name: RG onde ficam os snapshots
+az dataprotection backup-instance initialize \
+    --datasource-id "$DISK_ID" \
+    --datasource-type AzureDisk \
+    --policy-id $(az dataprotection backup-policy show \
+        -g "$BV_RG" --vault-name "$BV_NAME" \
+        --name "$POLICY_NAME" --query id -o tsv) \
+    --snapshot-resource-group-name "$BV_RG" \
+    > backup-instance.json
+
+# 4. Criar backup instance (ativa a protecao)
+az dataprotection backup-instance create \
+    -g "$BV_RG" \
+    --vault-name "$BV_NAME" \
+    --backup-instance @backup-instance.json
+
+# 5. Validar: disco protegido
+az dataprotection backup-instance list \
+    -g "$BV_RG" \
+    --vault-name "$BV_NAME" \
+    --query "[].{name:name, status:properties.currentProtectionState, datasource:properties.dataSourceInfo.resourceName}" \
+    -o table
+
+echo ""
+echo "=== Disk Backup Configurado ==="
+echo "O Backup Vault criara snapshots incrementais conforme a policy"
+echo "Snapshots ficam no OperationalStore (rapido para restore)"
+```
+
+> **Conceito:** Disk backup usa snapshots incrementais — apenas blocos alterados desde o ultimo snapshot
+> sao capturados. Isso e mais eficiente que VM backup completo do RSV.
+> Ideal para proteger discos individuais sem overhead de backup de VM.
+
+---
+
+## Modo Desafio - Bloco 6
+
+- [ ] Criar RG `az104-rg-moved` e mover VM Linux para ele via CLI (`az resource move`)
+- [ ] Verificar recursos dependentes movidos junto (NIC, Disk)
+- [ ] Entender as diferencas entre move entre RGs vs move entre regioes
+- [ ] Mover VM de volta ao RG original
+- [ ] Deploy `bloco6-backup-vault.json` (Backup Vault + disk policy)
+- [ ] Comparar workloads suportados: RSV vs Backup Vault (tabela conceitual)
+- [ ] Configurar backup de disco de VM no Backup Vault via CLI
+- [ ] Validar backup instance no Backup Vault
+
+---
+
+## Questoes de Prova - Bloco 6
+
+### Questao 6.1
+**Voce precisa mover uma VM para outro Resource Group na mesma regiao. A VM precisa ser desligada?**
+
+A) Sim, a VM deve estar parada (deallocated) para mover
+B) Nao, a VM pode ser movida enquanto esta running
+C) Sim, mas apenas se a VM tiver data disks
+D) Depende do tamanho da VM
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: B) Nao, a VM pode ser movida enquanto esta running**
+
+Move entre Resource Groups na mesma regiao nao requer downtime. O Azure atualiza o resource ID mas a VM continua operando normalmente. Todos os recursos dependentes (NIC, disks, public IP) devem ser movidos juntos.
+
+</details>
+
+### Questao 6.2
+**Qual vault do Azure suporta backup de Azure Managed Disks (snapshots incrementais)?**
+
+A) Recovery Services Vault
+B) Backup Vault
+C) Ambos
+D) Nenhum — discos usam Azure Site Recovery
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: B) Backup Vault**
+
+O backup de Azure Managed Disks (baseado em snapshots incrementais) e suportado pelo Backup Vault (`Microsoft.DataProtection/backupVaults`), nao pelo Recovery Services Vault. O RSV suporta backup de VMs completas (que inclui os discos), mas nao backup de discos individuais.
+
+</details>
+
+### Questao 6.3
+**Em ARM JSON, como voce declara um recurso filho (ex: backup policy dentro de um Backup Vault)?**
+
+A) Usando a propriedade `parent`
+B) Usando nome composto `"vaultName/policyName"` + `dependsOn` explicito
+C) Usando a propriedade `scope`
+D) Criando um nested template
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: B) Usando nome composto `"vaultName/policyName"` + `dependsOn` explicito**
+
+Em ARM JSON, recursos filhos usam nome composto (`[format('{0}/{1}', vaultName, policyName)]`) e `dependsOn` explicito apontando para o recurso pai. Em Bicep, usa-se `parent:` que gera automaticamente o nome composto e dependsOn. A propriedade `scope` e para extension resources.
+
+</details>
+
+---
+
 ## Pausar entre Sessoes
 
 Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos para evitar cobrancas desnecessarias.
@@ -2666,7 +3201,7 @@ az monitor metrics alert update -g az104-rg-monitor -n az104-vm-win-cpu-alert --
 
 > **IMPORTANTE:** Antes de excluir os Resource Groups, voce DEVE desabilitar
 > o backup e excluir os itens protegidos. O vault nao pode ser excluido com
-> itens protegidos ativos.
+> itens protegidos ativos. O Backup Vault tambem requer remover backup instances antes da exclusao.
 
 ```bash
 # ============================================================
@@ -2727,15 +3262,33 @@ fi
 az backup vault delete --name "$VAULT_NAME" -g "$RG11" --yes --force
 echo "Recovery Services Vault excluido"
 
-# 5. Excluir Resource Groups (em paralelo com --no-wait)
+# 5. Desabilitar backup instances no Backup Vault (Bloco 6)
+echo "5. Desabilitando Backup Vault instances..."
+BV_INSTANCES=$(az dataprotection backup-instance list \
+    -g az104-rg-bv --vault-name az104-bv \
+    --query "[].name" -o tsv 2>/dev/null)
+
+for INST in $BV_INSTANCES; do
+    az dataprotection backup-instance stop-protection \
+        -g az104-rg-bv --vault-name az104-bv \
+        --backup-instance-name "$INST" 2>/dev/null
+    az dataprotection backup-instance delete \
+        -g az104-rg-bv --vault-name az104-bv \
+        --backup-instance-name "$INST" --yes 2>/dev/null
+    echo "  Backup instance $INST removida"
+done
+
+# 6. Excluir Resource Groups (em paralelo com --no-wait)
 az group delete --name "$RG11" --yes --no-wait
 az group delete --name "$RG12" --yes --no-wait
 az group delete --name "$RG13" --yes --no-wait
+az group delete --name az104-rg-bv --yes --no-wait
+az group delete --name az104-rg-moved --yes --no-wait 2>/dev/null
 
 echo ""
 echo "=== Cleanup iniciado ==="
-echo "RGs sendo excluidos em background: $RG11, $RG12, $RG13"
-echo "Verifique com: az group list --query \"[?starts_with(name,'az104-rg1')].name\" -o tsv"
+echo "RGs sendo excluidos em background: $RG11, $RG12, $RG13, az104-rg-bv, az104-rg-moved"
+echo "Verifique com: az group list --query \"[?starts_with(name,'az104-rg')].name\" -o tsv"
 ```
 
 ---
@@ -2758,6 +3311,7 @@ echo "Verifique com: az group list --query \"[?starts_with(name,'az104-rg1')].na
 | `bloco5-ama-extension.json` | ARM | Resource Group | VM Extension (AMA) |
 | `bloco5-dcr.json` | ARM | Resource Group | Data Collection Rule |
 | `bloco5-saved-searches.json` | ARM | Resource Group | Saved Searches (4 KQL queries) |
+| `bloco6-backup-vault.json` | ARM | Resource Group | Backup Vault (LRS) + disk backup policy |
 
 ---
 
@@ -2773,6 +3327,8 @@ echo "Verifique com: az group list --query \"[?starts_with(name,'az104-rg1')].na
 | KQL queries (ad-hoc) | Leitura/consulta, nao provisionamento | CLI: `az rest --method post --url <workspace-id>/api/query` |
 | Connection Monitor | Monitoramento de rede | CLI: `az network watcher connection-monitor` |
 | Network Watcher enable | Configuracao regional | CLI: `az network watcher configure` |
+| VM Move entre RGs | Operacao imperativa (`az resource move`) | CLI: `az resource move --destination-group` |
+| Disk backup instance | Depende de IDs existentes + role assignments | CLI: `az dataprotection backup-instance create` |
 
 ---
 
@@ -2783,4 +3339,5 @@ echo "Verifique com: az group list --query \"[?starts_with(name,'az104-rg1')].na
 - [ ] **Bloco 3:** ASR Fabrics + Containers + Replication Policy + Container Mapping
 - [ ] **Bloco 4:** Action Group + Metric Alert + Diagnostic Settings
 - [ ] **Bloco 5:** Log Analytics Workspace + AMA Agent + DCR + Saved Searches + Connection Monitor
-- [ ] **Cleanup:** Backup desabilitado → Vault excluido → RGs excluidos
+- [ ] **Bloco 6:** Backup Vault + Disk Policy + VM Move + Disk Backup Instance
+- [ ] **Cleanup:** Backup desabilitado → Vault excluido → Backup instances removidas → RGs excluidos

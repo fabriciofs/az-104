@@ -2313,6 +2313,688 @@ Private DNS Zones resolvem nomes apenas para VNets com Virtual Network Link conf
 
 ---
 
+---
+
+# Bloco 6 - Load Balancer e Azure Bastion
+
+**Tecnologia:** PowerShell (Az module)
+**Recursos criados:** Subnet LBSubnet, Availability Set, 2 VMs (IIS), Public LB, Internal LB, NSG, Bastion
+**Resource Group:** `az104-rg6lb` (VMs e LBs) + `az104-rg4` (VNet existente)
+
+> **Nota:** Este bloco cria VMs, Public IPs e Bastion que geram custo. Faca cleanup assim que terminar.
+
+---
+
+### Task 6.1: Criar RG, subnet e Availability Set
+
+```powershell
+# ============================================================
+# TASK 6.1a - Criar RG e subnet LBSubnet
+# ============================================================
+
+$rg6 = "az104-rg6lb"
+New-AzResourceGroup -Name $rg6 -Location $location -Tag @{"Cost Center" = "000"}
+
+# Adicionar subnet LBSubnet na CoreServicesVnet (az104-rg4)
+$coreVnet = Get-AzVirtualNetwork -Name "CoreServicesVnet" -ResourceGroupName $rg4
+Add-AzVirtualNetworkSubnetConfig -Name "LBSubnet" `
+    -VirtualNetwork $coreVnet `
+    -AddressPrefix "10.20.40.0/24"
+$coreVnet | Set-AzVirtualNetwork   # IMPORTANTE: Set-Az* aplica a mudanca!
+
+Write-Host "RG az104-rg6lb e subnet LBSubnet criados" -ForegroundColor Green
+```
+
+---
+
+### Task 6.1b: Criar Availability Set e VMs
+
+```powershell
+# ============================================================
+# TASK 6.1b - Availability Set + 2 VMs
+# ============================================================
+# CONCEITO AZ-104: Availability Sets distribuem VMs entre:
+#   - Fault Domains (FD): racks fisicos diferentes
+#   - Update Domains (UD): reinicializacoes escalonadas
+# O LB Standard requer VMs em AvSet, Zone ou VMSS
+
+# Criar Availability Set
+$avSet = New-AzAvailabilitySet -ResourceGroupName $rg6 `
+    -Name "az104-avset-lb" `
+    -Location $location `
+    -PlatformFaultDomainCount 2 `
+    -PlatformUpdateDomainCount 5 `
+    -Sku "Aligned"   # Obrigatorio para managed disks
+
+Write-Host "Availability Set criado: $($avSet.Name)" -ForegroundColor Green
+
+# Obter subnet LBSubnet (cross-RG: VNet em rg4, VM em rg6)
+$coreVnet = Get-AzVirtualNetwork -Name "CoreServicesVnet" -ResourceGroupName $rg4
+$lbSubnet = $coreVnet.Subnets | Where-Object { $_.Name -eq "LBSubnet" }
+
+# ==================== Criar LB-VM1 ====================
+# NIC cross-RG: NIC no rg6, subnet no rg4
+$nic1 = New-AzNetworkInterface -Name "LB-VM1-nic" `
+    -ResourceGroupName $rg6 `
+    -Location $location `
+    -SubnetId $lbSubnet.Id   # Cross-RG pelo ID completo
+
+# Configuracao da VM
+$vmConfig1 = New-AzVMConfig -VMName "LB-VM1" `
+    -VMSize "Standard_D2s_v3" `
+    -AvailabilitySetId $avSet.Id   # Associa ao Availability Set
+
+$vmConfig1 = Set-AzVMOperatingSystem -VM $vmConfig1 `
+    -Windows -ComputerName "LB-VM1" `
+    -Credential $vmCredential
+
+$vmConfig1 = Set-AzVMSourceImage -VM $vmConfig1 `
+    -PublisherName "MicrosoftWindowsServer" `
+    -Offer "WindowsServer" `
+    -Skus "2025-datacenter-azure-edition" `
+    -Version "latest"
+
+$vmConfig1 = Add-AzVMNetworkInterface -VM $vmConfig1 -Id $nic1.Id
+
+$vmConfig1 = Set-AzVMBootDiagnostic -VM $vmConfig1 -Disable
+
+New-AzVM -ResourceGroupName $rg6 -Location $location -VM $vmConfig1
+Write-Host "LB-VM1 criada" -ForegroundColor Green
+
+# ==================== Criar LB-VM2 ====================
+$nic2 = New-AzNetworkInterface -Name "LB-VM2-nic" `
+    -ResourceGroupName $rg6 `
+    -Location $location `
+    -SubnetId $lbSubnet.Id
+
+$vmConfig2 = New-AzVMConfig -VMName "LB-VM2" `
+    -VMSize "Standard_D2s_v3" `
+    -AvailabilitySetId $avSet.Id
+
+$vmConfig2 = Set-AzVMOperatingSystem -VM $vmConfig2 `
+    -Windows -ComputerName "LB-VM2" `
+    -Credential $vmCredential
+
+$vmConfig2 = Set-AzVMSourceImage -VM $vmConfig2 `
+    -PublisherName "MicrosoftWindowsServer" `
+    -Offer "WindowsServer" `
+    -Skus "2025-datacenter-azure-edition" `
+    -Version "latest"
+
+$vmConfig2 = Add-AzVMNetworkInterface -VM $vmConfig2 -Id $nic2.Id
+
+$vmConfig2 = Set-AzVMBootDiagnostic -VM $vmConfig2 -Disable
+
+New-AzVM -ResourceGroupName $rg6 -Location $location -VM $vmConfig2
+Write-Host "LB-VM2 criada" -ForegroundColor Green
+```
+
+---
+
+### Task 6.1c: Instalar IIS nas VMs
+
+```powershell
+# ============================================================
+# TASK 6.1c - Instalar IIS via Run Command
+# ============================================================
+# CONCEITO: Invoke-AzVMRunCommand executa scripts DENTRO da VM
+# A pagina customizada exibe o hostname para verificar balanceamento
+
+$iisScript = @"
+Install-WindowsFeature -name Web-Server -IncludeManagementTools
+Remove-Item 'C:\inetpub\wwwroot\iisstart.htm'
+Add-Content -Path 'C:\inetpub\wwwroot\iisstart.htm' -Value `$('Hello from ' + `$env:computername)
+"@
+
+Invoke-AzVMRunCommand -ResourceGroupName $rg6 -VMName "LB-VM1" `
+    -CommandId "RunPowerShellScript" -ScriptString $iisScript
+Write-Host "IIS instalado em LB-VM1" -ForegroundColor Green
+
+Invoke-AzVMRunCommand -ResourceGroupName $rg6 -VMName "LB-VM2" `
+    -CommandId "RunPowerShellScript" -ScriptString $iisScript
+Write-Host "IIS instalado em LB-VM2" -ForegroundColor Green
+```
+
+---
+
+### Task 6.2: Criar Public Load Balancer
+
+```powershell
+# ============================================================
+# TASK 6.2 - Public Load Balancer Standard
+# ============================================================
+# CONCEITO AZ-104: Standard LB
+#   - BLOQUEIA trafego por padrao (NSG obrigatorio)
+#   - Requer Standard SKU PIP
+#   - Backend pool por VNet (nao por NIC como Basic)
+#   - Zone-aware, suporta Availability Zones
+
+# 1. Public IP (Standard SKU, Static)
+$lbPip = New-AzPublicIpAddress -Name "az104-lb-pip" `
+    -ResourceGroupName $rg6 `
+    -Location $location `
+    -Sku "Standard" `
+    -AllocationMethod "Static" `
+    -Zone 1,2,3   # Zone-redundant
+
+# 2. Frontend IP Configuration
+$frontendConfig = New-AzLoadBalancerFrontendIpConfig -Name "lb-frontend" `
+    -PublicIpAddressId $lbPip.Id
+
+# 3. Backend Address Pool
+$backendPool = New-AzLoadBalancerBackendAddressPoolConfig -Name "lb-backend-pool"
+
+# 4. Health Probe (HTTP na porta 80)
+# CONCEITO: Probe HTTP verifica a APLICACAO, nao apenas a VM
+# Se IIS parar mas VM continuar, probe falha → VM removida do pool
+$healthProbe = New-AzLoadBalancerProbeConfig -Name "http-probe" `
+    -Protocol "Http" `
+    -Port 80 `
+    -RequestPath "/" `
+    -IntervalInSeconds 5 `
+    -ProbeCount 2   # 2 falhas = unhealthy
+
+# 5. Load Balancing Rule
+# CONCEITO: 5-tuple hash (src IP, src port, dst IP, dst port, protocol)
+$lbRule = New-AzLoadBalancerRuleConfig -Name "http-rule" `
+    -FrontendIpConfigurationId $frontendConfig.Id `
+    -BackendAddressPoolId $backendPool.Id `
+    -ProbeId $healthProbe.Id `
+    -Protocol "Tcp" `
+    -FrontendPort 80 `
+    -BackendPort 80 `
+    -IdleTimeoutInMinutes 4 `
+    -LoadDistribution "Default"   # 5-tuple hash
+
+# 6. Criar Load Balancer
+$publicLb = New-AzLoadBalancer -Name "az104-pub-lb" `
+    -ResourceGroupName $rg6 `
+    -Location $location `
+    -Sku "Standard" `
+    -FrontendIpConfiguration $frontendConfig `
+    -BackendAddressPool $backendPool `
+    -Probe $healthProbe `
+    -LoadBalancingRule $lbRule
+
+Write-Host "Public Load Balancer criado: $($publicLb.Name)" -ForegroundColor Green
+
+# 7. Adicionar VMs ao Backend Pool
+$publicLb = Get-AzLoadBalancer -Name "az104-pub-lb" -ResourceGroupName $rg6
+$backendPool = $publicLb.BackendAddressPools[0]
+
+$nic1 = Get-AzNetworkInterface -Name "LB-VM1-nic" -ResourceGroupName $rg6
+$nic1.IpConfigurations[0].LoadBalancerBackendAddressPools = $backendPool
+$nic1 | Set-AzNetworkInterface
+
+$nic2 = Get-AzNetworkInterface -Name "LB-VM2-nic" -ResourceGroupName $rg6
+$nic2.IpConfigurations[0].LoadBalancerBackendAddressPools = $backendPool
+$nic2 | Set-AzNetworkInterface
+
+Write-Host "VMs adicionadas ao backend pool" -ForegroundColor Green
+Write-Host "Teste: http://$($lbPip.IpAddress)" -ForegroundColor Cyan
+```
+
+---
+
+### Task 6.3: Criar NSG e associar a LBSubnet
+
+```powershell
+# ============================================================
+# TASK 6.3 - NSG para LBSubnet
+# ============================================================
+# CONCEITO: Standard LB BLOQUEIA todo trafego por padrao!
+# Sem NSG com AllowHTTP, as VMs nao respondem
+
+# Criar regra AllowHTTP
+$httpRule = New-AzNetworkSecurityRuleConfig -Name "AllowHTTP" `
+    -Priority 100 `
+    -Direction "Inbound" `
+    -Access "Allow" `
+    -Protocol "Tcp" `
+    -SourcePortRange "*" `
+    -DestinationPortRange "80" `
+    -SourceAddressPrefix "*" `
+    -DestinationAddressPrefix "*"
+
+# Criar NSG
+$nsgLb = New-AzNetworkSecurityGroup -Name "nsg-lb" `
+    -ResourceGroupName $rg6 `
+    -Location $location `
+    -SecurityRules $httpRule
+
+# Associar NSG a LBSubnet (cross-RG: NSG em rg6, subnet em rg4)
+$coreVnet = Get-AzVirtualNetwork -Name "CoreServicesVnet" -ResourceGroupName $rg4
+$lbSubnetConfig = $coreVnet.Subnets | Where-Object { $_.Name -eq "LBSubnet" }
+$lbSubnetConfig.NetworkSecurityGroup = $nsgLb
+$coreVnet | Set-AzVirtualNetwork
+
+Write-Host "NSG nsg-lb associado a LBSubnet" -ForegroundColor Green
+Write-Host "Teste: http://$($lbPip.IpAddress) + hard refresh (Ctrl+Shift+R)" -ForegroundColor Cyan
+```
+
+---
+
+### Task 6.4: Testar failover
+
+```powershell
+# ============================================================
+# TASK 6.4 - Testar failover do Load Balancer
+# ============================================================
+# CONCEITO: Quando VM falha no probe, LB remove da rotacao automaticamente
+
+Stop-AzVM -ResourceGroupName $rg6 -Name "LB-VM1" -Force
+Write-Host "LB-VM1 parada. Apenas LB-VM2 deve responder." -ForegroundColor Yellow
+
+# Reiniciar
+Start-AzVM -ResourceGroupName $rg6 -Name "LB-VM1"
+Write-Host "LB-VM1 reiniciada. Aguarde probe re-detectar (~30s)." -ForegroundColor Green
+```
+
+---
+
+### Task 6.5: Criar Internal Load Balancer
+
+```powershell
+# ============================================================
+# TASK 6.5 - Internal Load Balancer
+# ============================================================
+# CONCEITO: Internal LB usa IP PRIVADO como frontend
+# Ideal para comunicacao entre tiers (ex: frontend → backend)
+# Public e Internal LBs podem compartilhar o MESMO backend pool
+
+$coreVnet = Get-AzVirtualNetwork -Name "CoreServicesVnet" -ResourceGroupName $rg4
+$lbSubnet = $coreVnet.Subnets | Where-Object { $_.Name -eq "LBSubnet" }
+
+# Frontend com IP privado estatico
+$intFrontend = New-AzLoadBalancerFrontendIpConfig -Name "int-lb-frontend" `
+    -PrivateIpAddress "10.20.40.100" `
+    -SubnetId $lbSubnet.Id
+
+$intBackend = New-AzLoadBalancerBackendAddressPoolConfig -Name "int-lb-backend"
+
+$intProbe = New-AzLoadBalancerProbeConfig -Name "int-http-probe" `
+    -Protocol "Http" -Port 80 -RequestPath "/" `
+    -IntervalInSeconds 5 -ProbeCount 2
+
+$intRule = New-AzLoadBalancerRuleConfig -Name "int-http-rule" `
+    -FrontendIpConfigurationId $intFrontend.Id `
+    -BackendAddressPoolId $intBackend.Id `
+    -ProbeId $intProbe.Id `
+    -Protocol "Tcp" -FrontendPort 80 -BackendPort 80 `
+    -IdleTimeoutInMinutes 4 -LoadDistribution "Default"
+
+$intLb = New-AzLoadBalancer -Name "az104-int-lb" `
+    -ResourceGroupName $rg6 `
+    -Location $location `
+    -Sku "Standard" `
+    -FrontendIpConfiguration $intFrontend `
+    -BackendAddressPool $intBackend `
+    -Probe $intProbe `
+    -LoadBalancingRule $intRule
+
+# Adicionar VMs ao backend pool do Internal LB
+$intLb = Get-AzLoadBalancer -Name "az104-int-lb" -ResourceGroupName $rg6
+$intPool = $intLb.BackendAddressPools[0]
+
+$nic1 = Get-AzNetworkInterface -Name "LB-VM1-nic" -ResourceGroupName $rg6
+$nic1.IpConfigurations[0].LoadBalancerBackendAddressPools += $intPool
+$nic1 | Set-AzNetworkInterface
+
+$nic2 = Get-AzNetworkInterface -Name "LB-VM2-nic" -ResourceGroupName $rg6
+$nic2.IpConfigurations[0].LoadBalancerBackendAddressPools += $intPool
+$nic2 | Set-AzNetworkInterface
+
+Write-Host "Internal LB criado com frontend IP 10.20.40.100" -ForegroundColor Green
+```
+
+---
+
+### Task 6.6: Troubleshoot health probe
+
+```powershell
+# ============================================================
+# TASK 6.6 - Troubleshoot: parar/reiniciar IIS
+# ============================================================
+# CONCEITO: Probe detecta falha na APLICACAO (IIS), nao na VM
+# VM running + IIS parado = probe unhealthy → VM removida do pool
+
+# Parar IIS
+Invoke-AzVMRunCommand -ResourceGroupName $rg6 -VMName "LB-VM1" `
+    -CommandId "RunPowerShellScript" `
+    -ScriptString "Stop-Service -Name W3SVC -Force"
+
+Write-Host "IIS parado em LB-VM1. Verifique Health Probe Status no portal." -ForegroundColor Yellow
+
+# Corrigir: reiniciar IIS
+Invoke-AzVMRunCommand -ResourceGroupName $rg6 -VMName "LB-VM1" `
+    -CommandId "RunPowerShellScript" `
+    -ScriptString "Start-Service -Name W3SVC"
+
+Write-Host "IIS reiniciado em LB-VM1." -ForegroundColor Green
+```
+
+---
+
+### Task 6.7: Implantar Azure Bastion
+
+```powershell
+# ============================================================
+# TASK 6.7 - Azure Bastion
+# ============================================================
+# CONCEITO AZ-104: Azure Bastion
+#   - Acesso RDP/SSH via portal sem IP publico na VM
+#   - Subnet DEVE ser 'AzureBastionSubnet' (nome obrigatorio!)
+#   - Tamanho minimo /26 (64 IPs)
+#   - Basic: RDP/SSH via portal
+#   - Standard: + native client, IP-based connection
+
+# Criar AzureBastionSubnet
+$coreVnet = Get-AzVirtualNetwork -Name "CoreServicesVnet" -ResourceGroupName $rg4
+Add-AzVirtualNetworkSubnetConfig -Name "AzureBastionSubnet" `
+    -VirtualNetwork $coreVnet `
+    -AddressPrefix "10.20.30.0/26"   # /26 minimo!
+$coreVnet | Set-AzVirtualNetwork
+
+# Public IP para Bastion
+$bastionPip = New-AzPublicIpAddress -Name "az104-bastion-pip" `
+    -ResourceGroupName $rg6 `
+    -Location $location `
+    -Sku "Standard" `
+    -AllocationMethod "Static"
+
+# Criar Bastion
+# NOTA: O deploy pode levar 5-10 minutos
+$coreVnet = Get-AzVirtualNetwork -Name "CoreServicesVnet" -ResourceGroupName $rg4
+
+New-AzBastion -ResourceGroupName $rg6 `
+    -Name "az104-bastion" `
+    -PublicIpAddressRgName $rg6 `
+    -PublicIpAddressName "az104-bastion-pip" `
+    -VirtualNetworkRgName $rg4 `
+    -VirtualNetworkName "CoreServicesVnet" `
+    -Sku "Basic"
+
+Write-Host "Azure Bastion implantado" -ForegroundColor Green
+Write-Host "Acesse: LB-VM1 > Connect > Bastion (sem IP publico!)" -ForegroundColor Cyan
+```
+
+---
+
+## Modo Desafio - Bloco 6
+
+- [ ] Criar RG `az104-rg6lb` e subnet `LBSubnet`
+- [ ] `New-AzAvailabilitySet` (2 FD, 5 UD, Aligned)
+- [ ] Criar 2 VMs (`New-AzVM`) no Availability Set, cross-RG NIC
+- [ ] `Invoke-AzVMRunCommand` para instalar IIS
+- [ ] `New-AzLoadBalancer` (Standard, Public) com frontend, backend, probe, rule
+- [ ] `New-AzNetworkSecurityGroup` com AllowHTTP, associar a LBSubnet
+- [ ] Testar balanceamento + failover
+- [ ] `New-AzLoadBalancer` (Standard, Internal) com IP 10.20.40.100
+- [ ] Troubleshoot: parar IIS → unhealthy → reiniciar IIS
+- [ ] `New-AzBastion` (AzureBastionSubnet /26 + Basic)
+- [ ] Conectar via Bastion
+
+---
+
+## Questoes de Prova - Bloco 6
+
+### Questao 6.1
+**Standard LB, VMs no backend, probes healthy, mas clientes nao acessam. Causa?**
+
+A) LB requer Availability Zones  B) Falta NSG permitindo trafego  C) Probe errado  D) VMs precisam IP publico
+
+<details><summary>Ver resposta</summary>**Resposta: B)** Standard LB bloqueia trafego por padrao. NSG obrigatorio.</details>
+
+### Questao 6.2
+**Diferenca entre Public LB e Internal LB?**
+
+A) Public = Basic; Internal = Standard  B) Public = internet; Internal = dentro da VNet  C) Internal sem probes  D) Public so TCP
+
+<details><summary>Ver resposta</summary>**Resposta: B)** Public = IP publico. Internal = IP privado entre tiers.</details>
+
+### Questao 6.3
+**Requisito de subnet para Azure Bastion?**
+
+A) `BastionSubnet` /28  B) `AzureBastionSubnet` /26  C) Qualquer /24  D) `AzureBastionSubnet` /24
+
+<details><summary>Ver resposta</summary>**Resposta: B)** Nome EXATO `AzureBastionSubnet`, minimo /26.</details>
+
+### Questao 6.4
+**VM com probe Unhealthy mas running e acessivel via RDP. Causa?**
+
+A) Sem IP publico  B) Servico (IIS) nao responde  C) AvSet diferente  D) LB precisa restart
+
+<details><summary>Ver resposta</summary>**Resposta: B)** Probes verificam a APLICACAO, nao a VM.</details>
+
+### Questao 6.5
+**3 VMs, 1 unhealthy. Trafego?**
+
+A) Enfileirado  B) Redistribuido para healthy  C) LB para  D) Descartado
+
+<details><summary>Ver resposta</summary>**Resposta: B)** LB redistribui para VMs healthy.</details>
+
+---
+
+# Bloco 7 - SSPR, Cost Management e NSG Effective Rules
+
+**Tecnologia:** PowerShell (Microsoft.Graph + Az module) + Portal
+**Recursos:** SSPR config, Budget, Advisor, Network Watcher diagnostics
+**Resource Groups utilizados:** `az104-rg4`, `az104-rg5`, `az104-rg6lb`
+
+> **Nota:** Bloco majoritariamente portal/PowerShell. SSPR usa Microsoft.Graph,
+> Cost Management e Advisor usam cmdlets Az, Network Watcher usa cmdlets de diagnostico.
+
+---
+
+### Task 7.1: Criar grupo SSPR-TestGroup e habilitar SSPR
+
+```powershell
+# ============================================================
+# TASK 7.1 - Criar grupo e habilitar SSPR
+# ============================================================
+# CONCEITO AZ-104: SSPR (Self-Service Password Reset)
+#   - Permite reset sem helpdesk
+#   - Habilitado para: All | Selected (grupo) | None
+#   - Azure AD Free: cloud users | P1/P2: writeback on-premises
+
+# Criar grupo de seguranca para SSPR (Microsoft.Graph)
+$ssprGroup = New-MgGroup -DisplayName "SSPR-TestGroup" `
+    -MailEnabled:$false `
+    -MailNickname "sspr-testgroup" `
+    -SecurityEnabled:$true `
+    -Description "Grupo de teste para Self-Service Password Reset"
+
+Write-Host "Grupo SSPR-TestGroup criado: $($ssprGroup.Id)" -ForegroundColor Green
+
+# Adicionar az104-user1 ao grupo
+$user1Obj = Get-MgUser -Filter "userPrincipalName eq 'az104-user1@$tenantDomain'"
+New-MgGroupMember -GroupId $ssprGroup.Id `
+    -DirectoryObjectId $user1Obj.Id
+
+Write-Host "az104-user1 adicionado ao SSPR-TestGroup" -ForegroundColor Green
+
+# Habilitar SSPR via portal
+Write-Host "`n=== ACAO MANUAL REQUERIDA ===" -ForegroundColor Yellow
+Write-Host "1. Portal > Entra ID > Protection > Password reset"
+Write-Host "2. Properties > Enabled: Selected > Group: SSPR-TestGroup"
+Write-Host "3. Save"
+```
+
+---
+
+### Task 7.2: Configurar metodos de autenticacao
+
+```powershell
+# ============================================================
+# TASK 7.2 - Configurar metodos SSPR (portal)
+# ============================================================
+
+Write-Host "=== ACAO MANUAL - Portal ===" -ForegroundColor Yellow
+Write-Host "1. Password reset > Authentication methods"
+Write-Host "   - Methods required: 1"
+Write-Host "   - Methods: Email + Security questions"
+Write-Host "2. Security questions: register 3, reset 3"
+Write-Host "3. Registration: Require on sign-in: Yes"
+Write-Host "4. Notifications: Notify users + admins: Yes"
+```
+
+---
+
+### Task 7.3: Testar reset de senha
+
+```powershell
+# ============================================================
+# TASK 7.3 - Testar fluxo SSPR
+# ============================================================
+
+Write-Host "1. InPrivate > https://aka.ms/ssprsetup > login az104-user1" -ForegroundColor Cyan
+Write-Host "2. Registrar metodos (email + security questions)"
+Write-Host "3. https://aka.ms/sspr > username > captcha > nova senha"
+```
+
+---
+
+### Task 7.4: Criar Budget e alertas
+
+```powershell
+# ============================================================
+# TASK 7.4 - Criar Budget no Cost Management
+# ============================================================
+# CONCEITO: Budgets alertam mas NAO param recursos
+# Para enforcement: Azure Policy ou Automation
+
+# PowerShell nao tem cmdlet nativo para budgets
+# Use az CLI dentro do PowerShell ou portal
+Write-Host "=== Criar Budget via Portal ou CLI ===" -ForegroundColor Yellow
+Write-Host "Portal: Cost Management > Budgets > + Add"
+Write-Host "  Name: az104-lab-budget"
+Write-Host "  Reset: Monthly"
+Write-Host "  Amount: `$50"
+Write-Host "  Alertas: 80% Actual, 100% Actual, 120% Forecasted"
+Write-Host ""
+Write-Host "Ou via Azure CLI no Cloud Shell (Bash):" -ForegroundColor Cyan
+Write-Host '  az consumption budget create --budget-name "az104-lab-budget" --amount 50 --time-grain Monthly --category Cost'
+```
+
+---
+
+### Task 7.5: Revisar Azure Advisor
+
+```powershell
+# ============================================================
+# TASK 7.5 - Azure Advisor
+# ============================================================
+# CONCEITO: Advisor fornece recomendacoes de Cost, Security,
+# Reliability, Operational Excellence, Performance
+
+# Listar recomendacoes
+Get-AzAdvisorRecommendation | Where-Object { $_.Category -eq "Cost" } |
+    Select-Object Category, Impact, ShortDescription | Format-Table
+
+Write-Host "`nCriar alerta: Advisor > Alerts > + New alert" -ForegroundColor Yellow
+Write-Host "Category: Cost, Impact: High, Name: az104-advisor-cost-alert"
+```
+
+---
+
+### Task 7.6: Network Watcher - Effective Security Rules e IP Flow Verify
+
+```powershell
+# ============================================================
+# TASK 7.6 - Network Watcher diagnostics
+# ============================================================
+# CONCEITO AZ-104: Network Watcher
+#   - Effective Security Rules: regras NSG combinadas (subnet + NIC)
+#   - IP Flow Verify: testa pacote especifico
+#   - Inbound: subnet NSG → NIC NSG (AMBOS devem permitir)
+#   - Outbound: NIC NSG → subnet NSG
+
+# Obter NIC da LB-VM1
+$vm1 = Get-AzVM -ResourceGroupName $rg6 -Name "LB-VM1"
+$nicId = $vm1.NetworkProfile.NetworkInterfaces[0].Id
+$nicName = ($nicId -split "/")[-1]
+
+# Effective Security Rules
+Write-Host "=== Effective Security Rules - LB-VM1 ===" -ForegroundColor Cyan
+$nic1Obj = Get-AzNetworkInterface -Name $nicName -ResourceGroupName $rg6
+Get-AzEffectiveNetworkSecurityGroup -NetworkInterfaceId $nic1Obj.Id |
+    Select-Object -ExpandProperty EffectiveSecurityRules |
+    Format-Table Name, Protocol, SourcePortRange, DestinationPortRange, Access, Direction, Priority
+
+# IP Flow Verify - HTTP (deve ser permitido)
+$vm1Ip = $nic1Obj.IpConfigurations[0].PrivateIpAddress
+$nw = Get-AzNetworkWatcher -ResourceGroupName "NetworkWatcherRG" -Name "NetworkWatcher_$location" -ErrorAction SilentlyContinue
+
+Write-Host "`n=== IP Flow Verify: HTTP porta 80 (ALLOW) ===" -ForegroundColor Cyan
+Test-AzNetworkWatcherIPFlow -NetworkWatcher $nw `
+    -TargetVirtualMachineId $vm1.Id `
+    -Direction "Inbound" `
+    -Protocol "TCP" `
+    -LocalIPAddress $vm1Ip `
+    -LocalPort "80" `
+    -RemoteIPAddress "10.0.0.1" `
+    -RemotePort "12345"
+
+# IP Flow Verify - SSH (deve ser bloqueado)
+Write-Host "`n=== IP Flow Verify: SSH porta 22 (DENY) ===" -ForegroundColor Cyan
+Test-AzNetworkWatcherIPFlow -NetworkWatcher $nw `
+    -TargetVirtualMachineId $vm1.Id `
+    -Direction "Inbound" `
+    -Protocol "TCP" `
+    -LocalIPAddress $vm1Ip `
+    -LocalPort "22" `
+    -RemoteIPAddress "10.0.0.1" `
+    -RemotePort "12345"
+```
+
+---
+
+## Modo Desafio - Bloco 7
+
+- [ ] `New-MgGroup` SSPR-TestGroup + `New-MgGroupMember` az104-user1
+- [ ] Habilitar SSPR (Selected) via portal
+- [ ] Configurar metodos: Email + Security Questions, 1 requerido
+- [ ] Testar reset via `https://aka.ms/sspr`
+- [ ] Criar Budget $50/mes (portal ou CLI)
+- [ ] Alertas 80%, 100%, 120%
+- [ ] `Get-AzAdvisorRecommendation` + criar alerta Cost/High
+- [ ] `Get-AzEffectiveNetworkSecurityGroup` em LB-VM1
+- [ ] `Test-AzNetworkWatcherIPFlow` HTTP (Allow) e SSH (Deny)
+
+---
+
+## Questoes de Prova - Bloco 7
+
+### Questao 7.1
+**SSPR habilitado para grupo. Usuario nao consegue resetar. Verificar?**
+
+A) Licenca P2  B) Se registrou metodos  C) Se e Owner  D) Se SSPR esta em "All"
+
+<details><summary>Ver resposta</summary>**Resposta: B)** Usuario precisa ter registrado metodos requeridos.</details>
+
+### Questao 7.2
+**Budget $100/mes, alerta 80%. Gasto $85. O que acontece?**
+
+A) Desliga recursos  B) Email de alerta, recursos continuam  C) Bloqueia deployments  D) Rebaixa SKUs
+
+<details><summary>Ver resposta</summary>**Resposta: B)** Budgets alertam mas NAO param recursos.</details>
+
+### Questao 7.3
+**Verificar se TCP 443 e permitido para VM. Ferramenta?**
+
+A) Connection Troubleshoot  B) Effective Security Rules  C) IP Flow Verify  D) Next Hop
+
+<details><summary>Ver resposta</summary>**Resposta: C)** IP Flow Verify testa pacote especifico.</details>
+
+### Questao 7.4
+**NSG subnet permite porta 80. NSG NIC bloqueia porta 80. Inbound?**
+
+A) Subnet precedencia  B) Bloqueado (AMBOS devem permitir)  C) Allow vence  D) Depende priority
+
+<details><summary>Ver resposta</summary>**Resposta: B)** Inbound: subnet → NIC. Ambos devem permitir.</details>
+
+---
+
 ## Pausar entre Sessoes
 
 Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos para evitar cobrancas desnecessarias.
@@ -2321,20 +3003,24 @@ Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos
 # Pausar
 Stop-AzVM -ResourceGroupName az104-rg5 -Name CoreServicesVM -Force
 Stop-AzVM -ResourceGroupName az104-rg5 -Name ManufacturingVM -Force
+Stop-AzVM -ResourceGroupName az104-rg6lb -Name LB-VM1 -Force
+Stop-AzVM -ResourceGroupName az104-rg6lb -Name LB-VM2 -Force
 
 # Retomar
 Start-AzVM -ResourceGroupName az104-rg5 -Name CoreServicesVM
 Start-AzVM -ResourceGroupName az104-rg5 -Name ManufacturingVM
+Start-AzVM -ResourceGroupName az104-rg6lb -Name LB-VM1
+Start-AzVM -ResourceGroupName az104-rg6lb -Name LB-VM2
 ```
 
-> **Nota:** Desalocar a VM para a cobranca de compute mas discos e IPs publicos continuam gerando cobranca.
+> **Nota:** Desalocar para cobranca de compute. Discos, IPs publicos e Bastion continuam gerando custo.
 
 ---
 
 # Cleanup Unificado
 
-> **IMPORTANTE:** Remova todos os recursos para evitar custos, especialmente as VMs do Bloco 5.
-> Execute os comandos na ordem indicada: policies/locks primeiro, depois RGs, MG e identidades.
+> **IMPORTANTE:** Remova todos os recursos para evitar custos, especialmente VMs e Bastion.
+> Execute na ordem: policies/locks primeiro, depois RGs, MG e identidades.
 
 ```powershell
 # ============================================================
@@ -2359,7 +3045,8 @@ Write-Host "  Lock removido"
 
 # 3. Deletar Resource Groups (VMs primeiro por custo)
 Write-Host "3. Deletando Resource Groups..." -ForegroundColor Yellow
-Remove-AzResourceGroup -Name $rg5 -Force -AsJob   # VMs - PRIORIDADE
+Remove-AzResourceGroup -Name "az104-rg6lb" -Force -AsJob   # LB VMs + Bastion
+Remove-AzResourceGroup -Name $rg5 -Force -AsJob   # VMs
 Remove-AzResourceGroup -Name $rg4 -Force -AsJob   # VNets, DNS, NSG
 Remove-AzResourceGroup -Name $rg3 -Force -AsJob   # Discos
 Remove-AzResourceGroup -Name $rg2 -Force -AsJob   # Governance
@@ -2382,6 +3069,7 @@ Remove-MgUser -UserId $user1.Id -ErrorAction SilentlyContinue
 Remove-MgUser -UserId $guestUserId -ErrorAction SilentlyContinue
 Remove-MgGroup -GroupId $groupIT.Id -ErrorAction SilentlyContinue
 Remove-MgGroup -GroupId $groupHD.Id -ErrorAction SilentlyContinue
+Remove-MgGroup -GroupId $ssprGroup.Id -ErrorAction SilentlyContinue
 Write-Host "  Usuarios e grupos removidos"
 
 # 7. Aguardar RGs serem deletados
@@ -2429,6 +3117,23 @@ Write-Host "`n=== CLEANUP COMPLETO ===" -ForegroundColor Green
 - `New-AzRouteTable` + `Add-AzRouteConfig` para UDRs
 - `Test-AzNetworkWatcherConnectivity` testa conectividade entre VMs
 
+## Bloco 6 - Load Balancer e Bastion (Az module)
+- `New-AzAvailabilitySet` com `-Sku Aligned` para managed disks
+- `New-AzLoadBalancer` com configs de frontend, backend, probe e rule separados
+- `New-AzLoadBalancerFrontendIpConfig` (Public IP ou Private IP)
+- `New-AzLoadBalancerProbeConfig` verifica saude da APLICACAO, nao da VM
+- `New-AzNetworkSecurityGroup` obrigatorio para Standard LB (bloqueia por padrao)
+- `New-AzBastion` requer `AzureBastionSubnet` /26 (nome exato!)
+- **Padrao PowerShell:** NIC precisa de `Set-AzNetworkInterface` para associar ao backend pool
+
+## Bloco 7 - SSPR, Cost e Network Watcher
+- `New-MgGroup` + `New-MgGroupMember` para grupo SSPR (Microsoft.Graph)
+- SSPR e configuracao do portal (Entra ID > Protection > Password reset)
+- Budgets alertam mas NAO param recursos — enforcement via Policy/Automation
+- `Get-AzEffectiveNetworkSecurityGroup` mostra regras combinadas (subnet + NIC)
+- `Test-AzNetworkWatcherIPFlow` testa pacote especifico contra NSG
+- NSG inbound: subnet primeiro, depois NIC — AMBOS devem permitir
+
 ## Resumo de Cmdlets por Categoria
 
 | Categoria | Cmdlet principal | Modulo |
@@ -2454,3 +3159,13 @@ Write-Host "`n=== CLEANUP COMPLETO ===" -ForegroundColor Green
 | Route | `New-AzRouteTable` + `Add-AzRouteConfig` | Az |
 | Run Command | `Invoke-AzVMRunCommand` | Az |
 | Net Test | `Test-AzNetworkWatcherConnectivity` | Az |
+| Availability Set | `New-AzAvailabilitySet` | Az |
+| Load Balancer | `New-AzLoadBalancer` | Az |
+| LB Frontend | `New-AzLoadBalancerFrontendIpConfig` | Az |
+| LB Backend | `New-AzLoadBalancerBackendAddressPoolConfig` | Az |
+| LB Probe | `New-AzLoadBalancerProbeConfig` | Az |
+| LB Rule | `New-AzLoadBalancerRuleConfig` | Az |
+| Bastion | `New-AzBastion` | Az |
+| Effective NSG | `Get-AzEffectiveNetworkSecurityGroup` | Az |
+| IP Flow Verify | `Test-AzNetworkWatcherIPFlow` | Az |
+| Advisor | `Get-AzAdvisorRecommendation` | Az |

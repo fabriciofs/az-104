@@ -2792,6 +2792,864 @@ A) Deletar v1  B) Alterar weights para 0/100  C) Criar nova revisao  D) Swap com
 
 ---
 
+# Bloco 6 - Storage Avancado e Disk Encryption
+
+**Tecnologia:** ARM JSON + CLI
+**Recursos criados:** 1 Storage Account (destino AzCopy), 1 Key Vault com 2 chaves RSA, Object Replication, CMK, ADE
+**Resource Groups:** `az104-rg6` (existente), `az104-rg7` (existente), `az104-rg6adv` (novo)
+
+> **Pre-requisito:** Blocos 1 e 2 devem estar completos (Storage Account + VMs criadas).
+
+---
+
+### Task 6.1: Criar Storage Account de destino para AzCopy
+
+Salve como **`bloco6-storage2.json`**:
+
+```json
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "metadata": {
+        "description": "Segunda Storage Account para destino de AzCopy e Object Replication"
+    },
+    "parameters": {
+        "storageAccountName": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 24,
+            "metadata": {
+                "description": "Nome da Storage Account de destino (globalmente unico)"
+            }
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]"
+        }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2023-05-01",
+            "name": "[parameters('storageAccountName')]",
+            "location": "[parameters('location')]",
+            "sku": {
+                "name": "Standard_LRS"
+            },
+            "kind": "StorageV2",
+            "properties": {
+                "accessTier": "Hot",
+                "allowBlobPublicAccess": false,
+                "minimumTlsVersion": "TLS1_2"
+            }
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts/blobServices",
+            "apiVersion": "2023-05-01",
+            "name": "[concat(parameters('storageAccountName'), '/default')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+            ],
+            "properties": {
+                "isVersioningEnabled": true,
+                "changeFeed": {
+                    "enabled": true
+                }
+            },
+            "metadata": {
+                "_comment": "CONCEITO AZ-104: Object Replication requer versioning em AMBAS as contas e change feed na ORIGEM. Habilitamos ambos no destino tambem para consistencia."
+            }
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+            "apiVersion": "2023-05-01",
+            "name": "[concat(parameters('storageAccountName'), '/default/data-replica')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/blobServices', parameters('storageAccountName'), 'default')]"
+            ],
+            "properties": {
+                "publicAccess": "None"
+            }
+        }
+    ],
+    "outputs": {
+        "storageAccountId": {
+            "type": "string",
+            "value": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+        },
+        "primaryBlobEndpoint": {
+            "type": "string",
+            "value": "[reference(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))).primaryEndpoints.blob]"
+        }
+    }
+}
+```
+
+**Deploy:**
+
+```bash
+# Criar Resource Group
+az group create --name az104-rg6adv --location eastus
+
+# Gerar nome unico
+STORAGE2_NAME="contosostore2$(openssl rand -hex 3)"
+echo "Storage Account 2: $STORAGE2_NAME"
+
+# Deploy ARM template
+az deployment group create \
+  -g az104-rg6adv \
+  --template-file bloco6-storage2.json \
+  --parameters storageAccountName="$STORAGE2_NAME"
+```
+
+**Transferir blobs com AzCopy:**
+
+```bash
+# ============================================================
+# AzCopy: Transferencia server-to-server entre Storage Accounts
+# ============================================================
+
+# CONCEITO AZ-104: AzCopy transfere dados pela rede backbone do Azure
+# (server-to-server). Nao passa pelo seu computador local.
+
+# 1. Obter nome da Storage Account de origem (Bloco 1)
+STORAGE1_NAME=$(az storage account list -g az104-rg6 \
+  --query "[0].name" -o tsv)
+echo "Origem: $STORAGE1_NAME"
+
+# 2. Gerar SAS de ORIGEM (Read + List)
+EXPIRY=$(date -u -d "+1 day" '+%Y-%m-%dT%H:%MZ' 2>/dev/null || date -u -v+1d '+%Y-%m-%dT%H:%MZ')
+SAS_ORIGEM=$(az storage account generate-sas \
+  --account-name "$STORAGE1_NAME" \
+  --services b --resource-types sco \
+  --permissions rl --expiry "$EXPIRY" --https-only -o tsv)
+
+# 3. Gerar SAS de DESTINO (Read + Write + List + Create)
+SAS_DESTINO=$(az storage account generate-sas \
+  --account-name "$STORAGE2_NAME" \
+  --services b --resource-types sco \
+  --permissions rwlc --expiry "$EXPIRY" --https-only -o tsv)
+
+# 4. Executar AzCopy
+azcopy copy \
+  "https://${STORAGE1_NAME}.blob.core.windows.net/data?${SAS_ORIGEM}" \
+  "https://${STORAGE2_NAME}.blob.core.windows.net/data-replica?${SAS_DESTINO}" \
+  --recursive
+
+# 5. Verificar blobs copiados
+az storage blob list \
+  --account-name "$STORAGE2_NAME" \
+  --container-name data-replica --auth-mode login -o table
+```
+
+---
+
+### Task 6.2: Gerenciar blobs com Storage Explorer (versao portal)
+
+> **Nota:** Esta task usa o portal (Storage Browser). Os comandos CLI abaixo sao equivalentes.
+
+```bash
+# Upload, pasta virtual e SAS de blob individual
+echo "Arquivo de teste" > /tmp/teste-explorer.txt
+az storage blob upload \
+  --account-name "$STORAGE1_NAME" --container-name data \
+  --name "teste-explorer.txt" --file /tmp/teste-explorer.txt --auth-mode login
+
+echo "Log de teste" > /tmp/log-teste.txt
+az storage blob upload \
+  --account-name "$STORAGE1_NAME" --container-name data \
+  --name "logs/log-teste.txt" --file /tmp/log-teste.txt --auth-mode login
+
+# CONCEITO AZ-104: Blob-level SAS e mais granular que account-level SAS
+BLOB_SAS=$(az storage blob generate-sas \
+  --account-name "$STORAGE1_NAME" --container-name data \
+  --name "teste-explorer.txt" --permissions r --expiry "$EXPIRY" --https-only -o tsv)
+echo "URL: https://${STORAGE1_NAME}.blob.core.windows.net/data/teste-explorer.txt?${BLOB_SAS}"
+```
+
+---
+
+### Task 6.3: Configurar Object Replication via CLI
+
+```bash
+# CONCEITO AZ-104: Object Replication = copia assincrona entre contas
+# Diferente de GRS/GZRS (sincrono, gerenciado pelo Azure)
+# Requer: versioning em AMBAS + change feed na ORIGEM
+
+# 1. Habilitar versioning + change feed na origem
+az storage account blob-service-properties update \
+  --account-name "$STORAGE1_NAME" \
+  --enable-versioning true --enable-change-feed true
+
+# 2. Criar politica de Object Replication
+az storage account or-policy create \
+  --account-name "$STORAGE2_NAME" \
+  --source-account "$STORAGE1_NAME" \
+  --destination-account "$STORAGE2_NAME" \
+  --source-container data --destination-container data-replica \
+  --min-creation-time "$(date -u '+%Y-%m-%dT%H:%MZ')"
+
+# 3. Validar: upload novo blob na origem
+echo "Teste replicacao $(date)" > /tmp/teste-replicacao.txt
+az storage blob upload \
+  --account-name "$STORAGE1_NAME" --container-name data \
+  --name "teste-replicacao.txt" --file /tmp/teste-replicacao.txt --auth-mode login
+echo "Aguarde minutos e verifique data-replica em $STORAGE2_NAME"
+```
+
+---
+
+### Task 6.4: Criar Key Vault com chaves RSA via ARM
+
+Salve como **`bloco6-keyvault.json`**:
+
+```json
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "metadata": {
+        "description": "Key Vault com purge protection + chaves RSA para CMK e ADE"
+    },
+    "parameters": {
+        "keyVaultName": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 24,
+            "metadata": {
+                "description": "Nome do Key Vault (globalmente unico)"
+            }
+        },
+        "adminObjectId": {
+            "type": "string",
+            "metadata": {
+                "description": "Object ID do usuario admin para RBAC"
+            }
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]"
+        }
+    },
+    "variables": {
+        "cryptoOfficerRoleId": "14b46e9e-c2b7-41b4-b07b-48a6ebf60603"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.KeyVault/vaults",
+            "apiVersion": "2023-07-01",
+            "name": "[parameters('keyVaultName')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "sku": {
+                    "family": "A",
+                    "name": "standard"
+                },
+                "tenantId": "[subscription().tenantId]",
+                "enableRbacAuthorization": true,
+                "enablePurgeProtection": true,
+                "enableSoftDelete": true,
+                "softDeleteRetentionInDays": 90,
+                "enabledForDiskEncryption": true,
+                "enabledForTemplateDeployment": true
+            },
+            "metadata": {
+                "_comment": "CONCEITO AZ-104: Purge protection e OBRIGATORIO para CMK. enabledForDiskEncryption e necessario para ADE. RBAC authorization e o modelo recomendado (vs Access Policies)."
+            }
+        },
+        {
+            "type": "Microsoft.Authorization/roleAssignments",
+            "apiVersion": "2022-04-01",
+            "name": "[guid(resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName')), parameters('adminObjectId'), variables('cryptoOfficerRoleId'))]",
+            "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]"
+            ],
+            "scope": "[concat('Microsoft.KeyVault/vaults/', parameters('keyVaultName'))]",
+            "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('cryptoOfficerRoleId'))]",
+                "principalId": "[parameters('adminObjectId')]",
+                "principalType": "User"
+            },
+            "metadata": {
+                "_comment": "Key Vault Crypto Officer: permite criar e gerenciar chaves"
+            }
+        },
+        {
+            "type": "Microsoft.KeyVault/vaults/keys",
+            "apiVersion": "2023-07-01",
+            "name": "[concat(parameters('keyVaultName'), '/storage-cmk')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName')), parameters('adminObjectId'), variables('cryptoOfficerRoleId')))]"
+            ],
+            "properties": {
+                "kty": "RSA",
+                "keySize": 2048,
+                "keyOps": ["wrapKey", "unwrapKey"]
+            },
+            "metadata": {
+                "_comment": "CONCEITO AZ-104: Customer-Managed Key para criptografia de Storage Account. wrapKey/unwrapKey = encriptar/decriptar a chave de dados."
+            }
+        },
+        {
+            "type": "Microsoft.KeyVault/vaults/keys",
+            "apiVersion": "2023-07-01",
+            "name": "[concat(parameters('keyVaultName'), '/disk-encryption')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName')), parameters('adminObjectId'), variables('cryptoOfficerRoleId')))]"
+            ],
+            "properties": {
+                "kty": "RSA",
+                "keySize": 2048,
+                "keyOps": ["wrapKey", "unwrapKey", "encrypt", "decrypt"]
+            },
+            "metadata": {
+                "_comment": "Key Encryption Key (KEK) para Azure Disk Encryption. ADE usa BitLocker (Windows) ou DM-Crypt (Linux)."
+            }
+        }
+    ],
+    "outputs": {
+        "keyVaultId": {
+            "type": "string",
+            "value": "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]"
+        },
+        "keyVaultUri": {
+            "type": "string",
+            "value": "[reference(resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))).vaultUri]"
+        }
+    }
+}
+```
+
+**Deploy:**
+
+```bash
+# Obter Object ID do usuario atual
+ADMIN_OID=$(az ad signed-in-user show --query id -o tsv)
+
+# Gerar nome unico
+KV_NAME="az104-kv-$(openssl rand -hex 3)"
+echo "Key Vault: $KV_NAME"
+
+# Deploy
+az deployment group create \
+  -g az104-rg6adv \
+  --template-file bloco6-keyvault.json \
+  --parameters keyVaultName="$KV_NAME" adminObjectId="$ADMIN_OID"
+
+# Verificar chaves
+az keyvault key list --vault-name "$KV_NAME" -o table
+```
+
+**Configurar CMK na Storage Account (via CLI):**
+
+```bash
+# CONCEITO AZ-104: CMK = sua chave no Key Vault, em vez da chave da Microsoft
+# Requer: Managed Identity na Storage Account + permissao no Key Vault
+
+# 1. Habilitar System-assigned Managed Identity
+az storage account update \
+  --name "$STORAGE1_NAME" -g az104-rg6 --identity-type SystemAssigned
+
+# 2. Obter Principal ID
+STORAGE_IDENTITY=$(az storage account show \
+  --name "$STORAGE1_NAME" -g az104-rg6 --query identity.principalId -o tsv)
+
+# 3. Atribuir role no Key Vault
+az role assignment create \
+  --role "Key Vault Crypto Service Encryption User" \
+  --assignee-object-id "$STORAGE_IDENTITY" \
+  --assignee-principal-type ServicePrincipal \
+  --scope "$(az keyvault show --name $KV_NAME --query id -o tsv)"
+
+# 4. Configurar CMK
+az storage account update \
+  --name "$STORAGE1_NAME" -g az104-rg6 \
+  --encryption-key-source Microsoft.Keyvault \
+  --encryption-key-vault "https://${KV_NAME}.vault.azure.net" \
+  --encryption-key-name storage-cmk
+
+# 5. Verificar
+az storage account show --name "$STORAGE1_NAME" -g az104-rg6 \
+  --query "encryption.{keySource: keySource, keyVault: keyVaultProperties.keyVaultUri, keyName: keyVaultProperties.keyName}" -o table
+```
+
+---
+
+### Task 6.5: Configurar acesso baseado em identidade para Azure Files
+
+```bash
+# CONCEITO AZ-104: Azure Files suporta 3 metodos de auth:
+# 1. Storage account key (padrao)  2. Entra ID DS  3. On-premises AD DS
+#
+# Roles RBAC para SMB:
+# - Storage File Data SMB Share Reader (leitura)
+# - Storage File Data SMB Share Contributor (leitura + escrita + delete)
+# - Storage File Data SMB Share Elevated Contributor (acima + ACLs NTFS)
+
+az storage account show \
+  --name "$STORAGE1_NAME" -g az104-rg6 \
+  --query "azureFilesIdentityBasedAuthentication" -o json
+
+echo "RBAC controla acesso no NIVEL DO SHARE. ACLs NTFS controlam acesso GRANULAR."
+```
+
+---
+
+### Task 6.6: Habilitar Azure Disk Encryption na VM Windows
+
+```bash
+# CONCEITO AZ-104: ADE = BitLocker (Win) / DM-Crypt (Linux) no nivel do OS
+# SSE = criptografia no storage layer (padrao, automatico)
+# ADE + SSE = dupla camada de protecao
+
+# 1. Verificar VM running
+az vm show -g az104-rg7 -n az104-vm-win --query "powerState" -o tsv --show-details
+
+# 2. Habilitar ADE com KEK
+az vm encryption enable \
+  --resource-group az104-rg7 --name az104-vm-win \
+  --disk-encryption-keyvault "$KV_NAME" \
+  --key-encryption-key disk-encryption \
+  --volume-type All
+# NOTA: Pode levar 10-15 minutos
+
+# 3. Verificar status
+az vm encryption show --resource-group az104-rg7 --name az104-vm-win -o table
+```
+
+---
+
+## Modo Desafio - Bloco 6
+
+- [ ] Deploy `bloco6-storage2.json` (Storage Account destino + container data-replica)
+- [ ] Gerar SAS tokens e executar AzCopy entre containers
+- [ ] Usar Storage Browser para upload, pasta virtual e SAS de blob
+- [ ] Configurar Object Replication via CLI (versioning + change feed)
+- [ ] Deploy `bloco6-keyvault.json` (Key Vault + chaves storage-cmk e disk-encryption)
+- [ ] Configurar CMK na Storage Account via Managed Identity + Key Vault
+- [ ] Explorar roles RBAC para Azure Files (SMB Share Reader/Contributor/Elevated)
+- [ ] Habilitar Azure Disk Encryption na VM Windows **(Bloco 2)** via Key Vault
+
+---
+
+## Questoes de Prova - Bloco 6
+
+### Questao 6.1
+**Voce precisa copiar 500 GB de blobs entre storage accounts em regioes diferentes. Qual ferramenta?**
+
+A) Portal (upload/download)  B) AzCopy com SAS tokens  C) Data Factory  D) Storage Explorer
+
+<details><summary>Ver resposta</summary>**Resposta: B) AzCopy com SAS tokens** — Transferencia server-to-server pelo backbone Azure. Mais eficiente para volumes grandes entre storage accounts.</details>
+
+### Questao 6.2
+**Object Replication configurada. Blob existente na origem nao aparece no destino. Por que?**
+
+A) Nao funciona entre regioes  B) Replica apenas blobs criados apos a regra (por padrao)  C) Blob em Archive nao replica  D) Precisa de AzCopy manual
+
+<details><summary>Ver resposta</summary>**Resposta: B) Replica apenas blobs criados apos a regra** — Habilite "Copy over existing blobs" para incluir blobs existentes.</details>
+
+### Questao 6.3
+**CMK para Storage Account. Qual configuracao do Key Vault e OBRIGATORIA?**
+
+A) Soft delete  B) Purge protection  C) Network firewall  D) Access policy Wrap/Unwrap
+
+<details><summary>Ver resposta</summary>**Resposta: B) Purge protection** — Garante que chaves deletadas nao sejam removidas permanentemente por 90 dias.</details>
+
+### Questao 6.4
+**Diferenca entre ADE e SSE?**
+
+A) Sao iguais  B) ADE no nivel do OS; SSE no storage service  C) SSE requer Key Vault  D) ADE so para Linux
+
+<details><summary>Ver resposta</summary>**Resposta: B) ADE no nivel do OS (BitLocker/DM-Crypt); SSE no storage layer** — Complementares, podem ser usados juntos.</details>
+
+### Questao 6.5
+**Acesso a File Share via Entra ID com leitura e escrita. Qual role?**
+
+A) Storage Account Contributor  B) Storage Blob Data Contributor  C) Storage File Data SMB Share Contributor  D) Reader
+
+<details><summary>Ver resposta</summary>**Resposta: C) Storage File Data SMB Share Contributor** — Roles especificas para SMB: Reader, Contributor, Elevated Contributor.</details>
+
+---
+
+# Bloco 7 - ACR e App Service Avancado
+
+**Tecnologia:** ARM JSON + CLI
+**Recursos criados:** 1 Azure Container Registry (Basic), 1 ACI from ACR, App Service configs
+**Resource Groups:** `az104-rg8` (existente), `az104-rg7acr` (novo)
+
+> **Pre-requisito:** Blocos 1 e 3 devem estar completos (Storage Account + App Service criados).
+
+---
+
+### Task 7.1: Criar Azure Container Registry via ARM
+
+Salve como **`bloco7-acr.json`**:
+
+```json
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "metadata": {
+        "description": "Azure Container Registry (Basic) com admin user"
+    },
+    "parameters": {
+        "acrName": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 50,
+            "metadata": {
+                "description": "Nome do ACR (globalmente unico, apenas alfanumerico)"
+            }
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]"
+        }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.ContainerRegistry/registries",
+            "apiVersion": "2023-07-01",
+            "name": "[parameters('acrName')]",
+            "location": "[parameters('location')]",
+            "sku": {
+                "name": "Basic"
+            },
+            "properties": {
+                "adminUserEnabled": true,
+                "policies": {
+                    "quarantinePolicy": {
+                        "status": "disabled"
+                    },
+                    "retentionPolicy": {
+                        "status": "disabled"
+                    }
+                }
+            },
+            "metadata": {
+                "_comment": "CONCEITO AZ-104: ACR SKUs — Basic: 10 GiB; Standard: 100 GiB + webhooks; Premium: 500 GiB + geo-replication + private link + CMK. Admin user e para dev/test; em producao, use Managed Identity."
+            }
+        }
+    ],
+    "outputs": {
+        "acrId": {
+            "type": "string",
+            "value": "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]"
+        },
+        "loginServer": {
+            "type": "string",
+            "value": "[reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))).loginServer]"
+        }
+    }
+}
+```
+
+**Deploy:**
+
+```bash
+# Criar Resource Group
+az group create --name az104-rg7acr --location eastus
+
+# Gerar nome unico (apenas alfanumerico)
+ACR_NAME="az104acr$(openssl rand -hex 3)"
+echo "ACR: $ACR_NAME"
+
+# Deploy
+az deployment group create \
+  -g az104-rg7acr \
+  --template-file bloco7-acr.json \
+  --parameters acrName="$ACR_NAME"
+
+# Verificar login server
+az acr show --name "$ACR_NAME" --query loginServer -o tsv
+```
+
+---
+
+### Task 7.2: Build e push de imagem via az acr build
+
+```bash
+# CONCEITO AZ-104: az acr build = build no cloud, sem Docker local
+
+mkdir -p ~/acr-lab && cd ~/acr-lab
+cat > Dockerfile << 'EOF'
+FROM mcr.microsoft.com/hello-world
+EOF
+
+az acr build --registry "$ACR_NAME" --image sample-app:v1 --file Dockerfile .
+
+# Verificar
+az acr repository list --name "$ACR_NAME" -o table
+az acr repository show-tags --name "$ACR_NAME" --repository sample-app -o table
+```
+
+---
+
+### Task 7.3: Deploy ACI a partir de imagem privada do ACR via ARM
+
+Salve como **`bloco7-aci-from-acr.json`**:
+
+```json
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "metadata": {
+        "description": "ACI puxando imagem de ACR privado"
+    },
+    "parameters": {
+        "containerName": {
+            "type": "string",
+            "defaultValue": "az104-acr-aci"
+        },
+        "acrLoginServer": {
+            "type": "string",
+            "metadata": {
+                "description": "Login server do ACR (ex: az104acr123.azurecr.io)"
+            }
+        },
+        "acrUsername": {
+            "type": "securestring",
+            "metadata": {
+                "description": "Username do ACR (admin user)"
+            }
+        },
+        "acrPassword": {
+            "type": "securestring",
+            "metadata": {
+                "description": "Password do ACR (admin user)"
+            }
+        },
+        "imageName": {
+            "type": "string",
+            "defaultValue": "sample-app:v1"
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]"
+        }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.ContainerInstance/containerGroups",
+            "apiVersion": "2023-05-01",
+            "name": "[parameters('containerName')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "osType": "Linux",
+                "restartPolicy": "Always",
+                "imageRegistryCredentials": [
+                    {
+                        "server": "[parameters('acrLoginServer')]",
+                        "username": "[parameters('acrUsername')]",
+                        "password": "[parameters('acrPassword')]"
+                    }
+                ],
+                "containers": [
+                    {
+                        "name": "[parameters('containerName')]",
+                        "properties": {
+                            "image": "[concat(parameters('acrLoginServer'), '/', parameters('imageName'))]",
+                            "resources": {
+                                "requests": {
+                                    "cpu": 1,
+                                    "memoryInGB": 1
+                                }
+                            },
+                            "ports": [
+                                {
+                                    "port": 80,
+                                    "protocol": "TCP"
+                                }
+                            ]
+                        }
+                    }
+                ],
+                "ipAddress": {
+                    "type": "Public",
+                    "ports": [
+                        {
+                            "port": 80,
+                            "protocol": "TCP"
+                        }
+                    ]
+                }
+            },
+            "metadata": {
+                "_comment": "CONCEITO AZ-104: ACI puxa imagem de ACR privado via admin credentials. Em producao, prefira Managed Identity. Conexao com Bloco 4: la usamos imagem publica, aqui imagem privada do ACR."
+            }
+        }
+    ],
+    "outputs": {
+        "containerIp": {
+            "type": "string",
+            "value": "[reference(resourceId('Microsoft.ContainerInstance/containerGroups', parameters('containerName'))).ipAddress.ip]"
+        }
+    }
+}
+```
+
+**Deploy:**
+
+```bash
+# Obter credenciais do ACR
+ACR_LOGIN=$(az acr show --name "$ACR_NAME" --query loginServer -o tsv)
+ACR_USER=$(az acr credential show --name "$ACR_NAME" --query username -o tsv)
+ACR_PASS=$(az acr credential show --name "$ACR_NAME" --query "passwords[0].value" -o tsv)
+
+# Deploy
+az deployment group create \
+  -g az104-rg7acr \
+  --template-file bloco7-aci-from-acr.json \
+  --parameters acrLoginServer="$ACR_LOGIN" acrUsername="$ACR_USER" acrPassword="$ACR_PASS"
+
+# Verificar
+az container show -g az104-rg7acr -n az104-acr-aci \
+  --query "{status: instanceView.state, ip: ipAddress.ip}" -o table
+az container logs -g az104-rg7acr -n az104-acr-aci
+```
+
+---
+
+### Task 7.4: Mapear dominio DNS customizado para App Service (walkthrough)
+
+```bash
+# CONCEITO AZ-104: Custom domain requer CNAME (subdomain) ou A record (apex)
+# + TXT record para verificacao. Free/Shared tier NAO suporta custom domains.
+
+APP_NAME=$(az webapp list -g az104-rg8 --query "[0].name" -o tsv)
+echo "App: $APP_NAME.azurewebsites.net"
+echo ""
+echo "Processo: CNAME www → $APP_NAME.azurewebsites.net"
+echo "          TXT asuid.www → [Verification ID do portal]"
+echo "Para apex domain: A record → IP do App Service + TXT asuid"
+```
+
+---
+
+### Task 7.5: Configurar TLS/SSL no App Service
+
+```bash
+# CONCEITO AZ-104: HTTPS Only = redirect HTTP → HTTPS (301)
+# Managed Certificate = gratis, automatico, so subdomains
+# SNI SSL (padrao) vs IP-based SSL (requer IP dedicado)
+
+az webapp update -g az104-rg8 -n "$APP_NAME" --https-only true
+az webapp config set -g az104-rg8 -n "$APP_NAME" --min-tls-version 1.2
+
+az webapp show -g az104-rg8 -n "$APP_NAME" \
+  --query "{httpsOnly: httpsOnly, minTls: siteConfig.minTlsVersion}" -o table
+```
+
+---
+
+### Task 7.6: Configurar backup do App Service para Storage Account
+
+```bash
+# CONCEITO AZ-104: Backup requer Standard+. Limite 10 GB.
+# Inclui codigo, config e opcionalmente banco de dados.
+
+# 1. Criar container para backups
+az storage container create \
+  --account-name "$STORAGE1_NAME" --name webapp-backups --auth-mode login
+
+# 2. Gerar SAS para backup
+BACKUP_EXPIRY=$(date -u -d "+1 year" '+%Y-%m-%dT%H:%MZ' 2>/dev/null || date -u -v+1y '+%Y-%m-%dT%H:%MZ')
+BACKUP_SAS=$(az storage container generate-sas \
+  --account-name "$STORAGE1_NAME" --name webapp-backups \
+  --permissions rwdl --expiry "$BACKUP_EXPIRY" --https-only -o tsv)
+BACKUP_URL="https://${STORAGE1_NAME}.blob.core.windows.net/webapp-backups?${BACKUP_SAS}"
+
+# 3. Configurar backup agendado (diario, 30 dias)
+az webapp config backup update \
+  -g az104-rg8 --webapp-name "$APP_NAME" \
+  --container-url "$BACKUP_URL" --frequency 1d \
+  --retain-one-always true --retention 30
+
+# 4. Backup imediato
+az webapp config backup create \
+  -g az104-rg8 --webapp-name "$APP_NAME" --container-url "$BACKUP_URL"
+
+# 5. Verificar
+az webapp config backup list -g az104-rg8 --webapp-name "$APP_NAME" -o table
+```
+
+---
+
+### Task 7.7: Configurar VNet Integration no App Service
+
+```bash
+# CONCEITO AZ-104: VNet Integration = outbound; Private Endpoint = inbound
+# Requer subnet dedicada (/28 minimo), delegada a Microsoft.Web/serverFarms
+
+VNET_RG="az104-rg4"
+VNET_NAME="CoreServicesVnet"
+
+# 1. Criar subnet dedicada
+az network vnet subnet create \
+  -g "$VNET_RG" --vnet-name "$VNET_NAME" \
+  --name WebAppSubnet --address-prefix 10.20.50.0/24 \
+  --delegations Microsoft.Web/serverFarms 2>/dev/null || echo "Subnet ja existe"
+
+# 2. Configurar VNet Integration
+az webapp vnet-integration add \
+  -g az104-rg8 -n "$APP_NAME" --vnet "$VNET_NAME" --subnet WebAppSubnet
+
+# 3. Verificar
+az webapp vnet-integration list -g az104-rg8 -n "$APP_NAME" -o table
+```
+
+---
+
+## Modo Desafio - Bloco 7
+
+- [ ] Deploy `bloco7-acr.json` (ACR Basic com admin user)
+- [ ] Executar `az acr build` para gerar imagem `sample-app:v1`
+- [ ] Deploy `bloco7-aci-from-acr.json` (ACI from ACR privado)
+- [ ] Explorar Custom Domain no App Service — CNAME + TXT verification
+- [ ] Configurar HTTPS Only + TLS 1.2
+- [ ] Configurar backup do App Service para Storage Account com schedule diario
+- [ ] Configurar VNet Integration com CoreServicesVnet
+
+---
+
+## Questoes de Prova - Bloco 7
+
+### Questao 7.1
+**Build de imagem sem Docker local. Qual servico?**
+
+A) ACI  B) ACR Tasks (az acr build)  C) AKS  D) App Service
+
+<details><summary>Ver resposta</summary>**Resposta: B) ACR Tasks (az acr build)** — Build no cloud, sem Docker local necessario.</details>
+
+### Questao 7.2
+**Mapear `api.contoso.com` para App Service. Qual registro DNS?**
+
+A) A record  B) CNAME para `*.azurewebsites.net`  C) MX record  D) SRV record
+
+<details><summary>Ver resposta</summary>**Resposta: B) CNAME** — Para subdomains, use CNAME. Para apex domain, use A record + TXT.</details>
+
+### Questao 7.3
+**Qual SKU do ACR suporta geo-replicacao e Private Link?**
+
+A) Basic  B) Standard  C) Premium  D) Todas
+
+<details><summary>Ver resposta</summary>**Resposta: C) Premium** — Geo-replication, Private Link, content trust, CMK. Premium = 500 GiB.</details>
+
+### Questao 7.4
+**VNet Integration em App Service permite o que?**
+
+A) Inbound via IP privado  B) Outbound pela VNet  C) Deploy na VNet  D) IP publico da VNet
+
+<details><summary>Ver resposta</summary>**Resposta: B) Outbound pela VNet** — Para inbound, use Private Endpoints. Requer subnet dedicada /28+.</details>
+
+### Questao 7.5
+**Backup automatico de App Service requer?**
+
+A) Free + Blob  B) Standard+ + Storage Account  C) Qualquer tier + Backup vault  D) Premium + Site Recovery
+
+<details><summary>Ver resposta</summary>**Resposta: B) Standard+ + Storage Account com container** — Limite 10 GB, inclui codigo + config.</details>
+
+---
+
 ## Pausar entre Sessoes
 
 Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos para evitar cobrancas desnecessarias.
@@ -2803,6 +3661,7 @@ az vm deallocate -g az104-rg7 -n az104-vm-linux --no-wait
 az vmss scale -g az104-rg7 -n az104-vmss --new-capacity 0
 az container stop -g az104-rg9 -n az104-container-1
 az container stop -g az104-rg9 -n az104-container-2
+az container stop -g az104-rg7acr -n az104-acr-aci
 
 # Retomar
 az vm start -g az104-rg7 -n az104-vm-win --no-wait
@@ -2810,9 +3669,10 @@ az vm start -g az104-rg7 -n az104-vm-linux --no-wait
 az vmss scale -g az104-rg7 -n az104-vmss --new-capacity 1
 az container start -g az104-rg9 -n az104-container-1
 az container start -g az104-rg9 -n az104-container-2
+az container start -g az104-rg7acr -n az104-acr-aci
 ```
 
-> **Nota:** Desalocar VMs para cobranca de compute, mas discos e IPs publicos continuam cobrando. O App Service Plan (Standard S1) cobra enquanto existir — para parar, delete o plano ou rebaixe para Free F1. Container Apps com scale-to-zero nao geram custo quando ociosas.
+> **Nota:** Desalocar VMs para cobranca de compute, mas discos e IPs publicos continuam cobrando. O App Service Plan (Standard S1) cobra enquanto existir — para parar, delete o plano ou rebaixe para Free F1. Container Apps com scale-to-zero nao geram custo quando ociosas. Key Vault cobra por operacao (muito baixo custo).
 
 ---
 
@@ -2838,9 +3698,20 @@ az group delete --name "$RG7" --yes --no-wait
 echo "5. Deletando Storage (RG6)..."
 az group delete --name "$RG6" --yes --no-wait
 
+echo "6. Deletando Storage Avancado (RG6adv)..."
+az group delete --name az104-rg6adv --yes --no-wait
+
+echo "7. Deletando ACR (RG7acr)..."
+az group delete --name az104-rg7acr --yes --no-wait
+
+echo ""
+echo "8. Purge Key Vault (necessario por purge protection)..."
+echo "   Execute apos os RGs serem deletados:"
+echo "   az keyvault purge --name $KV_NAME --location eastus"
+
 echo ""
 echo "=== CLEANUP COMPLETO ==="
-echo "Todos os RGs (rg6-rg10) sendo deletados em background."
+echo "Todos os RGs sendo deletados em background."
 echo "Use 'az group list --query \"[?starts_with(name, 'az104-rg')]\" -o table' para verificar."
 ```
 
@@ -2852,12 +3723,13 @@ echo "Use 'az group list --query \"[?starts_with(name, 'az104-rg')]\" -o table' 
 
 | Padrao | Exemplo | Quando Usar |
 |--------|---------|-------------|
-| Recurso filho (nome composto) | `"name": "storageAccount/default/container"` | Blob, File Share, Slot, Extension |
+| Recurso filho (nome composto) | `"name": "storageAccount/default/container"` | Blob, File Share, Slot, Extension, Keys |
 | `dependsOn` explicito | `"dependsOn": ["[resourceId(...)]"]` | Sempre que recurso B precisa de A |
-| `securestring` | `"type": "securestring"` | Senhas, chaves, secrets |
+| `securestring` | `"type": "securestring"` | Senhas, chaves, secrets, ACR credentials |
 | Cross-resource reference | `[reference(resourceId(...))]` | Obter IP, FQDN, keys de outro recurso |
 | `listKeys()` | `[listKeys(resourceId(...), 'api').key]` | Obter chaves de Storage, Log Analytics |
 | `concat()` | `[concat(params('a'), '/default/', params('b'))]` | Nomes compostos de recursos filhos |
+| `metadata._comment` | `"_comment": "explicacao"` | Documentacao inline em ARM JSON |
 
 ## ARM vs Bicep: Comparacao Direta (Semana 2)
 
@@ -2916,6 +3788,10 @@ logAnalytics.listKeys().primarySharedKey
 | `bloco5-container-env.json` | resourceGroup | CAE + Log Analytics | ~45 |
 | `bloco5-container-app.json` | resourceGroup | Container App + Scale + Ingress | ~70 |
 | `bloco5-traffic-split.json` | resourceGroup | Traffic Splitting (Canary) | ~65 |
+| `bloco6-storage2.json` | resourceGroup | Storage Account (destino) + Container | ~65 |
+| `bloco6-keyvault.json` | resourceGroup | Key Vault + 2 RSA Keys + RBAC | ~95 |
+| `bloco7-acr.json` | resourceGroup | ACR Basic + Admin User | ~40 |
+| `bloco7-aci-from-acr.json` | resourceGroup | ACI from private ACR | ~55 |
 
 ## Funcoes ARM Mais Usadas no Lab
 

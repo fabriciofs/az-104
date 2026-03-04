@@ -2508,6 +2508,775 @@ ACI = container simples, sem orquestracao, sem auto-scaling (voce gerencia manua
 
 ---
 
+# Bloco 6 - Storage Avancado e Disk Encryption
+
+**Tecnologia:** PowerShell (Az module) + az CLI
+**Recursos criados:** 1 Storage Account (destino AzCopy), 1 Key Vault com 2 chaves RSA, Object Replication, CMK, ADE
+**Resource Groups:** `az104-rg6` (existente), `az104-rg7` (existente), `az104-rg6adv` (novo)
+
+> **Pre-requisito:** Blocos 1 e 2 devem estar completos (Storage Account + VMs criadas).
+
+---
+
+### Task 6.1: Criar Storage Account de destino para AzCopy
+
+```powershell
+# ============================================================
+# Segunda Storage Account para destino de AzCopy e Object Replication
+# ============================================================
+
+# Criar Resource Group
+$rg6adv = "az104-rg6adv"
+New-AzResourceGroup -Name $rg6adv -Location "East US" -Force
+
+# CONCEITO AZ-104: Segunda Storage Account demonstra:
+# - AzCopy entre contas (server-to-server)
+# - Object Replication (assincrona, cross-account)
+$storage2Name = "contosostore2" + (-join ((48..57) + (97..102) | Get-Random -Count 6 | ForEach-Object { [char]$_ }))
+Write-Host "Storage Account 2: $storage2Name"
+
+$storage2 = New-AzStorageAccount `
+    -ResourceGroupName $rg6adv `
+    -Name $storage2Name `
+    -Location "East US" `
+    -SkuName Standard_LRS `
+    -Kind StorageV2 `
+    -AccessTier Hot `
+    -MinimumTlsVersion TLS1_2 `
+    -AllowBlobPublicAccess $false
+
+# CONCEITO AZ-104: Object Replication requer versioning em AMBAS as contas
+# e change feed na ORIGEM. Habilitamos ambos no destino tambem.
+$ctx2 = $storage2.Context
+
+# Habilitar versioning e change feed
+Update-AzStorageBlobServiceProperty `
+    -ResourceGroupName $rg6adv `
+    -StorageAccountName $storage2Name `
+    -IsVersioningEnabled $true `
+    -EnableChangeFeed $true
+
+# Criar container de destino
+New-AzStorageContainer `
+    -Name "data-replica" `
+    -Context $ctx2 `
+    -Permission Off
+
+Write-Host "Storage Account $storage2Name criada com container data-replica"
+```
+
+**Transferir blobs com AzCopy:**
+
+```powershell
+# ============================================================
+# AzCopy: Transferencia server-to-server entre Storage Accounts
+# ============================================================
+
+# CONCEITO AZ-104: AzCopy transfere dados pela rede backbone Azure
+# (server-to-server). Nao passa pelo seu computador local.
+# PowerShell nao tem cmdlet nativo para AzCopy — usamos o executavel
+
+# 1. Obter contexto da Storage Account de origem (Bloco 1)
+$storage1Name = (Get-AzStorageAccount -ResourceGroupName "az104-rg6")[0].StorageAccountName
+Write-Host "Origem: $storage1Name"
+$ctx1 = (Get-AzStorageAccount -ResourceGroupName "az104-rg6" -Name $storage1Name).Context
+
+# 2. Gerar SAS de ORIGEM (Read + List)
+$sasOrigem = New-AzStorageAccountSASToken `
+    -Context $ctx1 `
+    -Service Blob `
+    -ResourceType Service,Container,Object `
+    -Permission rl `
+    -ExpiryTime (Get-Date).AddDays(1) `
+    -Protocol HttpsOnly
+
+# 3. Gerar SAS de DESTINO (Read + Write + List + Create)
+$sasDestino = New-AzStorageAccountSASToken `
+    -Context $ctx2 `
+    -Service Blob `
+    -ResourceType Service,Container,Object `
+    -Permission rwlc `
+    -ExpiryTime (Get-Date).AddDays(1) `
+    -Protocol HttpsOnly
+
+# 4. Executar AzCopy (disponivel no Cloud Shell)
+azcopy copy `
+    "https://${storage1Name}.blob.core.windows.net/data${sasOrigem}" `
+    "https://${storage2Name}.blob.core.windows.net/data-replica${sasDestino}" `
+    --recursive
+
+# 5. Verificar blobs copiados
+Get-AzStorageBlob -Container "data-replica" -Context $ctx2 | Format-Table Name, Length, LastModified
+```
+
+> **Dica AZ-104:** Na prova, AzCopy e a ferramenta recomendada para transferencias em massa. Para copias programaticas em PowerShell, use `Start-AzStorageBlobCopy`.
+
+---
+
+### Task 6.2: Gerenciar blobs com Storage Explorer (versao portal)
+
+```powershell
+# Operacoes equivalentes ao Storage Browser via PowerShell
+
+# 1. Upload de arquivo
+"Arquivo de teste para Storage Explorer" | Out-File /tmp/teste-explorer.txt
+Set-AzStorageBlobContent `
+    -Container "data" -Blob "teste-explorer.txt" `
+    -File "/tmp/teste-explorer.txt" -Context $ctx1 -Force
+
+# 2. Criar pasta virtual (prefixo) com upload
+"Log de teste" | Out-File /tmp/log-teste.txt
+Set-AzStorageBlobContent `
+    -Container "data" -Blob "logs/log-teste.txt" `
+    -File "/tmp/log-teste.txt" -Context $ctx1 -Force
+
+# 3. Gerar SAS para blob individual
+# CONCEITO AZ-104: Blob-level SAS e mais granular que account-level SAS
+$blobSas = New-AzStorageBlobSASToken `
+    -Container "data" -Blob "teste-explorer.txt" `
+    -Permission r `
+    -ExpiryTime (Get-Date).AddHours(1) `
+    -Protocol HttpsOnly `
+    -Context $ctx1
+
+$blobUrl = "https://${storage1Name}.blob.core.windows.net/data/teste-explorer.txt${blobSas}"
+Write-Host "URL com SAS: $blobUrl"
+```
+
+---
+
+### Task 6.3: Configurar Object Replication
+
+```powershell
+# CONCEITO AZ-104: Object Replication = copia assincrona entre contas
+# Requer: versioning em AMBAS + change feed na ORIGEM
+
+# 1. Habilitar versioning + change feed na origem
+Update-AzStorageBlobServiceProperty `
+    -ResourceGroupName "az104-rg6" `
+    -StorageAccountName $storage1Name `
+    -IsVersioningEnabled $true `
+    -EnableChangeFeed $true
+
+# 2. Criar politica via az CLI (cmdlets PS para OR-policy sao limitados)
+az storage account or-policy create `
+    --account-name $storage2Name `
+    --source-account $storage1Name `
+    --destination-account $storage2Name `
+    --source-container data `
+    --destination-container data-replica `
+    --min-creation-time (Get-Date -Format "yyyy-MM-ddTHH:mmZ")
+
+# 3. Validar: upload novo blob na origem
+"Teste replicacao $(Get-Date)" | Out-File /tmp/teste-replicacao.txt
+Set-AzStorageBlobContent `
+    -Container "data" -Blob "teste-replicacao.txt" `
+    -File "/tmp/teste-replicacao.txt" -Context $ctx1 -Force
+
+Write-Host "Aguarde minutos e verifique data-replica em $storage2Name"
+```
+
+---
+
+### Task 6.4: Criar Key Vault com chaves RSA
+
+```powershell
+# ============================================================
+# Key Vault com purge protection + chaves RSA
+# ============================================================
+
+# CONCEITO AZ-104: Key Vault armazena secrets, keys e certificates
+# Purge protection: OBRIGATORIO para CMK (nao pode ser desabilitado depois)
+$kvName = "az104-kv-" + (-join ((48..57) + (97..102) | Get-Random -Count 6 | ForEach-Object { [char]$_ }))
+Write-Host "Key Vault: $kvName"
+
+$kv = New-AzKeyVault `
+    -Name $kvName `
+    -ResourceGroupName $rg6adv `
+    -Location "East US" `
+    -Sku Standard `
+    -EnableRbacAuthorization `
+    -EnablePurgeProtection `
+    -SoftDeleteRetentionInDays 90 `
+    -EnabledForDiskEncryption `
+    -EnabledForTemplateDeployment
+
+# Atribuir role Key Vault Crypto Officer ao usuario atual
+$adminOid = (Get-AzADUser -SignedIn).Id
+
+New-AzRoleAssignment `
+    -ObjectId $adminOid `
+    -RoleDefinitionName "Key Vault Crypto Officer" `
+    -Scope $kv.ResourceId
+
+# Aguardar propagacao do RBAC
+Start-Sleep -Seconds 15
+
+# Criar chave RSA: storage-cmk (para CMK na Storage Account)
+# CONCEITO AZ-104: wrapKey/unwrapKey = encriptar/decriptar a chave de dados
+$storageCmkKey = Add-AzKeyVaultKey `
+    -VaultName $kvName `
+    -Name "storage-cmk" `
+    -KeyType RSA `
+    -Size 2048 `
+    -KeyOps wrapKey,unwrapKey
+
+# Criar chave RSA: disk-encryption (KEK para ADE)
+$diskEncKey = Add-AzKeyVaultKey `
+    -VaultName $kvName `
+    -Name "disk-encryption" `
+    -KeyType RSA `
+    -Size 2048 `
+    -KeyOps wrapKey,unwrapKey,encrypt,decrypt
+
+Write-Host "Chaves criadas:"
+Get-AzKeyVaultKey -VaultName $kvName | Format-Table Name, KeyType, Enabled
+```
+
+**Configurar CMK na Storage Account:**
+
+```powershell
+# CONCEITO AZ-104: CMK = sua chave no Key Vault, em vez da chave da Microsoft
+# Requer: Managed Identity na Storage Account + permissao no Key Vault
+
+# 1. Habilitar System-assigned Managed Identity
+$storage1 = Set-AzStorageAccount `
+    -ResourceGroupName "az104-rg6" `
+    -Name $storage1Name `
+    -AssignIdentity
+
+$storageIdentity = $storage1.Identity.PrincipalId
+Write-Host "Storage Identity: $storageIdentity"
+
+# 2. Atribuir role no Key Vault
+New-AzRoleAssignment `
+    -ObjectId $storageIdentity `
+    -RoleDefinitionName "Key Vault Crypto Service Encryption User" `
+    -Scope $kv.ResourceId
+
+Start-Sleep -Seconds 15  # Aguardar propagacao
+
+# 3. Configurar CMK via az CLI (mais simples que PS para CMK)
+az storage account update `
+    --name $storage1Name `
+    --resource-group "az104-rg6" `
+    --encryption-key-source Microsoft.Keyvault `
+    --encryption-key-vault "https://${kvName}.vault.azure.net" `
+    --encryption-key-name "storage-cmk"
+
+# 4. Verificar
+$storageEnc = Get-AzStorageAccount -ResourceGroupName "az104-rg6" -Name $storage1Name
+Write-Host "Encryption Key Source: $($storageEnc.Encryption.KeySource)"
+Write-Host "Key Vault URI: $($storageEnc.Encryption.KeyVaultProperties.KeyVaultUri)"
+```
+
+---
+
+### Task 6.5: Configurar acesso baseado em identidade para Azure Files
+
+```powershell
+# CONCEITO AZ-104: Azure Files suporta 3 metodos de auth:
+# 1. Storage account key (padrao)  2. Entra ID DS  3. On-premises AD DS
+#
+# Roles RBAC para SMB:
+# - Storage File Data SMB Share Reader
+# - Storage File Data SMB Share Contributor
+# - Storage File Data SMB Share Elevated Contributor
+
+Write-Host "=== Roles RBAC para Azure Files ===" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Storage File Data SMB Share Reader:"
+Write-Host "  - Read access a arquivos e diretorios via SMB"
+Write-Host ""
+Write-Host "Storage File Data SMB Share Contributor:"
+Write-Host "  - Read, write, delete em arquivos e diretorios via SMB"
+Write-Host ""
+Write-Host "Storage File Data SMB Share Elevated Contributor:"
+Write-Host "  - Acima + modificar ACLs NTFS"
+Write-Host ""
+Write-Host "RBAC = nivel do SHARE. ACLs NTFS = nivel granular (arquivo/diretorio)."
+
+# Exemplo (nao executar sem AADDS):
+# New-AzRoleAssignment `
+#     -ObjectId "<user-object-id>" `
+#     -RoleDefinitionName "Storage File Data SMB Share Contributor" `
+#     -Scope "/subscriptions/<sub>/resourceGroups/az104-rg6/providers/Microsoft.Storage/storageAccounts/$storage1Name/fileServices/default/fileshares/contoso-files"
+```
+
+---
+
+### Task 6.6: Habilitar Azure Disk Encryption na VM Windows
+
+```powershell
+# CONCEITO AZ-104: ADE = BitLocker (Win) / DM-Crypt (Linux) no nivel do OS
+# Diferente de SSE (Server-Side Encryption) que criptografa no storage layer
+# ADE + SSE = dupla camada de protecao
+
+# 1. Verificar VM running
+$vmStatus = Get-AzVM -ResourceGroupName "az104-rg7" -Name "az104-vm-win" -Status
+Write-Host "VM Status: $($vmStatus.Statuses[1].DisplayStatus)"
+
+# 2. Habilitar ADE com KEK
+# CONCEITO AZ-104: KEK adiciona camada extra — a chave BitLocker e
+# encriptada pela KEK no Key Vault
+# PowerShell nao tem cmdlet nativo simples para ADE com KEK,
+# az CLI e mais direto para este caso
+az vm encryption enable `
+    --resource-group "az104-rg7" `
+    --name "az104-vm-win" `
+    --disk-encryption-keyvault $kvName `
+    --key-encryption-key "disk-encryption" `
+    --volume-type All
+
+# NOTA: Este comando pode levar 10-15 minutos
+
+# 3. Verificar status da criptografia
+# Via PowerShell:
+$encStatus = Get-AzVMDiskEncryptionStatus `
+    -ResourceGroupName "az104-rg7" `
+    -VMName "az104-vm-win"
+Write-Host "OS Disk: $($encStatus.OsVolumeEncryptionSettings)"
+Write-Host "Data Disk: $($encStatus.DataVolumesEncrypted)"
+
+# Via az CLI (mais detalhado):
+az vm encryption show --resource-group "az104-rg7" --name "az104-vm-win" -o table
+```
+
+---
+
+## Modo Desafio - Bloco 6
+
+- [ ] Criar Storage Account de destino com `New-AzStorageAccount` + habilitar versioning
+- [ ] Gerar SAS tokens com `New-AzStorageAccountSASToken` e executar AzCopy
+- [ ] Usar Storage Browser ou `Set-AzStorageBlobContent` para uploads e pasta virtual
+- [ ] Configurar Object Replication via CLI (versioning + change feed)
+- [ ] Criar Key Vault com `New-AzKeyVault` + chaves com `Add-AzKeyVaultKey`
+- [ ] Configurar CMK na Storage Account via Managed Identity + Key Vault
+- [ ] Explorar roles RBAC para Azure Files (SMB Share Reader/Contributor/Elevated)
+- [ ] Habilitar Azure Disk Encryption na VM Windows **(Bloco 2)** via Key Vault
+
+---
+
+## Questoes de Prova - Bloco 6
+
+### Questao 6.1
+**Copiar 500 GB de blobs entre storage accounts em regioes diferentes. Qual ferramenta?**
+
+A) Portal (upload/download)  B) AzCopy com SAS tokens  C) Data Factory  D) Storage Explorer
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: B) AzCopy com SAS tokens**
+
+AzCopy faz transferencias server-to-server pelo backbone Azure. Mais eficiente para volumes grandes. Em PowerShell, `Start-AzStorageBlobCopy` e a alternativa programatica.
+
+</details>
+
+### Questao 6.2
+**Object Replication configurada. Blob existente na origem nao aparece no destino. Por que?**
+
+A) Nao funciona entre regioes
+B) Replica apenas blobs criados apos a regra (por padrao)
+C) Blob em Archive nao replica
+D) Precisa de AzCopy manual
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: B) Replica apenas blobs criados apos a regra (por padrao)**
+
+Habilite "Copy over existing blobs" para incluir blobs existentes. Object Replication funciona entre qualquer regiao.
+
+</details>
+
+### Questao 6.3
+**CMK para Storage Account. Qual configuracao do Key Vault e OBRIGATORIA?**
+
+A) Soft delete  B) Purge protection  C) Network firewall  D) Access policy Wrap/Unwrap
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: B) Purge protection habilitado**
+
+Garante que chaves deletadas nao sejam removidas permanentemente por 90 dias. Em PowerShell: `-EnablePurgeProtection` no `New-AzKeyVault`.
+
+</details>
+
+### Questao 6.4
+**Diferenca entre ADE e SSE?**
+
+A) Sao iguais
+B) ADE no nivel do OS (BitLocker/DM-Crypt); SSE no storage service
+C) SSE requer Key Vault
+D) ADE so para Linux
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: B) ADE no nivel do OS (BitLocker/DM-Crypt); SSE no nivel do storage service**
+
+SSE e padrao em todos os managed disks. ADE usa BitLocker (Win) ou DM-Crypt (Linux). Complementares — podem ser usados juntos.
+
+</details>
+
+### Questao 6.5
+**Acesso a File Share via Entra ID com leitura e escrita. Qual role?**
+
+A) Storage Account Contributor
+B) Storage Blob Data Contributor
+C) Storage File Data SMB Share Contributor
+D) Reader
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: C) Storage File Data SMB Share Contributor**
+
+Roles SMB: Reader (leitura), Contributor (leitura + escrita + exclusao), Elevated Contributor (acima + ACLs NTFS).
+
+</details>
+
+---
+
+# Bloco 7 - ACR e App Service Avancado
+
+**Tecnologia:** PowerShell (Az module) + az CLI
+**Recursos criados:** 1 Azure Container Registry (Basic), 1 ACI from ACR, App Service configs
+**Resource Groups:** `az104-rg8` (existente), `az104-rg7acr` (novo)
+
+> **Pre-requisito:** Blocos 1 e 3 devem estar completos (Storage Account + App Service criados).
+
+---
+
+### Task 7.1: Criar Azure Container Registry
+
+```powershell
+# ============================================================
+# Azure Container Registry (Basic) com admin user
+# ============================================================
+
+# CONCEITO AZ-104: ACR SKUs e diferencas (importante para a prova):
+# - Basic: 10 GiB, sem webhooks avancados
+# - Standard: 100 GiB, webhooks
+# - Premium: 500 GiB, geo-replication, private link, CMK
+
+$rg7acr = "az104-rg7acr"
+New-AzResourceGroup -Name $rg7acr -Location "East US" -Force
+
+$acrName = "az104acr" + (-join ((48..57) + (97..102) | Get-Random -Count 6 | ForEach-Object { [char]$_ }))
+Write-Host "ACR: $acrName"
+
+$acr = New-AzContainerRegistry `
+    -ResourceGroupName $rg7acr `
+    -Name $acrName `
+    -Sku Basic `
+    -EnableAdminUser
+
+# Admin user: habilita username/password (dev/test)
+# Em producao, use Managed Identity ou Service Principal
+Write-Host "Login Server: $($acr.LoginServer)"
+
+# Obter credenciais do admin user
+$acrCreds = Get-AzContainerRegistryCredential `
+    -ResourceGroupName $rg7acr `
+    -Name $acrName
+Write-Host "Username: $($acrCreds.Username)"
+```
+
+---
+
+### Task 7.2: Build e push de imagem via az acr build
+
+```powershell
+# CONCEITO AZ-104: az acr build = build no cloud, sem Docker local
+# Nao ha cmdlet PowerShell nativo para ACR build — usamos az CLI
+
+# 1. Criar Dockerfile
+New-Item -Path ~/acr-lab -ItemType Directory -Force | Out-Null
+Set-Content -Path ~/acr-lab/Dockerfile -Value "FROM mcr.microsoft.com/hello-world"
+
+# 2. Build no ACR
+Push-Location ~/acr-lab
+az acr build --registry $acrName --image sample-app:v1 --file Dockerfile .
+Pop-Location
+
+# 3. Verificar
+az acr repository list --name $acrName -o table
+az acr repository show-tags --name $acrName --repository sample-app -o table
+```
+
+---
+
+### Task 7.3: Deploy ACI a partir de imagem privada do ACR
+
+```powershell
+# ============================================================
+# ACI from private ACR
+# ============================================================
+
+# CONCEITO AZ-104: ACI puxa imagem de ACR privado via credenciais
+# Metodos: admin user, service principal, managed identity
+
+$acrLoginServer = $acr.LoginServer
+$acrUsername = $acrCreds.Username
+$acrPassword = ConvertTo-SecureString $acrCreds.Password -AsPlainText -Force
+$acrCredential = New-Object System.Management.Automation.PSCredential($acrUsername, $acrPassword)
+
+# Criar container puxando imagem do ACR
+New-AzContainerGroup `
+    -ResourceGroupName $rg7acr `
+    -Name "az104-acr-aci" `
+    -Location "East US" `
+    -OsType Linux `
+    -RestartPolicy Always `
+    -RegistryServerDomain $acrLoginServer `
+    -RegistryCredential $acrCredential `
+    -Container @(
+        @{
+            Name = "az104-acr-aci"
+            Image = "$acrLoginServer/sample-app:v1"
+            RequestCpu = 1
+            RequestMemoryInGb = 1
+            Port = @(80)
+        }
+    ) `
+    -IpAddressType Public `
+    -Port @(80)
+
+# Verificar
+$container = Get-AzContainerGroup -ResourceGroupName $rg7acr -Name "az104-acr-aci"
+Write-Host "Status: $($container.State)"
+Write-Host "IP: $($container.IPAddressIP)"
+
+# Logs
+Get-AzContainerInstanceLog -ResourceGroupName $rg7acr -ContainerGroupName "az104-acr-aci"
+```
+
+---
+
+### Task 7.4: Mapear dominio DNS customizado para App Service (walkthrough)
+
+```powershell
+# CONCEITO AZ-104: Custom domain requer CNAME (subdomain) ou A record (apex)
+# + TXT record para verificacao. Free/Shared tier NAO suporta custom domains.
+
+$appName = (Get-AzWebApp -ResourceGroupName "az104-rg8")[0].Name
+Write-Host "App: $appName.azurewebsites.net"
+
+Write-Host "`n=== PROCESSO DE CUSTOM DOMAIN ===" -ForegroundColor Cyan
+Write-Host "1. DNS: CNAME www -> $appName.azurewebsites.net"
+Write-Host "        TXT asuid.www -> [Verification ID do portal]"
+Write-Host "2. Portal: App Service > Custom domains > + Add"
+Write-Host "3. Para apex: A record -> [IP] + TXT asuid -> [ID]"
+
+# Em PowerShell, custom domains sao gerenciados via:
+# New-AzWebAppSSLBinding (para binding de certificado)
+# Set-AzWebApp -HostNames @("www.contoso.com", "$appName.azurewebsites.net")
+```
+
+---
+
+### Task 7.5: Configurar TLS/SSL no App Service
+
+```powershell
+# CONCEITO AZ-104: HTTPS Only = redirect HTTP -> HTTPS (301)
+# Managed Certificate = gratis, automatico, so subdomains
+
+# 1. Configurar HTTPS Only e TLS 1.2
+Set-AzWebApp `
+    -ResourceGroupName "az104-rg8" `
+    -Name $appName `
+    -HttpsOnly $true `
+    -MinTlsVersion "1.2"
+
+# 2. Verificar
+$app = Get-AzWebApp -ResourceGroupName "az104-rg8" -Name $appName
+Write-Host "HTTPS Only: $($app.HttpsOnly)"
+Write-Host "Min TLS: $($app.SiteConfig.MinTlsVersion)"
+```
+
+---
+
+### Task 7.6: Configurar backup do App Service para Storage Account
+
+```powershell
+# CONCEITO AZ-104: Backup requer Standard+. Limite 10 GB.
+# Inclui codigo, config e opcionalmente banco de dados.
+
+# 1. Criar container para backups
+New-AzStorageContainer `
+    -Name "webapp-backups" `
+    -Context $ctx1 `
+    -Permission Off
+
+# 2. Gerar SAS para container de backup
+$backupSas = New-AzStorageContainerSASToken `
+    -Name "webapp-backups" `
+    -Permission rwdl `
+    -ExpiryTime (Get-Date).AddYears(1) `
+    -Protocol HttpsOnly `
+    -Context $ctx1
+
+$backupUrl = "https://${storage1Name}.blob.core.windows.net/webapp-backups${backupSas}"
+
+# 3. Configurar backup agendado via az CLI (mais simples)
+az webapp config backup update `
+    --resource-group "az104-rg8" `
+    --webapp-name $appName `
+    --container-url $backupUrl `
+    --frequency 1d `
+    --retain-one-always true `
+    --retention 30
+
+# 4. Executar backup imediato
+az webapp config backup create `
+    --resource-group "az104-rg8" `
+    --webapp-name $appName `
+    --container-url $backupUrl
+
+# 5. Verificar
+az webapp config backup list `
+    --resource-group "az104-rg8" `
+    --webapp-name $appName -o table
+
+Write-Host "Verifique .zip no container webapp-backups de $storage1Name"
+```
+
+---
+
+### Task 7.7: Configurar VNet Integration no App Service
+
+```powershell
+# CONCEITO AZ-104: VNet Integration = outbound; Private Endpoint = inbound
+# Requer subnet dedicada (/28 minimo)
+
+$vnetRg = "az104-rg4"
+$vnetName = "CoreServicesVnet"
+
+# 1. Criar subnet dedicada (delegada ao App Service)
+$vnet = Get-AzVirtualNetwork -ResourceGroupName $vnetRg -Name $vnetName -ErrorAction SilentlyContinue
+if ($vnet) {
+    $subnetConfig = Add-AzVirtualNetworkSubnetConfig `
+        -Name "WebAppSubnet" `
+        -VirtualNetwork $vnet `
+        -AddressPrefix "10.20.50.0/24" `
+        -Delegation @(
+            @{
+                Name = "webapp-delegation"
+                ServiceName = "Microsoft.Web/serverFarms"
+            }
+        )
+    $vnet | Set-AzVirtualNetwork
+    Write-Host "Subnet WebAppSubnet criada"
+} else {
+    Write-Host "VNet $vnetName nao encontrada em $vnetRg" -ForegroundColor Yellow
+}
+
+# 2. Configurar VNet Integration via az CLI
+az webapp vnet-integration add `
+    --resource-group "az104-rg8" `
+    --name $appName `
+    --vnet $vnetName `
+    --subnet WebAppSubnet
+
+# 3. Verificar
+az webapp vnet-integration list `
+    --resource-group "az104-rg8" `
+    --name $appName -o table
+
+Write-Host "`nO App Service pode acessar Private Endpoints e VMs na VNet"
+```
+
+---
+
+## Modo Desafio - Bloco 7
+
+- [ ] Criar ACR com `New-AzContainerRegistry` (Basic + admin user)
+- [ ] Executar `az acr build` para gerar imagem `sample-app:v1`
+- [ ] Criar ACI com `New-AzContainerGroup` puxando imagem privada do ACR
+- [ ] Explorar Custom Domain no App Service — CNAME + TXT verification
+- [ ] Configurar HTTPS Only + TLS 1.2 com `Set-AzWebApp`
+- [ ] Configurar backup com schedule diario para Storage Account **(Bloco 1)**
+- [ ] Configurar VNet Integration com CoreServicesVnet **(Semana 1)**
+
+---
+
+## Questoes de Prova - Bloco 7
+
+### Questao 7.1
+**Build de imagem sem Docker local. Qual servico?**
+
+A) ACI  B) ACR Tasks (az acr build)  C) AKS  D) App Service
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: B) ACR Tasks (az acr build)**
+
+Build no cloud, sem Docker local. Nao ha cmdlet PowerShell nativo — use `az acr build`.
+
+</details>
+
+### Questao 7.2
+**Mapear `api.contoso.com` para App Service. Qual registro DNS?**
+
+A) A record  B) CNAME para `*.azurewebsites.net`  C) MX record  D) SRV record
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: B) CNAME para `*.azurewebsites.net`**
+
+Subdomains = CNAME. Apex domain = A record + TXT. Em PowerShell: `Set-AzWebApp -HostNames`.
+
+</details>
+
+### Questao 7.3
+**Qual SKU do ACR suporta geo-replicacao e Private Link?**
+
+A) Basic  B) Standard  C) Premium  D) Todas
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: C) Premium**
+
+Basic = 10 GiB; Standard = 100 GiB; Premium = 500 GiB + geo-replication + private link + CMK.
+
+</details>
+
+### Questao 7.4
+**VNet Integration em App Service permite o que?**
+
+A) Inbound via IP privado  B) Outbound pela VNet  C) Deploy na VNet  D) IP publico da VNet
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: B) Outbound pela VNet para acessar recursos privados**
+
+Para inbound, use Private Endpoints. Requer subnet dedicada /28 minimo.
+
+</details>
+
+### Questao 7.5
+**Backup automatico de App Service requer?**
+
+A) Free + Blob  B) Standard+ + Storage Account  C) Qualquer tier + Backup vault  D) Premium + Site Recovery
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: B) Standard tier ou superior + Storage Account com container**
+
+Limite 10 GB. Inclui codigo + config. Em PowerShell, use `New-AzWebAppBackup` ou `az webapp config backup`.
+
+</details>
+
+---
+
 ## Pausar entre Sessoes
 
 Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos para evitar cobrancas desnecessarias.
@@ -2518,15 +3287,17 @@ Stop-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-win -Force
 Stop-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-linux -Force
 Stop-AzContainerGroup -ResourceGroupName az104-rg9 -Name az104-container-1
 Stop-AzContainerGroup -ResourceGroupName az104-rg9 -Name az104-container-2
+Stop-AzContainerGroup -ResourceGroupName az104-rg7acr -Name az104-acr-aci
 
 # Retomar
 Start-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-win
 Start-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-linux
 Start-AzContainerGroup -ResourceGroupName az104-rg9 -Name az104-container-1
 Start-AzContainerGroup -ResourceGroupName az104-rg9 -Name az104-container-2
+Start-AzContainerGroup -ResourceGroupName az104-rg7acr -Name az104-acr-aci
 ```
 
-> **Nota:** Desalocar VMs para cobranca de compute, mas discos e IPs publicos continuam cobrando. O App Service Plan (Standard S1) cobra enquanto existir — para parar, delete o plano ou rebaixe para Free F1. Container Apps com scale-to-zero nao geram custo quando ociosas.
+> **Nota:** Desalocar VMs para cobranca de compute, mas discos e IPs publicos continuam cobrando. O App Service Plan (Standard S1) cobra enquanto existir — para parar, delete o plano ou rebaixe para Free F1. Container Apps com scale-to-zero nao geram custo quando ociosas. Key Vault cobra por operacao (muito baixo custo).
 
 ---
 
@@ -2548,11 +3319,13 @@ Write-Host "  Container Apps removidos"
 
 # 2. Deletar Resource Groups (VMs primeiro por custo mais alto)
 Write-Host "2. Deletando Resource Groups em background..." -ForegroundColor Yellow
-Remove-AzResourceGroup -Name $rg7 -Force -AsJob    # VMs - PRIORIDADE (custo mais alto)
-Remove-AzResourceGroup -Name $rg10 -Force -AsJob   # Container Apps
-Remove-AzResourceGroup -Name $rg9 -Force -AsJob    # ACI
-Remove-AzResourceGroup -Name $rg8 -Force -AsJob    # Web Apps
-Remove-AzResourceGroup -Name $rg6 -Force -AsJob    # Storage
+Remove-AzResourceGroup -Name $rg7 -Force -AsJob      # VMs - PRIORIDADE
+Remove-AzResourceGroup -Name $rg10 -Force -AsJob     # Container Apps
+Remove-AzResourceGroup -Name $rg9 -Force -AsJob      # ACI
+Remove-AzResourceGroup -Name $rg8 -Force -AsJob      # Web Apps
+Remove-AzResourceGroup -Name $rg6 -Force -AsJob      # Storage
+Remove-AzResourceGroup -Name $rg6adv -Force -AsJob   # Storage Avancado + Key Vault
+Remove-AzResourceGroup -Name $rg7acr -Force -AsJob   # ACR
 Write-Host "  RGs sendo deletados em background..."
 
 # 3. Aguardar RGs serem deletados
@@ -2560,10 +3333,17 @@ Write-Host "`n3. Aguardando exclusao dos RGs (pode levar 5-10 minutos)..." -Fore
 Get-Job | Wait-Job | Out-Null
 Write-Host "  Todos os RGs deletados"
 
+# 4. Purge Key Vault (necessario por purge protection)
+Write-Host "`n4. Purge do Key Vault..." -ForegroundColor Yellow
+Write-Host "  Execute: az keyvault purge --name $kvName --location eastus"
+Write-Host "  Sem purge, o nome fica reservado por 90 dias"
+
 Write-Host "`n=== CLEANUP COMPLETO ===" -ForegroundColor Green
 Write-Host "Recursos removidos:"
 Write-Host "  - $rg6 (Storage Account, Blob, File Share, Private Endpoint)"
+Write-Host "  - $rg6adv (Storage Account 2, Key Vault, Chaves RSA)"
 Write-Host "  - $rg7 (VMs, VMSS, Load Balancer, Disks, NICs)"
+Write-Host "  - $rg7acr (ACR, ACI from ACR)"
 Write-Host "  - $rg8 (App Service Plan, Web App, Slots)"
 Write-Host "  - $rg9 (Container Instances)"
 Write-Host "  - $rg10 (Container Apps Environment, Container App)"
@@ -2612,6 +3392,25 @@ Write-Host "  - $rg10 (Container Apps Environment, Container App)"
 - Traffic splitting entre revisions para canary deployments
 - **Gotcha:** Multi-revision mode precisa estar habilitado para traffic splitting
 
+## Bloco 6 - Storage Avancado e Disk Encryption (Az module + az CLI)
+- `New-AzStorageAccountSASToken` + AzCopy para transferencias server-to-server
+- `New-AzStorageBlobSASToken` para SAS granular (blob-level)
+- `Update-AzStorageBlobServiceProperty` habilita versioning e change feed
+- `New-AzKeyVault -EnablePurgeProtection` e OBRIGATORIO para CMK
+- `Add-AzKeyVaultKey` cria chaves RSA; `-KeyOps wrapKey,unwrapKey` para CMK
+- `Set-AzStorageAccount -AssignIdentity` habilita Managed Identity para CMK
+- ADE: use `az vm encryption enable` (mais simples que PS para KEK)
+- **Gotcha:** AzCopy nao tem cmdlet PowerShell nativo — use o executavel diretamente
+
+## Bloco 7 - ACR e App Service Avancado (Az module + az CLI)
+- `New-AzContainerRegistry -EnableAdminUser` cria ACR; admin user e para dev/test
+- `az acr build` para build no cloud (sem cmdlet PS nativo)
+- `New-AzContainerGroup -RegistryCredential` para ACI from ACR privado
+- `Set-AzWebApp -HttpsOnly $true -MinTlsVersion "1.2"` para TLS
+- `az webapp config backup` para backup (sem cmdlet PS simples equivalente)
+- `az webapp vnet-integration add` para VNet Integration
+- **Gotcha:** Varios recursos avancados requerem az CLI mesmo em workflow PowerShell
+
 ## Resumo de Cmdlets por Categoria
 
 | Categoria | Cmdlet principal | Modulo |
@@ -2620,20 +3419,32 @@ Write-Host "  - $rg10 (Container Apps Environment, Container App)"
 | Blob Container | `New-AzStorageContainer` | Az |
 | Blob Upload | `Set-AzStorageBlobContent` | Az |
 | File Share | `New-AzRmStorageShare` | Az |
-| SAS Token | `New-AzStorageAccountSASToken` | Az |
+| SAS Token (Account) | `New-AzStorageAccountSASToken` | Az |
+| SAS Token (Blob) | `New-AzStorageBlobSASToken` | Az |
 | Lifecycle | `Set-AzStorageAccountManagementPolicy` | Az |
+| Versioning/ChangeFeed | `Update-AzStorageBlobServiceProperty` | Az |
 | Private Endpoint | `New-AzPrivateEndpoint` | Az |
 | Private DNS | `New-AzPrivateDnsZone` + `New-AzPrivateDnsVirtualNetworkLink` | Az |
 | Network Rules | `Update-AzStorageAccountNetworkRuleSet` | Az |
+| Key Vault | `New-AzKeyVault` | Az |
+| Key Vault Keys | `Add-AzKeyVaultKey` | Az |
+| Key Vault RBAC | `New-AzRoleAssignment` | Az |
 | VM | `New-AzVMConfig` + `New-AzVM` | Az |
 | VM Disk | `New-AzDiskConfig` + `New-AzDisk` + `Add-AzVMDataDisk` | Az |
+| VM Disk Encryption | `Get-AzVMDiskEncryptionStatus` / `az vm encryption enable` | Az / CLI |
 | VM Extension | `Set-AzVMCustomScriptExtension` | Az |
 | VMSS | `New-AzVmssConfig` + `New-AzVmss` | Az |
 | Autoscale | `New-AzAutoscaleSettingV2` | Az |
 | App Service Plan | `New-AzAppServicePlan` | Az |
 | Web App | `New-AzWebApp` | Az |
+| Web App TLS | `Set-AzWebApp -HttpsOnly -MinTlsVersion` | Az |
+| Web App Backup | `az webapp config backup` | az CLI |
+| Web App VNet | `az webapp vnet-integration add` | az CLI |
 | Deployment Slot | `New-AzWebAppSlot` + `Switch-AzWebAppSlot` | Az |
+| ACR | `New-AzContainerRegistry` | Az |
+| ACR Build | `az acr build` | az CLI |
 | ACI | `New-AzContainerGroup` | Az |
+| ACI from ACR | `New-AzContainerGroup -RegistryCredential` | Az |
 | ACI Logs | `Get-AzContainerInstanceLog` | Az |
 | Container Apps | `az containerapp` | az CLI |
 | Container Apps Env | `az containerapp env` | az CLI |

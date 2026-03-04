@@ -2178,6 +2178,1097 @@ A) Sim  B) Falha — sem link  C) Com forwarded traffic  D) Com DNS forwarder
 
 ---
 
+---
+
+# Bloco 6 - Load Balancer e Azure Bastion
+
+**Tecnologia:** Bicep + CLI (para Run Command, NSG association, testes)
+**Recursos criados:** Subnet LBSubnet, Availability Set, 2 VMs (IIS), Public LB, Internal LB, NSG, Bastion
+**Resource Group:** `az104-rg6lb` (VMs e LBs) + `az104-rg4` (VNet existente)
+
+> **Nota:** Este bloco cria VMs, Public IPs e Bastion que geram custo. Faca cleanup assim que terminar.
+
+---
+
+### Task 6.1: Criar subnet LBSubnet (CLI) e Resource Group
+
+```bash
+# ============================================================
+# TASK 6.1a - Criar RG para Load Balancer e subnet LBSubnet
+# ============================================================
+
+# Criar Resource Group para o Bloco 6
+RG6="az104-rg6lb"
+az group create --name "$RG6" --location "$LOCATION" --tags "Cost Center=000"
+
+# Criar subnet LBSubnet na CoreServicesVnet (az104-rg4)
+# A VNet ja existe do Bloco 4 — adicionamos a subnet via CLI
+az network vnet subnet create \
+    --resource-group "$RG4" \
+    --vnet-name "CoreServicesVnet" \
+    --name "LBSubnet" \
+    --address-prefixes "10.20.40.0/24"
+
+echo "RG az104-rg6lb e subnet LBSubnet criados"
+```
+
+---
+
+### Task 6.1b: Criar Availability Set e VMs com IIS
+
+Salve como **`bloco6-lb-infra.bicep`**:
+
+```bicep
+// ============================================================
+// bloco6-lb-infra.bicep
+// Scope: resourceGroup (az104-rg6lb)
+// Cria Availability Set + 2 VMs + NICs referenciando VNet em OUTRO RG
+// ============================================================
+// CONCEITO AZ-104: Availability Sets distribuem VMs entre:
+//   - Fault Domains (FD): racks fisicos diferentes (max 3)
+//   - Update Domains (UD): reinicializacoes planejadas escalonadas (max 20)
+// O Load Balancer Standard requer VMs em Availability Set, Zone ou VMSS
+// ============================================================
+
+param location string = resourceGroup().location
+
+@description('Username do admin local')
+param adminUsername string = 'localadmin'
+
+@description('Senha do admin local')
+@secure()
+param adminPassword string
+
+@description('RG onde a CoreServicesVnet esta')
+param vnetResourceGroup string = 'az104-rg4'
+
+// ==================== Referencia CROSS-RG a VNet ====================
+// 'existing' + 'scope' permite referenciar VNet de outro RG
+// As VMs ficam em az104-rg6lb mas usam subnet em az104-rg4
+resource coreVnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
+  name: 'CoreServicesVnet'
+  scope: resourceGroup(vnetResourceGroup)
+}
+
+resource lbSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' existing = {
+  parent: coreVnet
+  name: 'LBSubnet'
+}
+
+// ==================== Availability Set ====================
+// CONCEITO: platformFaultDomainCount = quantos racks fisicos
+//           platformUpdateDomainCount = quantos grupos de reboot
+// SKU 'Aligned' e obrigatorio para VMs com managed disks
+resource avSet 'Microsoft.Compute/availabilitySets@2023-07-01' = {
+  name: 'az104-avset-lb'
+  location: location
+  sku: {
+    name: 'Aligned'  // Obrigatorio para managed disks
+  }
+  properties: {
+    platformFaultDomainCount: 2   // 2 racks fisicos
+    platformUpdateDomainCount: 5  // 5 grupos de reboot
+  }
+}
+
+// ==================== NIC: LB-VM1 ====================
+resource nic1 'Microsoft.Network/networkInterfaces@2023-05-01' = {
+  name: 'LB-VM1-nic'
+  location: location
+  properties: {
+    ipConfigurations: [
+      {
+        name: 'ipconfig1'
+        properties: {
+          privateIPAllocationMethod: 'Dynamic'
+          subnet: {
+            id: lbSubnet.id  // Cross-RG reference via 'existing'
+          }
+        }
+      }
+    ]
+  }
+}
+
+// ==================== NIC: LB-VM2 ====================
+resource nic2 'Microsoft.Network/networkInterfaces@2023-05-01' = {
+  name: 'LB-VM2-nic'
+  location: location
+  properties: {
+    ipConfigurations: [
+      {
+        name: 'ipconfig1'
+        properties: {
+          privateIPAllocationMethod: 'Dynamic'
+          subnet: {
+            id: lbSubnet.id
+          }
+        }
+      }
+    ]
+  }
+}
+
+// ==================== VM: LB-VM1 ====================
+// CONCEITO: Public inbound ports = None — VMs atras de LB nao precisam
+// de IP publico. O trafego chega via LB frontend IP.
+resource vm1 'Microsoft.Compute/virtualMachines@2023-07-01' = {
+  name: 'LB-VM1'
+  location: location
+  properties: {
+    availabilitySet: {
+      id: avSet.id  // Associa ao Availability Set
+    }
+    hardwareProfile: {
+      vmSize: 'Standard_D2s_v3'
+    }
+    osProfile: {
+      computerName: 'LB-VM1'
+      adminUsername: adminUsername
+      adminPassword: adminPassword
+    }
+    storageProfile: {
+      imageReference: {
+        publisher: 'MicrosoftWindowsServer'
+        offer: 'WindowsServer'
+        sku: '2025-datacenter-azure-edition'
+        version: 'latest'
+      }
+      osDisk: {
+        createOption: 'FromImage'
+        managedDisk: { storageAccountType: 'StandardSSD_LRS' }
+      }
+    }
+    networkProfile: {
+      networkInterfaces: [
+        { id: nic1.id }
+      ]
+    }
+    diagnosticsProfile: {
+      bootDiagnostics: { enabled: false }
+    }
+  }
+}
+
+// ==================== VM: LB-VM2 ====================
+resource vm2 'Microsoft.Compute/virtualMachines@2023-07-01' = {
+  name: 'LB-VM2'
+  location: location
+  properties: {
+    availabilitySet: {
+      id: avSet.id
+    }
+    hardwareProfile: {
+      vmSize: 'Standard_D2s_v3'
+    }
+    osProfile: {
+      computerName: 'LB-VM2'
+      adminUsername: adminUsername
+      adminPassword: adminPassword
+    }
+    storageProfile: {
+      imageReference: {
+        publisher: 'MicrosoftWindowsServer'
+        offer: 'WindowsServer'
+        sku: '2025-datacenter-azure-edition'
+        version: 'latest'
+      }
+      osDisk: {
+        createOption: 'FromImage'
+        managedDisk: { storageAccountType: 'StandardSSD_LRS' }
+      }
+    }
+    networkProfile: {
+      networkInterfaces: [
+        { id: nic2.id }
+      ]
+    }
+    diagnosticsProfile: {
+      bootDiagnostics: { enabled: false }
+    }
+  }
+}
+
+// ==================== Outputs ====================
+output avSetId string = avSet.id
+output vm1Name string = vm1.name
+output vm2Name string = vm2.name
+output vm1Id string = vm1.id
+output vm2Id string = vm2.id
+```
+
+Deploy:
+
+```bash
+# ============================================================
+# DEPLOY bloco6-lb-infra.bicep
+# ============================================================
+
+az deployment group create \
+    --resource-group "$RG6" \
+    --template-file bloco6-lb-infra.bicep \
+    --parameters adminPassword="$VM_PASSWORD" \
+    --name "deploy-lb-infra"
+
+# Aguardar VMs ficarem Running
+az vm wait --resource-group "$RG6" --name "LB-VM1" --created
+az vm wait --resource-group "$RG6" --name "LB-VM2" --created
+echo "VMs LB-VM1 e LB-VM2 criadas no Availability Set"
+```
+
+---
+
+### Task 6.1c: Instalar IIS nas VMs via Run Command
+
+```bash
+# ============================================================
+# TASK 6.1c - Instalar IIS via Run Command (CLI)
+# ============================================================
+# CONCEITO: Run Command executa scripts DENTRO da VM remotamente
+# O script instala IIS e cria pagina customizada com hostname
+# para verificar qual VM esta respondendo ao Load Balancer
+
+# Instalar IIS na LB-VM1
+az vm run-command invoke \
+    --resource-group "$RG6" \
+    --name "LB-VM1" \
+    --command-id RunPowerShellScript \
+    --scripts "Install-WindowsFeature -name Web-Server -IncludeManagementTools; Remove-Item 'C:\inetpub\wwwroot\iisstart.htm'; Add-Content -Path 'C:\inetpub\wwwroot\iisstart.htm' -Value \$('Hello from ' + \$env:computername)"
+
+echo "IIS instalado em LB-VM1"
+
+# Instalar IIS na LB-VM2
+az vm run-command invoke \
+    --resource-group "$RG6" \
+    --name "LB-VM2" \
+    --command-id RunPowerShellScript \
+    --scripts "Install-WindowsFeature -name Web-Server -IncludeManagementTools; Remove-Item 'C:\inetpub\wwwroot\iisstart.htm'; Add-Content -Path 'C:\inetpub\wwwroot\iisstart.htm' -Value \$('Hello from ' + \$env:computername)"
+
+echo "IIS instalado em LB-VM2"
+```
+
+---
+
+### Task 6.2-6.3: Criar Public Load Balancer com NSG
+
+Salve como **`bloco6-public-lb.bicep`**:
+
+```bicep
+// ============================================================
+// bloco6-public-lb.bicep
+// Scope: resourceGroup (az104-rg6lb)
+// Cria Public Load Balancer Standard + NSG para LBSubnet
+// ============================================================
+// CONCEITO AZ-104: Standard LB vs Basic LB
+//   - Standard: zone-aware, backend por VNet, BLOQUEIA trafego por padrao (NSG obrigatorio)
+//   - Basic: sendo descontinuado, permite trafego por padrao
+// Standard LB requer Standard SKU Public IP
+// ============================================================
+
+param location string = resourceGroup().location
+
+@description('RG onde a CoreServicesVnet esta')
+param vnetResourceGroup string = 'az104-rg4'
+
+// ==================== Public IP para o LB ====================
+// CONCEITO: Standard LB requer Standard SKU PIP
+// Zone-redundant distribui o IP entre zonas de disponibilidade
+resource lbPip 'Microsoft.Network/publicIPAddresses@2023-05-01' = {
+  name: 'az104-lb-pip'
+  location: location
+  sku: {
+    name: 'Standard'       // Obrigatorio para Standard LB
+  }
+  properties: {
+    publicIPAllocationMethod: 'Static'  // Standard PIP e sempre Static
+    publicIPAddressVersion: 'IPv4'
+  }
+  zones: ['1', '2', '3']  // Zone-redundant
+}
+
+// ==================== Load Balancer Standard ====================
+resource publicLb 'Microsoft.Network/loadBalancers@2023-05-01' = {
+  name: 'az104-pub-lb'
+  location: location
+  sku: {
+    name: 'Standard'     // Standard SKU — bloqueia trafego por padrao
+    tier: 'Regional'     // Regional (vs Global para cross-region LB)
+  }
+  properties: {
+    // Frontend IP: onde o trafego externo chega
+    frontendIPConfigurations: [
+      {
+        name: 'lb-frontend'
+        properties: {
+          publicIPAddress: {
+            id: lbPip.id  // Associa o PIP ao frontend
+          }
+        }
+      }
+    ]
+    // Backend Pool: grupo de VMs que recebem trafego
+    backendAddressPools: [
+      {
+        name: 'lb-backend-pool'
+      }
+    ]
+    // Health Probe: verifica saude dos backends
+    // CONCEITO: Probe HTTP verifica se a APLICACAO responde (nao apenas a VM)
+    // Se o IIS parar mas a VM continuar running, o probe falha
+    probes: [
+      {
+        name: 'http-probe'
+        properties: {
+          protocol: 'Http'
+          port: 80
+          requestPath: '/'
+          intervalInSeconds: 5    // Verifica a cada 5 segundos
+          numberOfProbes: 2       // 2 falhas consecutivas = unhealthy
+        }
+      }
+    ]
+    // Load Balancing Rule: como distribuir o trafego
+    // CONCEITO: 5-tuple hash (src IP, src port, dst IP, dst port, protocol)
+    // Session persistence = None = distribuicao maxima
+    loadBalancingRules: [
+      {
+        name: 'http-rule'
+        properties: {
+          frontendIPConfiguration: {
+            id: resourceId('Microsoft.Network/loadBalancers/frontendIPConfigurations', 'az104-pub-lb', 'lb-frontend')
+          }
+          backendAddressPool: {
+            id: resourceId('Microsoft.Network/loadBalancers/backendAddressPools', 'az104-pub-lb', 'lb-backend-pool')
+          }
+          probe: {
+            id: resourceId('Microsoft.Network/loadBalancers/probes', 'az104-pub-lb', 'http-probe')
+          }
+          protocol: 'Tcp'
+          frontendPort: 80
+          backendPort: 80
+          enableFloatingIP: false
+          idleTimeoutInMinutes: 4
+          loadDistribution: 'Default'  // 5-tuple hash (None = Default)
+        }
+      }
+    ]
+  }
+}
+
+// ==================== NSG para LBSubnet ====================
+// CONCEITO: Standard LB BLOQUEIA todo trafego por padrao!
+// Sem NSG com AllowHTTP, o LB recebe trafego mas as VMs nao respondem
+resource nsgLb 'Microsoft.Network/networkSecurityGroups@2023-05-01' = {
+  name: 'nsg-lb'
+  location: location
+  properties: {
+    securityRules: [
+      {
+        name: 'AllowHTTP'
+        properties: {
+          priority: 100              // Menor numero = avaliada primeiro
+          direction: 'Inbound'
+          access: 'Allow'
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRange: '80'
+          sourceAddressPrefix: '*'
+          destinationAddressPrefix: '*'
+        }
+      }
+    ]
+  }
+}
+
+// ==================== Outputs ====================
+output lbId string = publicLb.id
+output lbFrontendIp string = lbPip.properties.ipAddress
+output nsgId string = nsgLb.id
+output backendPoolId string = publicLb.properties.backendAddressPools[0].id
+```
+
+Deploy:
+
+```bash
+# ============================================================
+# DEPLOY bloco6-public-lb.bicep
+# ============================================================
+
+az deployment group create \
+    --resource-group "$RG6" \
+    --template-file bloco6-public-lb.bicep \
+    --name "deploy-public-lb"
+
+# Associar NSG a LBSubnet (cross-RG — NSG em rg6lb, subnet em rg4)
+NSG_ID=$(az network nsg show -g "$RG6" -n "nsg-lb" --query id -o tsv)
+az network vnet subnet update \
+    --resource-group "$RG4" \
+    --vnet-name "CoreServicesVnet" \
+    --name "LBSubnet" \
+    --network-security-group "$NSG_ID"
+
+echo "NSG nsg-lb associado a LBSubnet"
+
+# Adicionar VMs ao Backend Pool
+# CONCEITO: As NICs das VMs sao associadas ao backend pool
+az network nic ip-config address-pool add \
+    --resource-group "$RG6" \
+    --nic-name "LB-VM1-nic" \
+    --ip-config-name "ipconfig1" \
+    --lb-name "az104-pub-lb" \
+    --address-pool "lb-backend-pool"
+
+az network nic ip-config address-pool add \
+    --resource-group "$RG6" \
+    --nic-name "LB-VM2-nic" \
+    --ip-config-name "ipconfig1" \
+    --lb-name "az104-pub-lb" \
+    --address-pool "lb-backend-pool"
+
+echo "VMs adicionadas ao backend pool"
+
+# Obter IP publico do LB
+LB_PIP=$(az network public-ip show -g "$RG6" -n "az104-lb-pip" --query ipAddress -o tsv)
+echo "Teste no navegador: http://${LB_PIP}"
+echo "Hard refresh (Ctrl+Shift+R) para ver alternancia entre LB-VM1 e LB-VM2"
+```
+
+---
+
+### Task 6.4: Testar failover
+
+```bash
+# ============================================================
+# TASK 6.4 - Testar failover do Load Balancer
+# ============================================================
+# CONCEITO: Quando o health probe falha, o LB remove a VM da rotacao
+# automaticamente. Ao restaurar, a VM volta ao pool sem intervencao.
+
+# Parar LB-VM1
+az vm stop --resource-group "$RG6" --name "LB-VM1"
+echo "LB-VM1 parada. Aguarde 30-60s (probe interval + timeout)"
+echo "Acesse http://${LB_PIP} — apenas LB-VM2 deve responder"
+
+# Verificar health probe status
+az network lb show -g "$RG6" -n "az104-pub-lb" --query "backendAddressPools[0]" -o json
+
+# Reiniciar LB-VM1
+az vm start --resource-group "$RG6" --name "LB-VM1"
+echo "LB-VM1 reiniciada. Aguarde probe detectar como healthy (~30s)"
+```
+
+---
+
+### Task 6.5: Criar Internal Load Balancer
+
+Salve como **`bloco6-internal-lb.bicep`**:
+
+```bicep
+// ============================================================
+// bloco6-internal-lb.bicep
+// Scope: resourceGroup (az104-rg6lb)
+// Cria Internal Load Balancer com frontend IP estatico
+// ============================================================
+// CONCEITO AZ-104: Public LB vs Internal LB
+//   - Public LB: frontend com IP publico, trafego da INTERNET para VMs
+//   - Internal LB: frontend com IP PRIVADO, trafego ENTRE TIERS internos
+//   Ambos podem coexistir no MESMO backend pool!
+// ============================================================
+
+param location string = resourceGroup().location
+
+@description('RG onde a CoreServicesVnet esta')
+param vnetResourceGroup string = 'az104-rg4'
+
+// Referencia cross-RG a subnet
+resource coreVnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
+  name: 'CoreServicesVnet'
+  scope: resourceGroup(vnetResourceGroup)
+}
+
+resource lbSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' existing = {
+  parent: coreVnet
+  name: 'LBSubnet'
+}
+
+// ==================== Internal Load Balancer ====================
+resource intLb 'Microsoft.Network/loadBalancers@2023-05-01' = {
+  name: 'az104-int-lb'
+  location: location
+  sku: {
+    name: 'Standard'
+    tier: 'Regional'
+  }
+  properties: {
+    // Frontend com IP PRIVADO estatico (nao publico!)
+    frontendIPConfigurations: [
+      {
+        name: 'int-lb-frontend'
+        properties: {
+          privateIPAddress: '10.20.40.100'          // IP fixo na LBSubnet
+          privateIPAllocationMethod: 'Static'        // Estatico para previsibilidade
+          subnet: {
+            id: lbSubnet.id  // Cross-RG reference
+          }
+        }
+      }
+    ]
+    backendAddressPools: [
+      {
+        name: 'int-lb-backend'
+      }
+    ]
+    probes: [
+      {
+        name: 'int-http-probe'
+        properties: {
+          protocol: 'Http'
+          port: 80
+          requestPath: '/'
+          intervalInSeconds: 5
+          numberOfProbes: 2
+        }
+      }
+    ]
+    loadBalancingRules: [
+      {
+        name: 'int-http-rule'
+        properties: {
+          frontendIPConfiguration: {
+            id: resourceId('Microsoft.Network/loadBalancers/frontendIPConfigurations', 'az104-int-lb', 'int-lb-frontend')
+          }
+          backendAddressPool: {
+            id: resourceId('Microsoft.Network/loadBalancers/backendAddressPools', 'az104-int-lb', 'int-lb-backend')
+          }
+          probe: {
+            id: resourceId('Microsoft.Network/loadBalancers/probes', 'az104-int-lb', 'int-http-probe')
+          }
+          protocol: 'Tcp'
+          frontendPort: 80
+          backendPort: 80
+          enableFloatingIP: false
+          idleTimeoutInMinutes: 4
+          loadDistribution: 'Default'
+        }
+      }
+    ]
+  }
+}
+
+output intLbId string = intLb.id
+output intLbFrontendIp string = intLb.properties.frontendIPConfigurations[0].properties.privateIPAddress
+```
+
+Deploy:
+
+```bash
+# ============================================================
+# DEPLOY bloco6-internal-lb.bicep
+# ============================================================
+
+az deployment group create \
+    --resource-group "$RG6" \
+    --template-file bloco6-internal-lb.bicep \
+    --name "deploy-internal-lb"
+
+# Adicionar VMs ao backend pool do Internal LB
+az network nic ip-config address-pool add \
+    --resource-group "$RG6" \
+    --nic-name "LB-VM1-nic" \
+    --ip-config-name "ipconfig1" \
+    --lb-name "az104-int-lb" \
+    --address-pool "int-lb-backend"
+
+az network nic ip-config address-pool add \
+    --resource-group "$RG6" \
+    --nic-name "LB-VM2-nic" \
+    --ip-config-name "ipconfig1" \
+    --lb-name "az104-int-lb" \
+    --address-pool "int-lb-backend"
+
+echo "Internal LB criado com frontend IP 10.20.40.100"
+echo "Teste de qualquer VM na CoreServicesVnet: curl http://10.20.40.100"
+```
+
+---
+
+### Task 6.6: Troubleshoot health probe
+
+```bash
+# ============================================================
+# TASK 6.6 - Troubleshoot: parar IIS e diagnosticar
+# ============================================================
+# CONCEITO: Health probe detecta falha na APLICACAO (IIS), nao na VM
+# A VM continua running mas o probe HTTP falha → VM removida do pool
+
+# Parar IIS na LB-VM1
+az vm run-command invoke \
+    --resource-group "$RG6" \
+    --name "LB-VM1" \
+    --command-id RunPowerShellScript \
+    --scripts "Stop-Service -Name W3SVC -Force"
+
+echo "IIS parado em LB-VM1. Aguarde 30s para o probe detectar..."
+echo "Verifique no portal: az104-pub-lb > Monitoring > Metrics > Health Probe Status"
+echo "LB-VM1 deve aparecer como Unhealthy"
+
+# Corrigir: reiniciar IIS
+az vm run-command invoke \
+    --resource-group "$RG6" \
+    --name "LB-VM1" \
+    --command-id RunPowerShellScript \
+    --scripts "Start-Service -Name W3SVC"
+
+echo "IIS reiniciado em LB-VM1. Aguarde probe detectar como healthy (~30s)"
+```
+
+---
+
+### Task 6.7: Implantar Azure Bastion
+
+Salve como **`bloco6-bastion.bicep`**:
+
+```bicep
+// ============================================================
+// bloco6-bastion.bicep
+// Scope: resourceGroup (az104-rg6lb)
+// Cria AzureBastionSubnet + Bastion + Public IP
+// ============================================================
+// CONCEITO AZ-104: Azure Bastion
+//   - Acesso RDP/SSH via portal (browser) sem IP publico na VM
+//   - Requer subnet com nome EXATO 'AzureBastionSubnet' (obrigatorio!)
+//   - Tamanho minimo da subnet: /26 (64 IPs)
+//   - Basic tier: RDP/SSH via portal
+//   - Standard tier: + native client support, IP-based connection
+//   - Elimina superficie de ataque (sem porta 3389/22 exposta)
+// ============================================================
+
+param location string = resourceGroup().location
+
+@description('RG onde a CoreServicesVnet esta')
+param vnetResourceGroup string = 'az104-rg4'
+
+// Referencia cross-RG a VNet
+resource coreVnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
+  name: 'CoreServicesVnet'
+  scope: resourceGroup(vnetResourceGroup)
+}
+
+// ==================== AzureBastionSubnet ====================
+// CONCEITO: O nome DEVE ser 'AzureBastionSubnet' — e requisito do Azure
+// Tamanho minimo /26 (64 IPs). O Bastion usa este espaco para seus recursos
+// NOTA: Criar subnet em VNet de outro RG requer scope
+resource bastionSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' = {
+  name: 'AzureBastionSubnet'
+  parent: coreVnet
+  properties: {
+    addressPrefix: '10.20.30.0/26'  // /26 = 64 IPs (minimo para Bastion)
+  }
+}
+
+// ==================== Public IP para Bastion ====================
+resource bastionPip 'Microsoft.Network/publicIPAddresses@2023-05-01' = {
+  name: 'az104-bastion-pip'
+  location: location
+  sku: {
+    name: 'Standard'  // Bastion requer Standard PIP
+  }
+  properties: {
+    publicIPAllocationMethod: 'Static'
+  }
+}
+
+// ==================== Azure Bastion ====================
+resource bastion 'Microsoft.Network/bastionHosts@2023-05-01' = {
+  name: 'az104-bastion'
+  location: location
+  sku: {
+    name: 'Basic'  // Basic: RDP/SSH via portal | Standard: + native client
+  }
+  properties: {
+    ipConfigurations: [
+      {
+        name: 'bastionIpConfig'
+        properties: {
+          publicIPAddress: {
+            id: bastionPip.id
+          }
+          subnet: {
+            id: bastionSubnet.id
+          }
+        }
+      }
+    ]
+  }
+}
+
+output bastionName string = bastion.name
+output bastionId string = bastion.id
+```
+
+Deploy:
+
+```bash
+# ============================================================
+# DEPLOY bloco6-bastion.bicep
+# ============================================================
+# NOTA: O deploy do Bastion pode levar 5-10 minutos
+
+az deployment group create \
+    --resource-group "$RG6" \
+    --template-file bloco6-bastion.bicep \
+    --name "deploy-bastion"
+
+echo "Azure Bastion implantado"
+echo "Acesse: LB-VM1 > Connect > Bastion (sem IP publico!)"
+echo "Username: localadmin | Password: sua senha"
+```
+
+---
+
+## Modo Desafio - Bloco 6
+
+- [ ] Criar RG `az104-rg6lb` e subnet `LBSubnet` (10.20.40.0/24) na CoreServicesVnet
+- [ ] Deploy `bloco6-lb-infra.bicep` (Availability Set + 2 VMs cross-RG)
+- [ ] Instalar IIS em ambas VMs via `az vm run-command invoke`
+- [ ] Deploy `bloco6-public-lb.bicep` (Public LB + NSG)
+- [ ] Associar NSG a LBSubnet e adicionar VMs ao backend pool
+- [ ] Testar balanceamento (hard refresh no IP publico)
+- [ ] Testar failover: parar VM1 → apenas VM2 responde → reiniciar VM1
+- [ ] Deploy `bloco6-internal-lb.bicep` (Internal LB com IP 10.20.40.100)
+- [ ] Troubleshoot: parar IIS → diagnosticar unhealthy → reiniciar IIS
+- [ ] Deploy `bloco6-bastion.bicep` (AzureBastionSubnet /26 + Bastion Basic)
+- [ ] Conectar a VM via Bastion (sem IP publico)
+
+---
+
+## Questoes de Prova - Bloco 6
+
+### Questao 6.1
+**Standard LB, VMs no backend, probes healthy, mas clientes nao acessam. Causa?**
+
+A) LB Standard requer Availability Zones  B) Falta NSG permitindo trafego  C) Probe configurado errado  D) VMs precisam IP publico
+
+<details><summary>Ver resposta</summary>**Resposta: B)** Standard LB bloqueia trafego por padrao. NSG com regra explicita e obrigatorio.</details>
+
+### Questao 6.2
+**Diferenca entre Public LB e Internal LB?**
+
+A) Public usa Basic; Internal usa Standard  B) Public distribui trafego da internet; Internal distribui dentro da VNet  C) Internal nao suporta probes  D) Public so TCP; Internal TCP/UDP
+
+<details><summary>Ver resposta</summary>**Resposta: B)** Public = frontend IP publico (internet). Internal = frontend IP privado (entre tiers).</details>
+
+### Questao 6.3
+**Requisito de subnet para Azure Bastion?**
+
+A) `BastionSubnet` /28  B) `AzureBastionSubnet` /26  C) Qualquer subnet /24  D) `AzureBastionSubnet` /24
+
+<details><summary>Ver resposta</summary>**Resposta: B)** Nome EXATO `AzureBastionSubnet`, tamanho minimo /26.</details>
+
+### Questao 6.4
+**VM no backend com probe Unhealthy, mas VM running e acessivel via RDP. Causa?**
+
+A) VM sem IP publico  B) Servico (IIS) nao responde na porta do probe  C) Availability Set diferente  D) LB precisa restart
+
+<details><summary>Ver resposta</summary>**Resposta: B)** Probes verificam a APLICACAO, nao a VM. IIS parado = probe falha.</details>
+
+### Questao 6.5
+**3 VMs no backend, 1 marcada unhealthy. O que acontece com o trafego?**
+
+A) Enfileirado ate recuperar  B) Redirecionado para VMs healthy  C) LB para  D) Descartado com 503
+
+<details><summary>Ver resposta</summary>**Resposta: B)** LB redistribui para VMs healthy automaticamente.</details>
+
+---
+
+# Bloco 7 - SSPR, Cost Management e NSG Effective Rules
+
+**Tecnologia:** CLI (operacoes de portal/Entra ID e Cost Management, minimal Bicep)
+**Recursos:** SSPR config, Budget, Advisor alert, Network Watcher diagnostics
+**Resource Groups utilizados:** `az104-rg4`, `az104-rg5`, `az104-rg6lb`
+
+> **Nota:** Este bloco e majoritariamente portal/CLI. SSPR e uma configuracao do Entra ID,
+> Cost Management e Advisor sao leitura + configuracao, e Network Watcher e diagnostico.
+
+---
+
+### Task 7.1: Criar grupo SSPR-TestGroup e habilitar SSPR
+
+```bash
+# ============================================================
+# TASK 7.1 - Criar grupo e habilitar SSPR
+# ============================================================
+# CONCEITO AZ-104: SSPR (Self-Service Password Reset)
+#   - Permite usuarios resetarem senhas sem helpdesk
+#   - Pode ser habilitado para: All | Selected (grupo) | None
+#   - Requer registro de metodos de autenticacao
+#   - Azure AD Free: cloud users | P1/P2: writeback on-premises
+
+# Criar grupo de seguranca para SSPR
+az ad group create \
+    --display-name "SSPR-TestGroup" \
+    --mail-nickname "sspr-testgroup" \
+    --description "Grupo de teste para Self-Service Password Reset"
+
+# Obter Object ID do grupo
+SSPR_GROUP_ID=$(az ad group show --group "SSPR-TestGroup" --query id -o tsv)
+echo "Grupo SSPR-TestGroup criado: $SSPR_GROUP_ID"
+
+# Adicionar az104-user1 ao grupo
+USER1_ID=$(az ad user show --id "az104-user1@${TENANT_DOMAIN}" --query id -o tsv)
+az ad group member add --group "SSPR-TestGroup" --member-id "$USER1_ID"
+echo "az104-user1 adicionado ao SSPR-TestGroup"
+
+# Habilitar SSPR para o grupo (via REST API)
+# NOTA: SSPR e configuracao do Entra ID — melhor feito pelo portal
+# O CLI abaixo usa az rest para demonstrar a API
+echo ""
+echo "=== ACAO MANUAL REQUERIDA ==="
+echo "1. Portal > Microsoft Entra ID > Protection > Password reset"
+echo "2. Properties > Self service password reset enabled > Selected"
+echo "3. Select group > SSPR-TestGroup"
+echo "4. Save"
+echo ""
+echo "SSPR via CLI puro e limitado — o portal e a forma recomendada"
+```
+
+---
+
+### Task 7.2: Configurar metodos de autenticacao
+
+```bash
+# ============================================================
+# TASK 7.2 - Configurar metodos de autenticacao SSPR
+# ============================================================
+# CONCEITO: Metodos disponiveis: Email, Phone, Authenticator, Security Questions
+# Numero de metodos requeridos: 1 ou 2
+# Security Questions NAO podem ser o unico metodo
+
+echo "=== ACAO MANUAL - Configurar Metodos SSPR ==="
+echo ""
+echo "1. Portal > Entra ID > Protection > Password reset > Authentication methods"
+echo "   - Number of methods required: 1"
+echo "   - Methods available: Email + Security questions"
+echo ""
+echo "2. Se Security questions disponivel:"
+echo "   - Questions required to register: 3"
+echo "   - Questions required to reset: 3"
+echo "   - Selecione 3 perguntas predefinidas"
+echo ""
+echo "3. Registration:"
+echo "   - Require users to register when signing in: Yes"
+echo "   - Re-confirm after: 90 days"
+echo ""
+echo "4. Notifications:"
+echo "   - Notify users on password resets: Yes"
+echo "   - Notify all admins: Yes"
+```
+
+---
+
+### Task 7.3: Testar reset de senha
+
+```bash
+# ============================================================
+# TASK 7.3 - Testar fluxo SSPR
+# ============================================================
+# CONCEITO: Fluxo SSPR:
+# 1. Usuario acessa portal de reset (https://aka.ms/sspr)
+# 2. Verifica identidade com metodos registrados
+# 3. Define nova senha
+# 4. Azure AD atualiza a senha
+# Com writeback (P1): sincroniza de volta ao AD on-premises
+
+echo "=== TESTE SSPR ==="
+echo ""
+echo "1. Abra janela InPrivate/Incognito"
+echo "2. Acesse https://aka.ms/ssprsetup"
+echo "3. Login como az104-user1@${TENANT_DOMAIN}"
+echo "4. Registre metodos (email alternativo + security questions)"
+echo "5. Acesse https://aka.ms/sspr"
+echo "6. Insira username de az104-user1"
+echo "7. Complete captcha + verificacao"
+echo "8. Defina nova senha"
+echo "9. Login com nova senha para confirmar"
+```
+
+---
+
+### Task 7.4: Criar Budget e alertas
+
+```bash
+# ============================================================
+# TASK 7.4 - Criar Budget no Cost Management
+# ============================================================
+# CONCEITO AZ-104: Budgets
+#   - Enviam ALERTAS mas NAO param recursos automaticamente
+#   - Tipos: Actual (gasto real) e Forecasted (previsao)
+#   - Para enforcement: combine com Policy ou Automation
+#   - Escopo: Subscription, RG ou Management Group
+
+# Data de inicio (primeiro dia do mes atual) e fim (6 meses)
+START_DATE=$(date -u +"%Y-%m-01")
+END_DATE=$(date -u -d "+6 months" +"%Y-%m-01" 2>/dev/null || date -u -v+6m +"%Y-%m-01")
+
+az consumption budget create \
+    --budget-name "az104-lab-budget" \
+    --amount 50 \
+    --time-grain "Monthly" \
+    --start-date "$START_DATE" \
+    --end-date "$END_DATE" \
+    --category "Cost"
+
+echo "Budget az104-lab-budget criado: \$50/mes"
+echo ""
+echo "=== Configurar alertas no portal ==="
+echo "1. Cost Management > Budgets > az104-lab-budget > Edit"
+echo "2. Adicionar alertas:"
+echo "   - Actual: 80% → seu email"
+echo "   - Actual: 100% → seu email"
+echo "   - Forecasted: 120% → seu email"
+echo ""
+echo "=== Explorar Cost Analysis ==="
+echo "Cost Management > Cost analysis"
+echo "  - Accumulated costs (grafico)"
+echo "  - Filtrar por Resource Group"
+echo "  - Filtrar por Service name"
+```
+
+---
+
+### Task 7.5: Revisar Azure Advisor
+
+```bash
+# ============================================================
+# TASK 7.5 - Azure Advisor e alertas
+# ============================================================
+# CONCEITO: Azure Advisor fornece recomendacoes personalizadas:
+#   - Cost: recursos ociosos, right-sizing, Reserved Instances
+#   - Security: vulnerabilidades
+#   - Reliability: riscos de disponibilidade
+#   - Operational Excellence: melhores praticas
+#   - Performance: otimizacoes
+
+# Listar recomendacoes do Advisor
+az advisor recommendation list --category Cost -o table 2>/dev/null
+az advisor recommendation list --category Security -o table 2>/dev/null
+
+echo ""
+echo "=== Criar alerta do Advisor (portal) ==="
+echo "1. Advisor > Alerts > + New alert"
+echo "2. Scope: sua subscription"
+echo "3. Category: Cost | Impact: High"
+echo "4. Alert rule name: az104-advisor-cost-alert"
+echo "5. Create alert rule"
+```
+
+---
+
+### Task 7.6: Network Watcher - Effective Security Rules e IP Flow Verify
+
+```bash
+# ============================================================
+# TASK 7.6 - Network Watcher: diagnostico de NSG
+# ============================================================
+# CONCEITO AZ-104: Network Watcher ferramentas:
+#   - Effective Security Rules: mostra TODAS as regras NSG combinadas (subnet + NIC)
+#   - IP Flow Verify: testa se pacote especifico seria permitido/bloqueado
+#   - Connection Troubleshoot: testa conectividade fim-a-fim
+#   - Next Hop: verifica roteamento
+#
+# Quando ha NSG na subnet E na NIC, trafego precisa passar por AMBOS!
+# Inbound: subnet NSG primeiro, depois NIC NSG
+# Outbound: NIC NSG primeiro, depois subnet NSG
+
+# Obter NIC ID da LB-VM1
+NIC_ID=$(az vm show -g "$RG6" -n "LB-VM1" --query "networkProfile.networkInterfaces[0].id" -o tsv)
+NIC_NAME=$(basename "$NIC_ID")
+
+# Effective Security Rules
+echo "=== Effective Security Rules - LB-VM1 ==="
+az network watcher show-security-group-view \
+    --resource-group "$RG6" \
+    --vm "LB-VM1" \
+    -o table
+
+# IP Flow Verify - Teste 1: HTTP (deve ser permitido)
+echo ""
+echo "=== IP Flow Verify: HTTP porta 80 (deve: ALLOW) ==="
+VM1_IP=$(az vm show -g "$RG6" -n "LB-VM1" -d --query privateIps -o tsv)
+az network watcher test-ip-flow \
+    --resource-group "$RG6" \
+    --vm "LB-VM1" \
+    --direction "Inbound" \
+    --protocol "TCP" \
+    --local "${VM1_IP}:80" \
+    --remote "10.0.0.1:12345"
+
+# IP Flow Verify - Teste 2: SSH (deve ser bloqueado)
+echo ""
+echo "=== IP Flow Verify: SSH porta 22 (deve: DENY) ==="
+az network watcher test-ip-flow \
+    --resource-group "$RG6" \
+    --vm "LB-VM1" \
+    --direction "Inbound" \
+    --protocol "TCP" \
+    --local "${VM1_IP}:22" \
+    --remote "10.0.0.1:12345"
+
+echo ""
+echo "Compare com CoreServicesVM (Bloco 5) que NAO tem NSG customizado:"
+echo "az network watcher show-security-group-view -g az104-rg5 --vm CoreServicesVM"
+```
+
+---
+
+## Modo Desafio - Bloco 7
+
+- [ ] Criar grupo `SSPR-TestGroup` com `az104-user1`
+- [ ] Habilitar SSPR para o grupo (Selected) via portal
+- [ ] Configurar metodos: Email + Security Questions, 1 requerido
+- [ ] Testar reset via `https://aka.ms/sspr`
+- [ ] Criar Budget $50/mes (`az consumption budget create`)
+- [ ] Configurar alertas 80%, 100%, 120% (forecasted) no portal
+- [ ] Revisar Azure Advisor (Cost, Security, Reliability)
+- [ ] Criar alerta Advisor Cost/High
+- [ ] `az network watcher show-security-group-view` em LB-VM1
+- [ ] `az network watcher test-ip-flow` HTTP (Allow) e SSH (Deny)
+- [ ] Comparar regras efetivas entre VM com NSG e sem NSG
+
+---
+
+## Questoes de Prova - Bloco 7
+
+### Questao 7.1
+**SSPR habilitado para grupo. Usuario membro nao consegue resetar. O que verificar?**
+
+A) Licenca P2  B) Se registrou metodos de autenticacao  C) Se e Owner  D) Se SSPR esta em "All"
+
+<details><summary>Ver resposta</summary>**Resposta: B)** Usuario precisa ter registrado os metodos requeridos.</details>
+
+### Questao 7.2
+**Budget $100/mes, alerta 80%. Gasto atinge $85. O que acontece?**
+
+A) Azure desliga recursos  B) Email de alerta, recursos continuam  C) Bloqueia deployments  D) Rebaixa SKUs
+
+<details><summary>Ver resposta</summary>**Resposta: B)** Budgets alertam mas NAO param recursos.</details>
+
+### Questao 7.3
+**Verificar se TCP 443 de IP externo e permitido para VM. Qual ferramenta?**
+
+A) Connection Troubleshoot  B) Effective Security Rules  C) IP Flow Verify  D) Next Hop
+
+<details><summary>Ver resposta</summary>**Resposta: C)** IP Flow Verify testa pacote especifico contra regras NSG.</details>
+
+### Questao 7.4
+**NSG na subnet permite porta 80. NSG na NIC bloqueia porta 80. Trafego inbound?**
+
+A) Permitido (subnet tem precedencia)  B) Bloqueado (precisa passar AMBOS)  C) Allow vence Deny  D) Depende da priority
+
+<details><summary>Ver resposta</summary>**Resposta: B)** Inbound: subnet NSG primeiro, depois NIC NSG. Ambos devem permitir.</details>
+
+---
+
 ## Pausar entre Sessoes
 
 Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos para evitar cobrancas desnecessarias.
@@ -2186,13 +3277,18 @@ Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos
 # Pausar
 az vm deallocate -g az104-rg5 -n CoreServicesVM --no-wait
 az vm deallocate -g az104-rg5 -n ManufacturingVM --no-wait
+az vm deallocate -g az104-rg6lb -n LB-VM1 --no-wait
+az vm deallocate -g az104-rg6lb -n LB-VM2 --no-wait
 
 # Retomar
 az vm start -g az104-rg5 -n CoreServicesVM --no-wait
 az vm start -g az104-rg5 -n ManufacturingVM --no-wait
+az vm start -g az104-rg6lb -n LB-VM1 --no-wait
+az vm start -g az104-rg6lb -n LB-VM2 --no-wait
 ```
 
 > **Nota:** Desalocar a VM para a cobranca de compute mas discos e IPs publicos continuam gerando cobranca.
+> **Bastion** tambem gera custo contínuo — considere deletar se nao for usar.
 
 ---
 
@@ -2219,6 +3315,7 @@ az lock delete --name "rg-lock" --resource-group "$RG2" 2>/dev/null
 
 # 3. Deletar RGs (VMs primeiro)
 echo "3. Deletando RGs..."
+az group delete --name "az104-rg6lb" --yes --no-wait
 az group delete --name "$RG5" --yes --no-wait
 az group delete --name "$RG4" --yes --no-wait
 az group delete --name "$RG3" --yes --no-wait
@@ -2240,6 +3337,11 @@ az ad user delete --id "az104-user1@${TENANT_DOMAIN}" 2>/dev/null
 az ad user delete --id "$GUEST_ID" 2>/dev/null
 az ad group delete --group "IT Lab Administrators" 2>/dev/null
 az ad group delete --group "helpdesk" 2>/dev/null
+az ad group delete --group "SSPR-TestGroup" 2>/dev/null
+
+# 7. Budget
+echo "7. Removendo budget..."
+az consumption budget delete --budget-name "az104-lab-budget" 2>/dev/null
 
 echo ""
 echo "=== CLEANUP COMPLETO ==="
@@ -2269,12 +3371,15 @@ echo "=== CLEANUP COMPLETO ==="
 | `@description`, `@allowed`, `@minValue` | `bloco3-disk.bicep` |
 | `@secure()` | `bloco5-vms.bicep` (senha da VM) |
 | `existing` keyword | `bloco4-dns.bicep`, `bloco5-vms.bicep` |
-| `existing` + `scope: resourceGroup()` | `bloco5-vms.bicep` (cross-RG) |
-| `parent:` | DNS records, subnets |
-| Dependencias implicitas | `bloco4-networking.bicep` (NSG → ASG) |
+| `existing` + `scope: resourceGroup()` | `bloco5-vms.bicep`, `bloco6-lb-infra.bicep` (cross-RG) |
+| `parent:` | DNS records, subnets, `bloco6-bastion.bicep` |
+| Dependencias implicitas | `bloco4-networking.bicep` (NSG → ASG), `bloco6-public-lb.bicep` |
 | Loop `for` | `bloco3-disks-loop.bicep` (alternativa) |
 | `guid()` para nomes unicos | `bloco2-custom-role.bicep` |
 | `identity: { type: 'SystemAssigned' }` | `bloco2-policies-rg2.bicep` |
+| `sku` object (Aligned, Standard) | `bloco6-lb-infra.bicep`, `bloco6-public-lb.bicep` |
+| `resourceId()` para self-reference | `bloco6-public-lb.bicep` (LB sub-resources) |
+| `zones` para zone-redundancy | `bloco6-public-lb.bicep` (PIP) |
 
 ## Comandos de Deploy por Scope
 
@@ -2301,3 +3406,7 @@ echo "=== CLEANUP COMPLETO ==="
 | `bloco5-peering.bicep` | resourceGroup | Peering bidirecional |
 | `bloco5-dns-update.bicep` | resourceGroup | Link + A record real |
 | `bloco5-route.bicep` | resourceGroup | Route table + UDR |
+| `bloco6-lb-infra.bicep` | resourceGroup | Availability Set + 2 VMs + NICs (cross-RG) |
+| `bloco6-public-lb.bicep` | resourceGroup | Public LB + PIP + Backend Pool + NSG |
+| `bloco6-internal-lb.bicep` | resourceGroup | Internal LB com IP estatico |
+| `bloco6-bastion.bicep` | resourceGroup | AzureBastionSubnet + Bastion + PIP |
