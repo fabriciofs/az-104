@@ -163,3 +163,7 @@ Bloco 3: 3-backup-monitoring (Dominios 2 e 5)
 | Simulado oficial      | https://learn.microsoft.com/pt-br/credentials/certifications/azure-administrator/practice/assessment?assessment-type=practice&assessmentId=21&practice-assessment-type=certification |
 | Agendar exame         | https://learn.microsoft.com/pt-br/credentials/certifications/azure-administrator/                                                                                                    |
 | Area restrita (demo)  | https://aka.ms/examdemo                                                                                                                                                              |
+
+## Contribuindo
+
+Quer adicionar conteudo, corrigir erros ou melhorar os labs? Veja o [Guia de Contribuicao](CONTRIBUTING.md).
