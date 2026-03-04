@@ -394,6 +394,8 @@ Voce simula um cenario de troubleshooting onde o health probe falha.
 
 ### Task 6.7: Implantar Azure Bastion
 
+> **Dica de lab:** O deployment do Bastion leva ~15 minutos. Considere criar o Bastion como primeiro passo do bloco para aproveitar o tempo de espera executando outras tasks em paralelo.
+
 O Azure Bastion permite acesso RDP/SSH as VMs diretamente pelo portal Azure, sem expor IPs publicos.
 
 **Criar AzureBastionSubnet:**
