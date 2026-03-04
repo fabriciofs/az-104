@@ -225,6 +225,79 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
 
 ---
 
+### Task 2.3b: Criar Linux VM com Cloud-init (Custom Data)
+
+> **Conceito para prova:** Cloud-init e o metodo nativo do Linux para configuracao automatica no **primeiro boot**. Diferente do Custom Script Extension (pos-provisioning) e do Run Command (ad-hoc), o cloud-init executa durante o provisioning inicial da VM.
+
+1. Crie um arquivo local `cloud-init.yaml`:
+
+   ```yaml
+   #cloud-config
+   package_upgrade: true
+   packages:
+     - nginx
+   write_files:
+     - path: /var/www/html/index.html
+       content: |
+         <h1>Hello from cloud-init VM (ManufacturingVnet)</h1>
+         <p>Configurado automaticamente no primeiro boot</p>
+   runcmd:
+     - systemctl enable nginx
+     - systemctl start nginx
+   ```
+
+2. Crie a VM via CLI usando `--custom-data`:
+
+   ```bash
+   az vm create \
+     --resource-group az104-rg7 \
+     --name az104-vm-cloudinit \
+     --image Ubuntu2204 \
+     --size Standard_B1s \
+     --admin-username localadmin \
+     --admin-password '<senha-complexa>' \
+     --vnet-name ManufacturingVnet \
+     --subnet Manufacturing \
+     --custom-data cloud-init.yaml \
+     --public-ip-sku Standard \
+     --nsg-rule SSH
+   ```
+
+3. Aguarde o deploy (~2-3 min). O cloud-init executa automaticamente no boot
+
+4. Abra a porta 80:
+
+   ```bash
+   az vm open-port --resource-group az104-rg7 --name az104-vm-cloudinit --port 80
+   ```
+
+5. Acesse o IP publico no navegador — Nginx ja deve estar rodando com a pagina customizada
+
+6. Verifique o log do cloud-init via Run Command:
+
+   ```bash
+   az vm run-command invoke \
+     --resource-group az104-rg7 \
+     --name az104-vm-cloudinit \
+     --command-id RunShellScript \
+     --scripts "cat /var/log/cloud-init-output.log | tail -20"
+   ```
+
+   > **Comparacao para prova:**
+   > | Metodo | Quando executa | Caso de uso |
+   > |--------|----------------|-------------|
+   > | **Cloud-init** (Custom Data) | 1º boot apenas | Config inicial, pacotes, users |
+   > | **Custom Script Extension** | Pos-deploy (sob demanda) | Deploy de software, config |
+   > | **Run Command** | Ad-hoc | Troubleshooting, diagnostico |
+
+7. Limpe o recurso (se nao for mais usar):
+
+   ```bash
+   az vm delete --resource-group az104-rg7 --name az104-vm-cloudinit --yes
+   ```
+
+---
+
 ### Task 2.4: Comparar tamanhos de VM e Resize
 
 1. Navegue para **az104-vm-win** > **Availability + scale** > **Size**

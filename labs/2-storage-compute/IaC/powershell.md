@@ -1242,6 +1242,106 @@ Write-Host "`nTeste no navegador: http://$winPip"
 
 ---
 
+### Task 2.6b: Cloud-init (Custom Data) em Linux VM via PowerShell
+
+> **Conceito AZ-104:** Cloud-init executa **apenas no 1º boot** durante o provisioning.
+> No PowerShell, usa-se `-CustomData` com conteudo em base64.
+
+```powershell
+# ============================================================
+# TASK 2.6b - Cloud-init: configuracao automatica no 1o boot
+# ============================================================
+# CONCEITO AZ-104: cloud-init e processado APENAS no primeiro boot
+# Diferente de Custom Script Extension (pos-deploy) e Run Command (ad-hoc)
+
+# Criar conteudo cloud-init
+$cloudInitContent = @'
+#cloud-config
+package_upgrade: true
+packages:
+  - nginx
+write_files:
+  - path: /var/www/html/index.html
+    content: |
+      <h1>Hello from cloud-init VM</h1>
+      <p>Configurado automaticamente no primeiro boot via PowerShell</p>
+runcmd:
+  - systemctl enable nginx
+  - systemctl start nginx
+'@
+
+# Converter para base64 (requisito da API)
+$cloudInitBase64 = [Convert]::ToBase64String(
+    [System.Text.Encoding]::UTF8.GetBytes($cloudInitContent)
+)
+
+# Criar credencial
+$securePassword = ConvertTo-SecureString $AdminPassword -AsPlainText -Force
+$cred = New-Object System.Management.Automation.PSCredential("localadmin", $securePassword)
+
+# Referenciar subnet existente
+$vnet = Get-AzVirtualNetwork -Name "ManufacturingVnet" -ResourceGroupName "az104-rg4"
+$subnet = $vnet.Subnets | Where-Object { $_.Name -eq "Manufacturing" }
+
+# Criar PIP
+$pip = New-AzPublicIpAddress `
+    -Name "az104-vm-cloudinit-pip" `
+    -ResourceGroupName $RG7 `
+    -Location $Location `
+    -Sku Standard `
+    -AllocationMethod Static
+
+# Criar NIC
+$nic = New-AzNetworkInterface `
+    -Name "az104-vm-cloudinit-nic" `
+    -ResourceGroupName $RG7 `
+    -Location $Location `
+    -SubnetId $subnet.Id `
+    -PublicIpAddressId $pip.Id
+
+# Configurar VM
+$vmConfig = New-AzVMConfig -VMName "az104-vm-cloudinit" -VMSize "Standard_B1s"
+
+$vmConfig = Set-AzVMOperatingSystem `
+    -VM $vmConfig `
+    -Linux `
+    -ComputerName "az104-vm-cloudinit" `
+    -Credential $cred `
+    -CustomData $cloudInitBase64
+
+$vmConfig = Set-AzVMSourceImage `
+    -VM $vmConfig `
+    -PublisherName "Canonical" `
+    -Offer "0001-com-ubuntu-server-jammy" `
+    -Skus "22_04-lts-gen2" `
+    -Version "latest"
+
+$vmConfig = Add-AzVMNetworkInterface -VM $vmConfig -Id $nic.Id
+
+# Criar VM (cloud-init executa automaticamente no 1o boot)
+New-AzVM -ResourceGroupName $RG7 -Location $Location -VM $vmConfig
+
+Write-Host "`nVM criada com cloud-init. Nginx sera instalado automaticamente."
+Write-Host "IP publico: $($pip.IpAddress)"
+Write-Host "Teste: curl http://$($pip.IpAddress)"
+
+# Verificar status do cloud-init
+Invoke-AzVMRunCommand `
+    -ResourceGroupName $RG7 `
+    -VMName "az104-vm-cloudinit" `
+    -CommandId "RunShellScript" `
+    -ScriptString "cloud-init status --long"
+```
+
+> **Comparacao para prova:**
+> | Metodo | Cmdlet/Parametro | Quando executa | SO |
+> |--------|------------------|----------------|-----|
+> | **Cloud-init** | `Set-AzVMOperatingSystem -CustomData` | 1º boot | Linux |
+> | **Custom Script Ext** | `Set-AzVMExtension` | Pos-deploy | Win + Linux |
+> | **Run Command** | `Invoke-AzVMRunCommand` | Ad-hoc | Win + Linux |
+
+---
+
 ### Task 2.7: Criar VMSS com Autoscale
 
 > **Cobranca:** Cada instancia do VMSS gera cobranca. Escale para 0 ao pausar o lab.

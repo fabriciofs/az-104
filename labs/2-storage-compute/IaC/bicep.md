@@ -1270,6 +1270,102 @@ echo "Teste: curl http://$WIN_PIP (ou abra no browser)"
 
 ---
 
+### Task 2.4b: Cloud-init (Custom Data) em Linux VM
+
+```bash
+# ============================================================
+# TASK 2.4b - Cloud-init: configuracao automatica no 1o boot
+# ============================================================
+# CONCEITO AZ-104: cloud-init executa APENAS no primeiro boot (provisioning)
+# Diferente de Custom Script Extension (pos-deploy) e Run Command (ad-hoc)
+
+# Criar arquivo cloud-init.yaml
+cat > cloud-init.yaml << 'CLOUDINIT'
+#cloud-config
+package_upgrade: true
+packages:
+  - nginx
+write_files:
+  - path: /var/www/html/index.html
+    content: |
+      <h1>Hello from cloud-init VM</h1>
+      <p>Configurado automaticamente no primeiro boot</p>
+runcmd:
+  - systemctl enable nginx
+  - systemctl start nginx
+CLOUDINIT
+
+# Criar VM com cloud-init
+az vm create \
+    --resource-group "$RG7" \
+    --name az104-vm-cloudinit \
+    --image Ubuntu2204 \
+    --size Standard_B1s \
+    --admin-username localadmin \
+    --admin-password "$ADMIN_PASSWORD" \
+    --vnet-name ManufacturingVnet \
+    --subnet Manufacturing \
+    --custom-data cloud-init.yaml \
+    --public-ip-sku Standard \
+    --nsg-rule SSH
+
+# Abrir porta 80
+az vm open-port \
+    --resource-group "$RG7" \
+    --name az104-vm-cloudinit \
+    --port 80
+
+# Verificar - Nginx ja deve estar rodando
+CLOUDINIT_PIP=$(az vm show -g "$RG7" -n az104-vm-cloudinit -d --query publicIps -o tsv)
+echo "Teste: curl http://$CLOUDINIT_PIP"
+
+# Verificar log do cloud-init
+az vm run-command invoke \
+    --resource-group "$RG7" \
+    --name az104-vm-cloudinit \
+    --command-id RunShellScript \
+    --scripts "cloud-init status --long"
+```
+
+> **Equivalente Bicep (educativo):**
+> ```bicep
+> resource linuxVmCloudInit 'Microsoft.Compute/virtualMachines@2024-03-01' = {
+>   name: 'az104-vm-cloudinit'
+>   location: location
+>   properties: {
+>     hardwareProfile: { vmSize: 'Standard_B1s' }
+>     osProfile: {
+>       computerName: 'az104-vm-cloudinit'
+>       adminUsername: adminUsername
+>       adminPassword: adminPassword
+>       // customData aceita conteudo em base64
+>       customData: base64(loadTextContent('cloud-init.yaml'))
+>     }
+>     storageProfile: {
+>       imageReference: {
+>         publisher: 'Canonical'
+>         offer: '0001-com-ubuntu-server-jammy'
+>         sku: '22_04-lts-gen2'
+>         version: 'latest'
+>       }
+>       osDisk: { createOption: 'FromImage' }
+>     }
+>     networkProfile: { networkInterfaces: [{ id: nic.id }] }
+>   }
+> }
+> // NOTA: customData so e processado no 1o boot. Para reconfigurar,
+> // use Custom Script Extension (Task 2.4) ou Run Command.
+> ```
+>
+> **Comparacao para prova:**
+> | Metodo | Quando executa | Windows | Linux | Caso de uso |
+> |--------|----------------|---------|-------|-------------|
+> | **Cloud-init** (`--custom-data`) | 1º boot | Nao | Sim | Config inicial |
+> | **Custom Script Extension** | Pos-deploy | Sim | Sim | Instalar software |
+> | **Run Command** | Ad-hoc | Sim | Sim | Troubleshooting |
+
+---
+
 ### Task 2.5: Criar VMSS com Autoscale via Bicep
 
 > **Cobranca:** Cada instancia do VMSS gera cobranca. Escale para 0 ao pausar o lab.

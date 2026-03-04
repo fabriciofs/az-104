@@ -1757,11 +1757,142 @@ az vm extension list -g "$RG7" --vm-name "$VM_WIN_NAME" \
 
 ---
 
+### Task 2.6b: Cloud-init (Custom Data) em Linux VM via ARM
+
+> **Conceito AZ-104:** Cloud-init executa **apenas no 1º boot** durante o provisioning.
+> No ARM template, o campo `customData` aceita conteudo em **base64**.
+> Diferente de Custom Script Extension (pos-deploy) e Run Command (ad-hoc).
+
+Salve como **`bloco2-vm-cloudinit.json`**:
+
+```json
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]"
+        },
+        "adminUsername": {
+            "type": "string",
+            "defaultValue": "localadmin"
+        },
+        "adminPassword": {
+            "type": "securestring"
+        },
+        "subnetId": {
+            "type": "string",
+            "metadata": {
+                "description": "Resource ID da subnet Manufacturing"
+            }
+        }
+    },
+    "variables": {
+        "vmName": "az104-vm-cloudinit",
+        // cloud-init YAML em base64
+        // package_upgrade + nginx + pagina customizada
+        "cloudInitConfig": "#cloud-config\npackage_upgrade: true\npackages:\n  - nginx\nwrite_files:\n  - path: /var/www/html/index.html\n    content: |\n      <h1>Hello from cloud-init VM</h1>\n      <p>Configurado automaticamente no primeiro boot via ARM</p>\nruncmd:\n  - systemctl enable nginx\n  - systemctl start nginx"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Network/publicIPAddresses",
+            "apiVersion": "2023-05-01",
+            "name": "[concat(variables('vmName'), '-pip')]",
+            "location": "[parameters('location')]",
+            "sku": { "name": "Standard" },
+            "properties": { "publicIPAllocationMethod": "Static" }
+        },
+        {
+            "type": "Microsoft.Network/networkInterfaces",
+            "apiVersion": "2023-05-01",
+            "name": "[concat(variables('vmName'), '-nic')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', concat(variables('vmName'), '-pip'))]"
+            ],
+            "properties": {
+                "ipConfigurations": [{
+                    "name": "ipconfig1",
+                    "properties": {
+                        "subnet": { "id": "[parameters('subnetId')]" },
+                        "publicIPAddress": {
+                            "id": "[resourceId('Microsoft.Network/publicIPAddresses', concat(variables('vmName'), '-pip'))]"
+                        }
+                    }
+                }]
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachines",
+            "apiVersion": "2024-03-01",
+            "name": "[variables('vmName')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('vmName'), '-nic'))]"
+            ],
+            "properties": {
+                "hardwareProfile": { "vmSize": "Standard_B1s" },
+                "osProfile": {
+                    "computerName": "[variables('vmName')]",
+                    "adminUsername": "[parameters('adminUsername')]",
+                    "adminPassword": "[parameters('adminPassword')]",
+                    // customData: conteudo cloud-init codificado em base64
+                    // Executado APENAS no primeiro boot da VM
+                    "customData": "[base64(variables('cloudInitConfig'))]"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "Canonical",
+                        "offer": "0001-com-ubuntu-server-jammy",
+                        "sku": "22_04-lts-gen2",
+                        "version": "latest"
+                    },
+                    "osDisk": { "createOption": "FromImage" }
+                },
+                "networkProfile": {
+                    "networkInterfaces": [{
+                        "id": "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('vmName'), '-nic'))]"
+                    }]
+                }
+            }
+        }
+    ]
+}
+```
+
+Deploy:
+
+```bash
+az deployment group create \
+    --resource-group "$RG7" \
+    --template-file bloco2-vm-cloudinit.json \
+    --parameters subnetId="/subscriptions/<sub>/resourceGroups/az104-rg4/providers/Microsoft.Network/virtualNetworks/ManufacturingVnet/subnets/Manufacturing" \
+    adminPassword="$ADMIN_PASSWORD"
+
+# Verificar cloud-init via Run Command
+az vm run-command invoke \
+    --resource-group "$RG7" \
+    --name az104-vm-cloudinit \
+    --command-id RunShellScript \
+    --scripts "cloud-init status --long"
+```
+
+> **Comparacao para prova:**
+> | Metodo | Campo ARM | Quando executa | SO |
+> |--------|-----------|----------------|-----|
+> | **Cloud-init** | `osProfile.customData` (base64) | 1º boot | Linux |
+> | **Custom Script Ext** | `extensions` resource | Pos-deploy | Win + Linux |
+> | **Run Command** | N/A (via CLI/Portal) | Ad-hoc | Win + Linux |
+
+---
+
 ## Modo Desafio - Bloco 2
 
 - [ ] Deploy `bloco2-vnet.json` (VNet com 2 subnets)
 - [ ] Deploy `bloco2-vm-windows.json` (Windows VM + PIP + NIC)
 - [ ] Deploy `bloco2-vm-linux.json` (Linux VM com Ubuntu)
+- [ ] Deploy `bloco2-vm-cloudinit.json` (Linux VM com cloud-init)
 - [ ] Deploy `bloco2-datadisk.json` + attach via CLI
 - [ ] Deploy `bloco2-vmss.json` (VMSS + LB + Autoscale)
 - [ ] Deploy `bloco2-extension.json` (Custom Script com IIS)

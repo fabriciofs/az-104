@@ -58,4 +58,33 @@ Doc: https://learn.microsoft.com/pt-br/azure/bastion/bastion-sku-comparison
 
 ## Virtual Machines
 
-- (adicionar dicas conforme estudo avanca)
+### Cloud-init / Custom Data vs Custom Script Extension
+
+| Aspecto | Cloud-init (Custom Data) | Custom Script Extension | Run Command |
+|---------|--------------------------|------------------------|-------------|
+| SO | Linux apenas | Windows e Linux | Windows e Linux |
+| Quando executa | Primeiro boot (provisioning) | Pos-provisioning (sob demanda) | Ad-hoc (troubleshooting) |
+| Re-executa no reboot | Nao | Nao (1x por deployment) | Nao |
+| Atualizar apos criacao | Nao (Custom Data e imutavel) | Sim (nova extension) | Sim |
+| Formato | YAML (cloud-config) | Script (bash/ps1) | Script inline |
+| Uso tipico | Config inicial, pacotes, users | Deploy de software, config | Diagnostico, fix rapido |
+
+### Pegadinhas de prova
+- "Instalar pacotes automaticamente no 1º boot de VM Linux" -> **cloud-init (Custom Data)**
+- "Executar script em VM ja criada" -> **Custom Script Extension**
+- "Troubleshooting rapido sem RDP/SSH" -> **Run Command**
+- Custom Data e passado em **base64** no ARM/Bicep (`properties.osProfile.customData`)
+- Cloud-init NAO funciona em Windows
+- User Data (diferente de Custom Data): pode ser atualizado apos criacao, acessivel via IMDS
+
+### CLI de referencia
+```bash
+# Cloud-init na criacao
+az vm create --custom-data cloud-init.yaml ...
+
+# Custom Script Extension pos-criacao
+az vm extension set --name CustomScript --publisher Microsoft.Azure.Extensions ...
+
+# Run Command ad-hoc
+az vm run-command invoke --command-id RunShellScript --scripts "apt update" ...
+```
