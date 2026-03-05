@@ -260,6 +260,36 @@ O Standard Load Balancer bloqueia trafego por padrao. Voce precisa de um NSG par
 
    > **Conceito:** Com session persistence = None, o LB distribui requisicoes usando hash de 5-tupla (source IP, source port, dest IP, dest port, protocol). Hard refresh gera source ports diferentes, resultando em distribuicao entre backends.
 
+### Task 6.3b: Testar Session Persistence
+
+Voce altera a configuracao de session persistence e observa o impacto no comportamento do balanceamento.
+
+1. Navegue para **az104-pub-lb** > **Settings** > **Load balancing rules**
+
+2. Clique na regra existente (ex: `az104-lb-rule`)
+
+3. Altere **Session persistence** para **Client IP** > **Save**
+
+4. Acesse o IP publico do LB no navegador e faca refresh varias vezes
+
+5. **Resultado esperado:** O **mesmo servidor** responde todas as vezes (pois o source IP e o mesmo)
+
+6. Volte a regra e altere **Session persistence** para **Client IP and protocol** > **Save**
+
+7. Teste novamente — comportamento similar ao Client IP para o mesmo protocolo
+
+8. Reverta **Session persistence** para **None** > **Save**
+
+9. Consulte a tabela comparativa dos 3 modos:
+
+   | Modo                     | Hash baseado em                             | Uso tipico                              |
+   | ------------------------ | ------------------------------------------- | --------------------------------------- |
+   | **None** (5-tuple)       | Source IP, Source port, Dest IP, Dest port, Protocol | Distribuicao maxima, apps stateless     |
+   | **Client IP** (2-tuple)  | Source IP, Dest IP                           | Apps que precisam de sessao por cliente  |
+   | **Client IP and protocol** (3-tuple) | Source IP, Dest IP, Protocol     | Multiplos servicos no mesmo backend     |
+
+   > **Dica AZ-104:** Na prova, session persistence e cobrada em cenarios praticos. "Usuarios reclamam que perdem sessao" → mude para Client IP. "Aplicacao stateless precisa de distribuicao uniforme" → use None. Lembre-se que None usa 5-tupla, nao round-robin puro.
+
 ---
 
 ### Task 6.4: Testar failover — parar uma VM
@@ -460,6 +490,7 @@ O Azure Bastion permite acesso RDP/SSH as VMs diretamente pelo portal Azure, sem
 - [ ] Criar Public Load Balancer Standard com frontend IP, backend pool, health probe HTTP e regra
 - [ ] Criar NSG `nsg-lb` com regra AllowHTTP e associar a LBSubnet
 - [ ] Testar balanceamento (hard refresh no IP publico)
+- [ ] Testar Session Persistence: Client IP (mesmo servidor) → Client IP and protocol → reverter para None
 - [ ] Testar failover: parar VM1 → apenas VM2 responde → reiniciar VM1
 - [ ] Criar Internal Load Balancer com frontend IP estatico (10.20.40.100)
 - [ ] Troubleshoot: parar IIS → diagnosticar unhealthy → reiniciar IIS

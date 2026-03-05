@@ -177,6 +177,46 @@ Voce habilita a coleta de logs e metricas guest das VMs da Semana 2.
 
 ---
 
+### Task 5.3b: Comparar metricas Host vs Guest
+
+Voce compara as metricas disponiveis com e sem agente para entender a diferenca entre Host e Guest metrics.
+
+1. Navegue para **az104-vm-win** > **Monitoring** > **Metrics**
+
+2. Configure o primeiro grafico com metricas **Host** (sem agente):
+
+   | Setting          | Value                    |
+   | ---------------- | ------------------------ |
+   | Metric Namespace | **Virtual Machine Host** |
+   | Metric           | **Percentage CPU**       |
+   | Aggregation      | **Avg**                  |
+
+3. Observe que o grafico de CPU funciona — metricas Host estao disponiveis automaticamente
+
+4. Agora tente acessar metricas **Guest**:
+
+   | Setting          | Value                      |
+   | ---------------- | -------------------------- |
+   | Metric Namespace | **Virtual Machine Guest**  |
+   | Metric           | **Memory\Available Bytes** |
+
+5. Se o Azure Monitor Agent estiver instalado (Task 5.2/5.3), a metrica de memoria aparecera. Se nao, o namespace Guest nao estara disponivel
+
+6. Compare as metricas disponiveis em cada categoria:
+
+   | Categoria         | Metricas disponives                         | Requer agente? |
+   | ----------------- | ------------------------------------------- | -------------- |
+   | **Host metrics**  | CPU, Network In/Out, Disk Read/Write, IOPS  | Nao            |
+   | **Guest metrics** | Memoria, Processos, Logs do SO, Filesystem  | Sim (AMA)      |
+
+7. Volte para o grafico e adicione **Network In Total** (Host) ao lado da metrica Guest para visualizar ambas
+
+   > **Conceito:** Azure Monitor coleta metricas **Host** automaticamente do hypervisor (CPU, Network, Disk IO). Metricas **Guest** vem de dentro da VM e requerem o Azure Monitor Agent (AMA) com Data Collection Rules. A metrica de **memoria** e a mais comum que nao aparece sem agente.
+
+   > **Dica AZ-104:** Na prova, a pergunta classica e: "A metrica de memoria nao aparece no Azure Monitor Metrics. O que esta faltando?" A resposta e instalar o Azure Monitor Agent e configurar Data Collection Rules. Metricas Host (CPU, Network, Disk) funcionam sem agente; Guest (Memory, Processes) requerem AMA.
+
+---
+
 ### Task 5.4: Executar queries KQL no Log Analytics
 
 1. Navegue para **az104-law** > **General** > **Logs**
@@ -377,6 +417,47 @@ Voce usa o Network Watcher para diagnosticar regras NSG nas VNets da Semana 1.
 
 ---
 
+### Task 5.9b: Configurar NSG Flow Logs com Traffic Analytics
+
+Voce habilita Flow Logs em um NSG da Semana 1 para capturar e analisar o trafego de rede.
+
+1. Pesquise e selecione **Network Watcher** > **Logs** > **Flow logs**
+
+2. Clique em **+ Create**
+
+3. Aba **Basics**:
+
+   | Setting             | Value                                        |
+   | ------------------- | -------------------------------------------- |
+   | Subscription        | *sua subscription*                           |
+   | NSG                 | *selecione um NSG da Semana 1 (ex: myNSGSecure)* |
+   | Storage Account     | *selecione um storage account existente*     |
+   | Retention (days)    | `30`                                         |
+   | Flow Logs version   | **Version 2**                                |
+
+4. Aba **Analytics**:
+
+   | Setting                     | Value           |
+   | --------------------------- | --------------- |
+   | Enable Traffic Analytics    | **Checked**     |
+   | Traffic Analytics workspace | `az104-law`     |
+   | Processing interval         | **Every 10 min** |
+
+5. Clique em **Review + create** > **Create**
+
+6. Aguarde 10-15 minutos para os primeiros dados fluirem
+
+7. Navegue para **Network Watcher** > **Traffic Analytics** e explore:
+   - Fluxos de trafego por regiao
+   - Top hosts comunicando
+   - Portas e protocolos mais usados
+
+   > **Conceito:** NSG Flow Logs capturam informacoes sobre trafego IP que passa pelos NSGs. **Version 1** registra apenas IP origem/destino, porta e acao (allow/deny). **Version 2** adiciona bytes, pacotes e estado da conexao (ex: begin, continuing, end). **Traffic Analytics** processa os flow logs no Log Analytics e gera dashboards visuais com insights de seguranca e performance de rede.
+
+   > **Dica AZ-104:** Na prova: Flow Logs v2 e obrigatorio para Traffic Analytics. Flow Logs requerem uma Storage Account para armazenamento e, opcionalmente, Log Analytics para Traffic Analytics. Os dados ficam no formato JSON no container `insights-logs-networksecuritygroupflowevent`.
+
+---
+
 ### Task 5.10: Criar alerta de log query (KQL)
 
 Voce cria um alerta baseado em query KQL que dispara quando VMs param de enviar heartbeats.
@@ -432,12 +513,14 @@ Voce cria um alerta baseado em query KQL que dispara quando VMs param de enviar 
 - [ ] Criar Log Analytics Workspace `az104-law` em `az104-rg-monitor`
 - [ ] Criar Data Collection Rule `az104-dcr` conectando VMs **(Semana 2)** ao workspace
 - [ ] Habilitar VM Insights em `az104-vm-win` e `az104-vm-linux` **(Semana 2)**
+- [ ] Comparar metricas Host (CPU, Network — sem agente) vs Guest (Memory — com AMA)
 - [ ] Executar queries KQL: Heartbeat, Perf (CPU), Events, InsightsMetrics
 - [ ] Configurar Diagnostic Settings: Activity Log → `az104-law`
 - [ ] **Integracao:** Network Watcher — IP Flow Verify nos NSGs **(Semana 1)**
 - [ ] **Integracao:** Network Watcher — Next Hop verificando routing **(Semana 1)**
 - [ ] **Integracao:** Network Watcher — Connection Troubleshoot entre VMs **(Semana 2)** via VNets **(Semana 1)**
 - [ ] **Integracao:** Network Watcher — Topology das VNets **(Semana 1)**
+- [ ] Configurar NSG Flow Logs (v2) com Traffic Analytics → `az104-law`
 - [ ] Criar alerta de log query (heartbeat lost) → reutilizar `az104-ag1` **(Bloco 4)**
 
 ---

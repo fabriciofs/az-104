@@ -213,6 +213,12 @@ O `az acr build` permite construir imagens diretamente no ACR, sem precisar de D
 
 5. Clique em **Save**
 
+6. Abra o navegador e acesse `http://az104-webapp-*.azurewebsites.net` (HTTP, sem S)
+
+7. Observe o redirecionamento automatico para HTTPS (a URL muda no navegador)
+
+8. **Validacao:** O HTTPS Only forca um redirect 301 de HTTP para HTTPS. Qualquer requisicao HTTP e automaticamente redirecionada
+
    > **Conceito:** HTTPS Only forca redirecionamento de todas as requisicoes HTTP para HTTPS (301 redirect). TLS 1.2 e o minimo recomendado — versoes anteriores (1.0, 1.1) tem vulnerabilidades conhecidas. App Service Managed Certificate simplifica TLS para subdomains sem custo adicional.
 
    > **Dica AZ-104:** Na prova: App Service Managed Certificate = gratis, automatico, so subdomains. Para apex domain ou wildcard, use certificado importado do Key Vault ou upload .pfx. Binding types: SNI SSL (padrao) vs IP-based SSL (requer IP dedicado).
@@ -299,6 +305,7 @@ VNet Integration permite que o App Service acesse recursos privados na VNet (out
 - [ ] Criar ACI puxando imagem privada do ACR
 - [ ] Explorar configuracao de Custom Domain no App Service **(Bloco 3)** — CNAME + TXT verification
 - [ ] Configurar HTTPS Only + TLS 1.2 no App Service
+- [ ] Testar redirecionamento HTTP → HTTPS no navegador (validar 301 redirect)
 - [ ] Explorar opcoes de certificado: Managed, Key Vault, Upload
 - [ ] Configurar backup do App Service para storage account **(Bloco 1)** com schedule diario
 - [ ] Executar backup manual e verificar .zip no container

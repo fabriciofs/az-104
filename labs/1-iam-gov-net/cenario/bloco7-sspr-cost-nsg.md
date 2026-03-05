@@ -193,6 +193,45 @@ O Self-Service Password Reset permite que usuarios resetem suas proprias senhas 
 
    > **Dica AZ-104:** Na prova: Budgets alertam mas nao bloqueiam. Para limitar gastos, combine Budgets com Policies (ex: limitar VM SKUs) ou Automation runbooks que desligam recursos.
 
+### Task 7.4b: Configurar enforcement automatico com Action Group
+
+Voce conecta um alerta de budget a um Action Group para automatizar acoes quando o limite e atingido.
+
+1. Navegue para **Cost Management** > **Budgets** > clique no budget criado na Task 7.4
+
+2. Clique em **Edit budget**
+
+3. Na secao **Alert conditions**, localize o alerta de **100% Actual**
+
+4. Em **Action group**, clique em **Manage action groups** > **Create action group**:
+
+   | Setting        | Value                                   |
+   | -------------- | --------------------------------------- |
+   | Resource group | **az104-rg7**                           |
+   | Action group name | `ag-budget-alert`                    |
+   | Display name   | `BudgetAlert`                           |
+
+5. Na aba **Notifications**:
+
+   | Notification type | Name             | Value          |
+   | ----------------- | ---------------- | -------------- |
+   | Email/SMS/Push    | `NotifyAdmin`    | *seu email*    |
+
+6. Clique em **Review + create** > **Create**
+
+7. Selecione o action group `ag-budget-alert` para o alerta de 100% > **Save**
+
+   > **Conceito:** Existem diferentes estrategias de enforcement de custos no Azure:
+   >
+   > | Estrategia               | Mecanismo                                    | Quando usar                              |
+   > | ------------------------ | -------------------------------------------- | ---------------------------------------- |
+   > | **Azure Policy**         | Restringir SKUs permitidos (ex: B-series)    | Prevenir criacao de recursos caros        |
+   > | **Automation Runbook**   | Script que desliga VMs via Action Group       | Reagir a alerta de budget automaticamente |
+   > | **Spending Limit**       | Limite de credito (subscriptions dev/test)    | Apenas subscriptions com creditos Azure   |
+   > | **Budget + Action Group**| Notificacao + acao automatizada              | Monitoramento proativo de custos          |
+
+   > **Dica AZ-104:** Na prova, diferencie: Budgets **alertam** (nao bloqueiam), Azure Policy **previne** (bloqueia criacao), Automation Runbooks **reagem** (executam acoes). Para um cenario completo de controle de custos, combine os tres: Policy para prevenir, Budget para monitorar, Runbook para reagir.
+
 ---
 
 ### Task 7.5: Revisar Azure Advisor e criar alerta de recomendacao
@@ -290,6 +329,65 @@ O Network Watcher permite visualizar as regras NSG efetivas aplicadas a uma NIC 
 
     > **Dica AZ-104:** Na prova, Network Watcher e cobrado frequentemente: Effective Security Rules (ver regras combinadas), IP Flow Verify (testar pacote), Connection Troubleshoot (testar conectividade fim-a-fim), Next Hop (verificar roteamento).
 
+### Task 7.6b: Testar ordem de avaliacao NSG (subnet vs NIC)
+
+Voce demonstra como o Azure avalia NSGs em camadas: para trafego **inbound**, primeiro o NSG da subnet, depois o NSG da NIC. Ambos precisam permitir.
+
+1. Navegue para **Network security groups** > **Create**:
+
+   | Setting        | Value                                   |
+   | -------------- | --------------------------------------- |
+   | Name           | `nsg-nic-test`                          |
+   | Resource group | **az104-rg6**                           |
+   | Region         | *(mesma regiao das VMs do Bloco 6)*     |
+
+2. Clique em **Create**
+
+3. Navegue para **nsg-nic-test** > **Settings** > **Inbound security rules** > **Add**:
+
+   | Setting             | Value              |
+   | ------------------- | ------------------ |
+   | Source              | **Any**            |
+   | Destination         | **Any**            |
+   | Service             | **HTTP**           |
+   | Action              | **Deny**           |
+   | Priority            | `100`              |
+   | Name                | `DenyHTTPInbound`  |
+
+4. Clique em **Add**
+
+5. Navegue para **LB-VM1** > **Networking** > **Network settings** > clique na **NIC** da VM
+
+6. Em **Settings** > **Network security group** > selecione **nsg-nic-test** > **Save**
+
+7. Navegue para **Network Watcher** > **IP flow verify**:
+
+   | Setting          | Value                  |
+   | ---------------- | ---------------------- |
+   | Virtual machine  | **LB-VM1**             |
+   | Direction        | **Inbound**            |
+   | Protocol         | **TCP**                |
+   | Local port       | `80`                   |
+   | Remote IP        | `10.0.0.1`             |
+   | Remote port      | `12345`                |
+
+8. **Resultado esperado:** `Access denied` — a regra `DenyHTTPInbound` do NSG da NIC bloqueia
+
+9. Entenda a ordem de avaliacao:
+
+   | Direcao      | Ordem de avaliacao                        | Requisito                      |
+   | ------------ | ----------------------------------------- | ------------------------------ |
+   | **Inbound**  | Subnet NSG → NIC NSG                      | Ambos devem **permitir**       |
+   | **Outbound** | NIC NSG → Subnet NSG                      | Ambos devem **permitir**       |
+
+   Mesmo que o NSG da subnet (`nsg-lb`) permita HTTP, o NSG da NIC (`nsg-nic-test`) nega — resultado final: **bloqueado**.
+
+10. **Limpar:** Navegue para a NIC da LB-VM1 > **Network security group** > selecione **None** > **Save**
+
+11. Delete o NSG `nsg-nic-test` (opcional)
+
+    > **Dica AZ-104:** Na prova, a ordem de avaliacao de NSGs e muito cobrada. Regra de ouro: para inbound, o trafego passa primeiro pelo NSG da subnet, depois pelo NSG da NIC. Para outbound, e o inverso. Se QUALQUER um dos NSGs negar, o trafego e bloqueado. Nao e necessario ter NSG em ambos — se nao ha NSG, todo trafego e permitido naquela camada.
+
 ---
 
 ## Modo Desafio - Bloco 7
@@ -299,12 +397,15 @@ O Network Watcher permite visualizar as regras NSG efetivas aplicadas a uma NIC 
 - [ ] Configurar metodos: Email + Security Questions, 1 metodo requerido
 - [ ] Testar reset de senha como az104-user1 via `https://aka.ms/sspr`
 - [ ] Criar Budget mensal ($50) com alertas em 80%, 100% e 120% (forecasted)
+- [ ] Criar Action Group `ag-budget-alert` e associar ao alerta de 100% do budget
 - [ ] Explorar Cost Analysis por Resource Group e por Service
 - [ ] Revisar recomendacoes do Azure Advisor (Cost, Security, Reliability)
 - [ ] Criar alerta do Advisor para recomendacoes de Cost com impacto High
 - [ ] Visualizar Effective Security Rules da LB-VM1 **(Bloco 6)**
 - [ ] IP Flow Verify: HTTP permitido (porta 80) e SSH bloqueado (porta 22)
 - [ ] Comparar regras efetivas entre VM com NSG e sem NSG
+- [ ] Criar NSG `nsg-nic-test` com regra DenyHTTP, associar a NIC da LB-VM1, testar com IP Flow Verify
+- [ ] Verificar ordem de avaliacao: subnet NSG → NIC NSG (inbound) e NIC NSG → subnet NSG (outbound)
 
 ---
 

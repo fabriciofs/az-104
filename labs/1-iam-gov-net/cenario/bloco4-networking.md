@@ -82,6 +82,37 @@ Com IaC dominado e Cloud Shell configurado (Bloco 3), voce constroi a infraestru
 
    > **Conexao com Bloco 5:** Esta VNet sera usada para implantar a CoreServicesVM. Voce adicionara uma subnet adicional para VMs no Bloco 5.
 
+### Task 4.1b: Exercicio de calculo de IPs disponiveis
+
+Voce aprende a calcular quantos IPs estao disponiveis em cada tamanho de subnet no Azure.
+
+1. Navegue para **CoreServicesVnet** > **Subnets**
+
+2. Observe a coluna **Available IPs** para **SharedServicesSubnet** (/24)
+
+3. Note que o valor e **251** e nao 256 — o Azure reserva **5 IPs** em cada subnet:
+
+   | IP reservado          | Finalidade                                |
+   | --------------------- | ----------------------------------------- |
+   | `.0`                  | Endereco de rede                          |
+   | `.1`                  | Gateway padrao                            |
+   | `.2`                  | Mapeamento DNS do Azure                   |
+   | `.3`                  | Mapeamento DNS do Azure                   |
+   | `.255` (ultimo da /24)| Broadcast                                 |
+
+4. Consulte a tabela de referencia para subnets comuns:
+
+   | CIDR  | Total de IPs | IPs disponiveis (Azure) |
+   | ----- | ------------ | ----------------------- |
+   | `/24` | 256          | **251**                 |
+   | `/25` | 128          | **123**                 |
+   | `/26` | 64           | **59**                  |
+   | `/27` | 32           | **27**                  |
+   | `/28` | 16           | **11**                  |
+   | `/29` | 8            | **3**                   |
+
+   > **Dica AZ-104:** Na prova, questoes de calculo de IPs sao muito comuns. Formula rapida: 2^(32-prefixo) - 5 = IPs disponiveis. A menor subnet permitida no Azure e /29 (3 IPs utilizaveis). Lembre-se sempre dos 5 IPs reservados.
+
 ---
 
 ### Task 4.2: Criar VNet ManufacturingVnet via ARM template
@@ -390,6 +421,7 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
 ## Modo Desafio - Bloco 4
 
 - [ ] Criar VNet `CoreServicesVnet` (10.20.0.0/16) com SharedServicesSubnet e DatabaseSubnet
+- [ ] Verificar IPs disponiveis na SharedServicesSubnet e calcular para /24, /25, /26, /27, /28, /29
 - [ ] Exportar template → criar `ManufacturingVnet` (10.30.0.0/16) via ARM (**skills do Bloco 3**)
 - [ ] Criar ASG `asg-web` e NSG `myNSGSecure`
 - [ ] Associar NSG a SharedServicesSubnet + regras inbound/outbound

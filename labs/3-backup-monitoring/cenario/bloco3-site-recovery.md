@@ -110,6 +110,41 @@ Para Site Recovery, o vault deve estar na **regiao de destino** (DR), diferente 
 
 ---
 
+### Task 3.2b: Criar politica de replicacao customizada
+
+Voce cria uma replication policy com retencao e frequencia de snapshot diferentes da default para entender os trade-offs.
+
+1. No vault **az104-rsv-dr** (West US), navegue para **Manage** > **Site Recovery Infrastructure**
+
+2. Clique em **Replication policies** > **+ Create**
+
+3. Configure:
+
+   | Setting                              | Value                        |
+   | ------------------------------------ | ---------------------------- |
+   | Name                                 | `contoso-4h-retention`       |
+   | Recovery point retention             | **4 hours**                  |
+   | App-consistent snapshot frequency    | **2 hours**                  |
+
+4. Clique em **Create**
+
+5. Verifique que `contoso-4h-retention` aparece na lista ao lado da policy default
+
+6. Compare as duas policies:
+
+   | Setting                  | Default (24h retention)        | Custom (4h retention)      |
+   | ------------------------ | ------------------------------ | -------------------------- |
+   | Recovery point retention | 24 horas                       | 4 horas                    |
+   | App-consistent snapshot  | 4 horas                        | 2 horas                    |
+   | Storage de recovery pts  | Mais (mais pontos retidos)     | Menos (janela menor)       |
+   | RPO maximo atingivel     | Igual (depende da replicacao)  | Igual                      |
+
+   > **Conceito:** A **retention** define por quanto tempo recovery points sao mantidos — mais retencao = mais opcoes de rollback, mas maior custo de storage. **App-consistent snapshots** garantem consistencia de aplicacao (ex: SQL, IIS) usando VSS (Windows) ou scripts pre/pos (Linux). Snapshots **crash-consistent** sao criados continuamente e sao suficientes para a maioria dos cenarios.
+
+   > **Dica AZ-104:** Na prova: Recovery point retention NAO e o mesmo que RPO. Retention = por quanto tempo pontos sao mantidos. RPO = frequencia com que pontos sao criados (tipicamente a cada 5-15 minutos no ASR). App-consistent snapshots sao menos frequentes que crash-consistent e tem maior impacto no IO da VM.
+
+---
+
 ### Task 3.3: Criar Recovery Plan
 
 Um Recovery Plan define a ordem e agrupamento de VMs para failover coordenado.
@@ -195,6 +230,36 @@ Test Failover valida a replicacao sem afetar a producao.
 
 ---
 
+### Task 3.5b: Entender Planned vs Unplanned Failover (walkthrough)
+
+Voce explora o dialogo de failover real para entender as diferencas entre os tipos de failover, sem executar.
+
+1. No vault **az104-rsv-dr** > **Protected items** > **Replicated items**
+
+2. Selecione **az104-vm-win**
+
+3. Clique em **Failover** (NAO em "Test failover")
+
+4. Observe o dialogo de failover:
+   - **Recovery Point:** opcoes de recovery point (Latest, Latest processed, Custom)
+   - **Checkbox:** "Shut down machines before beginning failover"
+
+5. Entenda os 3 tipos de failover:
+
+   | Tipo                  | Quando usar                           | Perda de dados | Checkbox "Shut down" |
+   | --------------------- | ------------------------------------- | -------------- | -------------------- |
+   | **Test Failover**     | Validar DR sem impacto (Task 3.4)     | Nenhuma        | N/A (VM isolada)     |
+   | **Planned Failover**  | Manutencao ou migracao planejada      | Zero           | **Marcado** (sim)    |
+   | **Unplanned Failover**| Desastre real, regiao primaria caiu   | Possivel       | **Desmarcado** (nao) |
+
+6. **NAO clique em Failover** — clique em **Cancel** para sair do dialogo
+
+   > **Conceito:** No **Planned Failover**, o checkbox "Shut down machines before beginning failover" e marcado — o ASR desliga a VM de origem, sincroniza os ultimos dados e entao inicia a VM na regiao de DR, garantindo **zero perda de dados**. No **Unplanned Failover**, a VM de origem pode estar inacessivel (desastre), entao o ASR usa o ultimo recovery point disponivel — pode haver perda dos dados entre o ultimo ponto e o momento do desastre.
+
+   > **Dica AZ-104:** Na prova, a diferenca entre Planned e Unplanned Failover e frequentemente testada. Planned = zero data loss (VM desligada antes, dados sincronizados). Unplanned = possivel data loss (ultimo recovery point disponivel). Test Failover = nao afeta producao, cria VM isolada. Apos qualquer failover real, voce precisa fazer **Commit** para confirmar ou **Change recovery point** para usar outro ponto.
+
+---
+
 ### Task 3.6: Revisar RPO e metricas de replicacao
 
 1. No vault **az104-rsv-dr** > **Protected items** > **Replicated items** > **az104-vm-win**
@@ -220,10 +285,12 @@ Test Failover valida a replicacao sem afetar a producao.
 
 - [ ] Criar vault `az104-rsv-dr` em **West US** (regiao de DR)
 - [ ] Habilitar replicacao de `az104-vm-win` **(Semana 2)** para West US
+- [ ] Criar replication policy customizada `contoso-4h-retention` (4h retention, 2h app-consistent)
 - [ ] Aguardar status **Protected**
 - [ ] Criar Recovery Plan `contoso-recovery-plan`
 - [ ] Executar **Test Failover** → verificar VM de teste na regiao DR
 - [ ] **Cleanup** Test Failover → remover VM de teste
+- [ ] Entender diferenca entre Planned vs Unplanned Failover (walkthrough sem executar)
 - [ ] Revisar RPO, replication health e failover health
 
 ---

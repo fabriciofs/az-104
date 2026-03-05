@@ -226,6 +226,26 @@ Peering entre as VNets **do Bloco 4** para habilitar comunicacao.
 
    > O peering funciona! As VMs se comunicam pela rede backbone da Microsoft.
 
+### Task 5.6b: Testar nao-transitividade do peering
+
+Voce valida que o peering NAO e transitivo — se VNet A conecta a VNet B, e VNet B conecta a VNet C, A nao alcanca C automaticamente.
+
+1. Navegue para **ManufacturingVM** > **Operations** > **Run command** > **RunPowerShellScript**
+
+2. Tente conectar a um IP que estaria em uma terceira VNet hipotetica (fora do range de ambas as VNets):
+
+   ```powershell
+   Test-NetConnection 10.40.0.4 -port 3389
+   ```
+
+3. **Resultado esperado:** `TcpTestSucceeded: False` — o pacote nao tem rota para essa rede
+
+4. Isso demonstra que peering e **ponto a ponto**: cada par de VNets precisa de seu proprio peering
+
+   > **Conceito:** O VNet peering NAO e transitivo. Se voce tem VNet A ↔ VNet B e VNet B ↔ VNet C, a VNet A NAO consegue se comunicar com VNet C automaticamente. Para resolver isso, use topologia **hub-spoke**: uma VNet central (hub) conecta a todas as outras (spokes), e o hub roteia trafego entre spokes usando NVA ou Azure Firewall com "Allow Gateway Transit" e "Use Remote Gateways".
+
+   > **Dica AZ-104:** Na prova, questoes sobre transitividade de peering sao frequentes. Lembre-se: (1) peering nao e transitivo, (2) hub-spoke resolve com NVA/Firewall no hub, (3) "Allow Gateway Transit" permite compartilhar VPN gateway entre VNets peered, (4) cada peering e configurado independentemente nos dois lados.
+
 ---
 
 ### Task 5.7: Teste de integracao — DNS privado com IP real da VM
@@ -381,6 +401,7 @@ Teste final que valida todo o RBAC configurado desde o Bloco 1.
 - [ ] Network Watcher → Unreachable
 - [ ] Configurar VNet Peering bidirecional entre VNets **do Bloco 4**
 - [ ] Test-NetConnection → Success
+- [ ] Testar nao-transitividade: Test-NetConnection para IP fora das VNets (10.40.0.4) → False
 - [ ] **Integracao:** Adicionar link DNS + registro A com IP real → Resolve-DnsName da ManufacturingVM
 - [ ] Criar subnet `perimeter` + Route Table + custom route (NVA 10.20.1.7)
 - [ ] **Integracao:** Verificar NSG isolado por subnet

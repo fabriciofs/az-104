@@ -178,6 +178,55 @@ Este alerta monitora a CPU da VM da Semana 2 e notifica via Action Group.
 
 ---
 
+### Task 4.3b: Criar alerta com Dynamic Threshold
+
+Voce cria um segundo alerta de CPU usando Dynamic Threshold para comparar com o alerta estatico da Task 4.3.
+
+1. Pesquise e selecione **Monitor** > **Alerts** > **+ Create** > **Alert rule**
+
+2. Aba **Scope**: clique em **Select a resource**
+
+   | Setting                 | Value                        |
+   | ----------------------- | ---------------------------- |
+   | Filter by resource type | **Virtual machines**         |
+   | Resource                | **az104-vm-win** (az104-rg7) |
+
+3. Clique em **Apply**
+
+4. Aba **Condition**: clique em **See all signals** > selecione **Percentage CPU**
+
+5. Configure:
+
+   | Setting          | Value        |
+   | ---------------- | ------------ |
+   | Threshold        | **Dynamic**  |
+   | Sensitivity      | **Medium**   |
+   | Check every      | **5 minutes** |
+   | Lookback period  | **5 minutes** |
+
+6. Observe o grafico de preview — o Azure mostra a banda de threshold calculada com base no historico da VM
+
+7. Clique em **Next: Actions** > selecione **az104-ag1**
+
+8. Aba **Details**:
+
+   | Setting                | Value                                                |
+   | ---------------------- | ---------------------------------------------------- |
+   | Subscription           | *sua subscription*                                   |
+   | Resource group         | `az104-rg-monitor`                                   |
+   | Severity               | **2 - Warning**                                      |
+   | Alert rule name        | `az104-vm-win-cpu-dynamic`                           |
+   | Alert rule description | `Dynamic threshold alert for CPU on az104-vm-win`    |
+   | Enable upon creation   | **Checked**                                          |
+
+9. Clique em **Review + create** > **Create**
+
+   > **Conceito:** Dynamic threshold usa machine learning para aprender o padrao historico da metrica e criar um baseline automatico. Existem 3 niveis de sensibilidade: **High** (alerta com qualquer desvio pequeno), **Medium** (balanceado) e **Low** (alerta apenas com desvios grandes). O modelo precisa de aproximadamente **3 dias de dados** para gerar thresholds confiaveis.
+
+   > **Dica AZ-104:** Na prova, saiba diferenciar Static vs Dynamic threshold. Static: voce define o valor fixo (ex: CPU > 80%). Dynamic: o Azure aprende o padrao e detecta anomalias automaticamente. A pergunta tipica apresenta cenarios onde o comportamento normal varia ao longo do dia — nesse caso, Dynamic e a resposta correta.
+
+---
+
 ### Task 4.4: Criar alerta de Activity Log (VM deletada)
 
 Este alerta dispara quando qualquer VM e deletada — protegendo recursos de todas as semanas.
@@ -274,13 +323,49 @@ Voce gera carga na VM para testar o alerta de CPU.
 
 ---
 
+### Task 4.6b: Criar alerta de Service Health
+
+Voce configura um alerta para ser notificado sobre problemas e manutencoes nos servicos Azure usados pela Contoso.
+
+1. Pesquise e selecione **Monitor** > **Service Health**
+
+2. Clique em **Health alerts** > **+ Create service health alert**
+
+3. Configure:
+
+   | Setting      | Value                                                  |
+   | ------------ | ------------------------------------------------------ |
+   | Subscription | *sua subscription*                                     |
+   | Services     | **Virtual Machines**, **Storage Accounts**, **Virtual Networks** |
+   | Regions      | **East US**                                            |
+   | Event types  | **Service issue**, **Planned maintenance**             |
+
+4. Clique em **Actions** > selecione **az104-ag1**
+
+5. Aba **Details**:
+
+   | Setting         | Value                         |
+   | --------------- | ----------------------------- |
+   | Alert rule name | `az104-service-health-alert`  |
+   | Resource group  | `az104-rg-monitor`            |
+
+6. Clique em **Create alert rule**
+
+   > **Conceito:** Service Health monitora 4 tipos de eventos: **Service issues** (outages que afetam sua regiao/servico), **Planned maintenance** (manutencoes agendadas pela Microsoft), **Health advisories** (mudancas que requerem acao, como deprecacao de features) e **Security advisories** (notificacoes de seguranca). Diferente de alertas de metrica, Service Health alerts sao gratuitos.
+
+   > **Dica AZ-104:** Na prova, Service Health e frequentemente testado. Saiba que Service Health alerts so monitoram eventos da **plataforma Azure** (nao metricas dos seus recursos). Para monitorar CPU, memoria, etc., use alertas de metrica. Service Health + Action Group = notificacao automatica quando Azure tem problemas na sua regiao.
+
+---
+
 ## Modo Desafio - Bloco 4
 
 - [ ] Explorar metricas de CPU, Network In/Out da `az104-vm-win` **(Semana 2)**
 - [ ] Criar Action Group `az104-ag1` com email (+ SMS opcional)
 - [ ] Criar alerta de metrica: CPU > 80% na `az104-vm-win` → `az104-ag1`
+- [ ] Criar alerta com Dynamic Threshold (CPU) na `az104-vm-win` → `az104-ag1`
 - [ ] Criar alerta de Activity Log: VM deletada (subscription scope) → `az104-ag1`
 - [ ] **Integracao:** Gerar carga de CPU na VM → verificar alerta disparado → checar email
+- [ ] Criar alerta de Service Health para VMs, Storage e VNets (East US) → `az104-ag1`
 - [ ] Explorar Azure Monitor: Activity Log, Alerts, Service Health
 
 ---

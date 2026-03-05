@@ -216,6 +216,36 @@ Voce protege a VM Windows da Semana 2 usando a policy customizada.
 
 ---
 
+### Task 1.6b: Explorar Cross Region Restore e replicacao do vault
+
+Voce revisa as configuracoes de replicacao de storage do vault e entende como habilitar Cross Region Restore.
+
+1. Navegue para **az104-rsv** > **Properties**
+
+2. Em **Backup Configuration**, clique em **Update**
+
+3. Observe o **Storage Replication Type** atual:
+
+   | Opcao           | Descricao                                                      |
+   | --------------- | -------------------------------------------------------------- |
+   | **LRS**         | 3 copias na mesma regiao (default)                             |
+   | **GRS**         | 6 copias: 3 na regiao primaria + 3 na regiao pareada           |
+   | **ZRS**         | 3 copias em zonas de disponibilidade diferentes (mesma regiao) |
+
+4. Se nenhum backup item estiver configurado, voce pode alterar para **GRS** e habilitar **Cross Region Restore**
+
+5. Se backups ja existirem (Tasks 1.3-1.5), o campo Storage Replication Type estara **read-only** — observe a restricao e entenda a limitacao
+
+   > **IMPORTANTE:** A replicacao de storage do vault so pode ser alterada **antes** de configurar qualquer backup item. Apos o primeiro backup, a configuracao fica bloqueada. Planeje isso no inicio do projeto.
+
+6. Com GRS + Cross Region Restore habilitado, a opcao **Cross Region Restore** apareceria nos restore points (Task 1.6, opcao 4), permitindo restaurar a VM na regiao pareada
+
+   > **Conceito:** **LRS** replica 3 vezes dentro de um unico datacenter — protege contra falha de hardware. **ZRS** replica entre zonas de disponibilidade — protege contra falha de datacenter. **GRS** replica para a regiao pareada do Azure — protege contra falha regional. **Cross Region Restore (CRR)** requer GRS e permite restaurar backups na regiao secundaria, funcionando como uma alternativa simplificada ao Site Recovery para cenarios de DR baseados em backup.
+
+   > **Dica AZ-104:** Na prova, atente: CRR so funciona com GRS. A replicacao do vault NAO pode ser alterada apos o primeiro backup item ser configurado. CRR tem RPO de ate 36 horas (tempo de replicacao geo). Para RPO menor, use Site Recovery (Bloco 3).
+
+---
+
 ### Task 1.7: Simular restore de disco (dry run)
 
 Voce pratica o processo de restore sem criar recursos permanentes.
@@ -251,6 +281,7 @@ Voce pratica o processo de restore sem criar recursos permanentes.
 - [ ] Habilitar backup de `az104-vm-linux` **(Semana 2)** com DefaultPolicy
 - [ ] Executar backup on-demand da `az104-vm-win` → aguardar completion
 - [ ] Verificar restore points e opcoes de restore
+- [ ] Explorar replicacao do vault (LRS/GRS/ZRS) e entender Cross Region Restore
 - [ ] Simular restore de disco (dry run, sem executar)
 
 ---

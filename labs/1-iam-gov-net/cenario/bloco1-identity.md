@@ -168,6 +168,46 @@ Este grupo sera usado no **Bloco 2** para atribuicao de role RBAC.
 
 ---
 
+### Task 1.5: Criar grupo dinamico
+
+> **Nota:** Esta task requer licenca **Entra ID P1/P2**. Se voce esta usando uma subscription sem essa licenca, acompanhe como walkthrough (leitura) e pratique se tiver acesso em outro ambiente.
+
+Voce cria um grupo que adiciona/remove membros automaticamente com base em atributos do usuario.
+
+> **Conceito:** Grupos dinamicos avaliam regras baseadas em propriedades de usuarios ou dispositivos. Quando um atributo muda (ex: department), o usuario e automaticamente adicionado ou removido do grupo. Isso elimina a necessidade de gerenciamento manual de membros.
+
+1. Navegue para **Microsoft Entra ID** > **Groups** > **New group**
+
+2. Configure:
+
+   | Setting         | Value                              |
+   | --------------- | ---------------------------------- |
+   | Group type      | **Security**                       |
+   | Group name      | `IT-Dynamic`                       |
+   | Membership type | **Dynamic user**                   |
+
+3. Clique em **Add dynamic query**
+
+4. No **Rule builder**, configure:
+
+   | Property       | Operator   | Value |
+   | -------------- | ---------- | ----- |
+   | `department`   | **Equals** | `IT`  |
+
+5. Clique em **Validate Rules** > selecione **az104-user1** > **Validate**
+
+   - Resultado esperado: az104-user1 atende a regra (department = IT)
+
+6. Clique em **Save** > **Create**
+
+7. Aguarde o processamento (pode levar alguns minutos para o engine de regras dinamicas avaliar)
+
+8. Navegue para **IT-Dynamic** > **Members** — verifique que **az104-user1** aparece automaticamente
+
+   > **Dica AZ-104:** Na prova, grupos dinamicos sao muito cobrados. Lembre-se: (1) requerem Entra ID P1/P2, (2) nao permitem adicionar membros manualmente, (3) a avaliacao pode levar minutos, (4) podem ser baseados em users OU devices (nao ambos no mesmo grupo).
+
+---
+
 ## Modo Desafio - Bloco 1
 
 - [ ] Criar usuario `az104-user1` com Job title `IT Lab Administrator`, Department `IT`, Usage location `United States`
@@ -175,7 +215,9 @@ Este grupo sera usado no **Bloco 2** para atribuicao de role RBAC.
 - [ ] Convidar usuario externo (guest) com mesmas propriedades + aceitar o convite
 - [ ] Criar grupo `IT Lab Administrators` (Assigned) — members: az104-user1 + guest
 - [ ] Criar grupo `helpdesk` (Assigned) — member: az104-user1
-- [ ] Verificar members e owners de ambos os grupos
+- [ ] Criar grupo dinamico `IT-Dynamic` (Dynamic user) com regra department=IT (requer P1/P2)
+- [ ] Validar regra dinamica com az104-user1 e verificar membro automatico
+- [ ] Verificar members e owners de todos os grupos
 
 ---
 

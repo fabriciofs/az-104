@@ -137,6 +137,36 @@ Voce move uma VM entre Resource Groups para entender o processo e suas limitacoe
 
 ---
 
+### Task 6.2b: Explorar Azure Resource Mover
+
+Voce explora o Azure Resource Mover, ferramenta dedicada para mover recursos entre regioes de forma orquestrada.
+
+1. Pesquise **Azure Resource Mover** no portal
+
+2. Clique em **Create move collection**:
+
+   | Setting        | Value          |
+   | -------------- | -------------- |
+   | Source region  | **East US**    |
+   | Target region  | **West US**    |
+
+3. Clique em **+ Add resources**
+
+4. Explore a interface:
+   - Observe como o Resource Mover identifica **dependencias** automaticamente (ex: VM depende de NIC, Disk, VNet)
+   - Revise os tipos de recurso suportados: VMs, VNets, NSGs, Public IPs, Availability Sets, etc.
+   - Note o fluxo: **Add** → **Validate** → **Prepare** → **Initiate move** → **Commit**
+
+5. **NAO execute** o move — apenas explore a interface e entenda o processo
+
+6. Se desejar, cancele e delete a move collection
+
+   > **Conceito:** Azure Resource Mover e um servico dedicado para mover recursos entre regioes Azure. Diferente do `az resource move` (que funciona entre RGs/subscriptions), o Resource Mover orquestra todo o processo cross-region: resolve dependencias, prepara os recursos, executa a movimentacao e faz commit. Internamente, usa Site Recovery para VMs e recria outros recursos na regiao de destino.
+
+   > **Dica AZ-104:** Na prova, saiba diferenciar: `az resource move` = move entre RGs e subscriptions (mesma regiao, sem downtime). Azure Resource Mover = move entre regioes (orquestra dependencias, usa ASR para VMs). Azure Site Recovery = replicacao continua para DR (failover controlado). Os tres sao ferramentas distintas para cenarios diferentes.
+
+---
+
 ### Task 6.3: Criar Azure Backup Vault
 
 O Backup Vault e o servico mais recente de backup do Azure, projetado para workloads que o Recovery Services Vault nao suporta nativamente.
@@ -240,6 +270,7 @@ O Backup Vault e o servico mais recente de backup do Azure, projetado para workl
 - [ ] Criar RG `az104-rg-moved` e mover VM Linux para ele (portal ou CLI)
 - [ ] Verificar recursos dependentes movidos junto (NIC, Disk)
 - [ ] Entender as diferencas entre move entre RGs vs move entre regioes
+- [ ] Explorar Azure Resource Mover (move collection East US → West US, sem executar)
 - [ ] Mover VM de volta ao RG original
 - [ ] Criar Backup Vault `az104-bv` (LRS) no az104-rg-bv
 - [ ] Comparar workloads suportados: RSV vs Backup Vault **(Bloco 1)**
