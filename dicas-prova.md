@@ -1,115 +1,366 @@
 # Dicas para Prova AZ-104
 
-Anotacoes rapidas e pegadinhas para revisar antes do exame.
+Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todos os labs.
+
+---
+
+## Identidade e Governanca
+
+### Usuarios e Grupos (Entra ID)
+
+- **Usage location** e obrigatoria para atribuir licencas ao usuario
+- Grupos dinamicos requerem **Entra ID P1/P2**
+- Grupos dinamicos: nao permitem adicionar membros manualmente, avaliacao pode levar minutos
+- Grupos dinamicos podem ser baseados em **users OU devices** (nao ambos no mesmo grupo)
+
+### SSPR (Self-Service Password Reset)
+
+- SSPR com 2 metodos requeridos e mais seguro
+- Security Questions **NAO** podem ser o unico metodo
+- SSPR requer Azure AD Free (cloud users) ou P1/P2 (writeback on-premises)
+
+### Pegadinhas
+- "Membros adicionados automaticamente por departamento" -> **Dynamic user group**
+- "Usuario nao consegue resetar senha via SSPR" -> verificar se **registrou os metodos de autenticacao**
+
+---
+
+## Gestao de Custos
+
+### Budgets vs Policy vs Automation
+
+| Mecanismo | Funcao | Bloqueia recursos? |
+|-----------|--------|--------------------|
+| Budget | Alerta quando gasto atinge threshold | **Nao** (apenas notifica) |
+| Azure Policy | Restringe criacao (ex: limitar SKUs) | **Sim** (previne) |
+| Automation Runbook | Executa acao (ex: desligar VMs) | **Sim** (reage) |
+| Spending Limit | Limita gasto total | **Sim** (apenas dev/test) |
+
+- Budgets **alertam** mas **NAO param** recursos automaticamente
+- Para controle completo: Policy (prevenir) + Budget (monitorar) + Runbook (reagir)
+- Advisor **recomenda**; Budgets **alertam**; Policies **restringem**
+- "Forecasted" alerta baseado na tendencia, prevenindo surpresas no fim do mes
+
+---
+
+## Redes Virtuais
+
+### Calculo de IPs em Subnets
+
+- **5 IPs reservados** por subnet: .0 (rede), .1 (gateway), .2-.3 (Azure DNS), .255 (broadcast)
+- Formula: **2^(32 - prefixo) - 5** = IPs disponiveis
+- Menor subnet permitida: **/29** (3 IPs utilizaveis)
+
+| CIDR | Total | Utilizaveis |
+|------|-------|-------------|
+| /24 | 256 | 251 |
+| /25 | 128 | 123 |
+| /26 | 64 | 59 |
+| /27 | 32 | 27 |
+| /28 | 16 | 11 |
+| /29 | 8 | 3 |
+
+### VNet Peering
+
+- Peering e **NAO transitivo**: A↔B e B↔C **nao** significa A↔C
+- Hub-spoke resolve com NVA/Firewall no hub
+- **Allow Gateway Transit** permite compartilhar VPN Gateway entre VNets peered
+- Cada peering e configurado independentemente nos dois lados
+
+### NSG (Network Security Groups)
+
+**Ordem de avaliacao:**
+- **Inbound:** subnet NSG primeiro → NIC NSG depois (ambos devem permitir)
+- **Outbound:** NIC NSG primeiro → subnet NSG depois
+- Se **qualquer** NSG negar, trafego e bloqueado
+- Se nao ha NSG numa camada, todo trafego e permitido naquela camada
+
+**Pegadinhas:**
+- Standard LB **bloqueia** trafego por padrao — precisa de NSG para permitir
+- Source `AzureLoadBalancer` permite health probes do LB
+- "Backend unhealthy" → verificar health probe + NSG
+
+### Service Endpoints e Private Endpoints
+
+| Mecanismo | O que filtra | Direcao |
+|-----------|-------------|---------|
+| NSG | IP, porta, protocolo | Entrada/saida na subnet |
+| Firewall do Storage | Subnet/IP de **origem** | Quem acessa o storage |
+| Service Endpoint Policy | Recurso PaaS de **destino** | Para onde a subnet envia trafego |
+| Private Endpoint | Elimina acesso publico (IP privado) | Acesso totalmente privado |
+
+- Service Endpoint = rota otimizada (IP publico mantido)
+- Private Endpoint = IP privado na VNet (acesso totalmente privado)
+- "Restringir Service Endpoint para uma Storage Account especifica" → **Service Endpoint Policy**
+- Service Endpoint Policy so funciona com Service Endpoints (nao com Private Endpoints)
+- Servicos suportados por policy: **Microsoft.Storage** (GA) e Azure SQL Database (preview)
+
+### NSG Flow Logs e Traffic Analytics
+
+- Flow Logs v2 e obrigatorio para Traffic Analytics
+- Requerem Storage Account + opcionalmente Log Analytics
+- Dados no container `insights-logs-networksecuritygroupflowevent`
+- "Analisar trafego de rede" → NSG Flow Logs + Traffic Analytics
+
+### Network Watcher
+
+- **Effective Security Rules:** ver regras combinadas (subnet + NIC)
+- **IP Flow Verify:** testar se pacote especifico seria permitido/bloqueado
+- **Connection Troubleshoot:** testar conectividade fim-a-fim
+- **Next Hop:** verificar roteamento (route tables, peering)
+
+---
+
+## Load Balancer
+
+### Standard vs Basic
+
+- Standard LB requer Standard SKU Public IP
+- Standard LB bloqueia trafego por padrao (precisa de NSG)
+- Basic LB esta sendo descontinuado
+
+### Session Persistence
+
+| Modo | Hash | Uso |
+|------|------|-----|
+| None (padrao) | 5-tupla (src IP, src port, dst IP, dst port, protocol) | Distribuicao uniforme |
+| Client IP | 2-tupla (src IP, dst IP) | Manter sessao por IP |
+| Client IP and Protocol | 3-tupla (src IP, dst IP, protocol) | Sessao por IP + protocolo |
+
+- "Usuarios perdem sessao" → mudar para **Client IP**
+- "Aplicacao stateless, distribuicao uniforme" → **None**
+- None usa 5-tupla, **nao** round-robin puro
+
+### Public vs Internal
+
+- Public LB = trafego da internet para VMs
+- Internal LB = trafego entre tiers internos (ex: app → db)
+- Ambos Standard SKU suportam Availability Zones
+
+### Troubleshooting
+
+- Backend unhealthy → verificar **health probe** + **NSG**
+- Sem conectividade → verificar NSG permite source `AzureLoadBalancer`
+- Standard LB requer NSG explicito (diferente do Basic)
 
 ---
 
 ## Azure Bastion
 
-- Precisa de subnet especifica chamada **AzureBastionSubnet** (nome exato, obrigatorio)
-- Logicamente fica vinculado a uma rede virtual
-- Demora em media 15 min para ser criado
+- Subnet obrigatoria: **AzureBastionSubnet** (nome exato)
+- Demora ~15 min para ser criado
 
-### SKUs do Bastion (4 camadas)
+### SKUs (4 camadas)
 
-Doc: https://learn.microsoft.com/pt-br/azure/bastion/bastion-sku-comparison
+| Feature | Developer | Basic | Standard | Premium |
+|---------|-----------|-------|----------|---------|
+| Gratuito | Sim | Nao | Nao | Nao |
+| Requer AzureBastionSubnet /26 | Nao | Sim | Sim | Sim |
+| Requer IP publico | Nao | Sim | Sim | Nao (privado) |
+| VNet peering | Nao | Sim | Sim | Sim |
+| Cliente nativo (CLI) | Nao | Nao | Sim | Sim |
+| File transfer | Nao | Nao | Sim | Sim |
+| Link compartilhavel | Nao | Nao | Sim | Sim |
+| Gravacao de sessao | Nao | Nao | Nao | Sim |
+| Deploy 100% privado | Nao | Nao | Nao | Sim |
+| Scale units | Nao | 2 fixas | 2-50 | 2-50 |
 
-| Feature                             | Developer           | Basic         | Standard   | Premium       |
-| ----------------------------------- | ------------------- | ------------- | ---------- | ------------- |
-| Gratuito                            | Sim                 | Nao           | Nao        | Nao           |
-| Requer AzureBastionSubnet /26       | Nao                 | Sim           | Sim        | Sim           |
-| Requer IP publico                   | Nao                 | Sim           | Sim        | Nao (privado) |
-| Host dedicado                       | Nao (compartilhado) | Sim           | Sim        | Sim           |
-| VNet peering                        | Nao                 | Sim           | Sim        | Sim           |
-| Conexoes simultaneas                | Nao (1 VM por vez)  | Sim           | Sim        | Sim           |
-| RDP + SSH (Windows/Linux)           | Sim                 | Sim           | Sim        | Sim           |
-| Linux via RDP / Windows via SSH     | Nao                 | Nao           | Sim        | Sim           |
-| Cliente nativo (CLI)                | Nao                 | Nao           | Sim        | Sim           |
-| Porta customizada                   | Nao                 | Nao           | Sim        | Sim           |
-| IP-Connect                          | Nao                 | Nao           | Sim        | Sim           |
-| Link compartilhavel                 | Nao                 | Nao           | Sim        | Sim           |
-| Upload/download arquivos            | Nao                 | Nao           | Sim        | Sim           |
-| Gravacao de sessao                  | Nao                 | Nao           | Nao        | Sim           |
-| Deploy somente privado (sem IP pub) | Nao                 | Nao           | Nao        | Sim           |
-| Scale units                         | Nao                 | Nao (2 fixas) | Sim (2-50) | Sim (2-50)    |
-
-### Capacidade por instancia
-- RDP: 20 sessoes simultaneas por instancia
-- SSH: 40 sessoes simultaneas por instancia
-- Basic (2 inst fixas): max 40 RDP ou 80 SSH
-- Standard/Premium (ate 50 inst): max 1000 RDP ou 2000 SSH
-
-### Regras de upgrade
-- Pode subir SKU: Developer -> Basic -> Standard -> Premium
-- NAO pode fazer downgrade (precisa excluir e recriar)
-- Upgrade leva ~10 min
-- Developer -> Basic/Standard/Premium exige criar AzureBastionSubnet + IP publico
-
-### Pegadinhas de prova
-- Developer: apenas dev/teste, 1 VM por vez, nao suporta peering, NAO precisa de subnet dedicada
-- Basic: producao simples, sem features avancadas
-- Standard: quando precisa de cliente nativo, file transfer, link compartilhavel, escala
-- Premium: quando precisa de gravacao de sessao ou deploy 100% privado
-- "Qual SKU permite conexao via cliente SSH nativo?" -> Standard ou Premium
-- "Precisa gravar sessoes para auditoria" -> Premium
-- "Fez upgrade de Basic para Standard, quer voltar" -> NAO pode, precisa excluir e recriar
+### Pegadinhas
+- "Conexao via cliente SSH nativo" → **Standard** ou Premium
+- "Gravar sessoes para auditoria" → **Premium**
+- Upgrade: Developer → Basic → Standard → Premium (**sem downgrade**, precisa excluir e recriar)
+- Developer: 1 VM por vez, nao suporta peering, sem subnet dedicada
 
 ---
 
 ## Virtual Machines
+
+### Familias de VM
+
+- **B** = burstable, **D** = general purpose, **E** = memory optimized
+- **F** = compute optimized, **N** = GPU
 
 ### Cloud-init / Custom Data vs Custom Script Extension
 
 | Aspecto | Cloud-init (Custom Data) | Custom Script Extension | Run Command |
 |---------|--------------------------|------------------------|-------------|
 | SO | Linux apenas | Windows e Linux | Windows e Linux |
-| Quando executa | Primeiro boot (provisioning) | Pos-provisioning (sob demanda) | Ad-hoc (troubleshooting) |
-| Re-executa no reboot | Nao | Nao (1x por deployment) | Nao |
-| Atualizar apos criacao | Nao (Custom Data e imutavel) | Sim (nova extension) | Sim |
-| Formato | YAML (cloud-config) | Script (bash/ps1) | Script inline |
-| Uso tipico | Config inicial, pacotes, users | Deploy de software, config | Diagnostico, fix rapido |
+| Quando executa | Primeiro boot | Pos-provisioning | Ad-hoc |
+| Atualizar apos criacao | Nao (imutavel) | Sim | Sim |
+| Uso tipico | Config inicial, pacotes | Deploy software | Troubleshooting |
 
-### Pegadinhas de prova
-- "Instalar pacotes automaticamente no 1º boot de VM Linux" -> **cloud-init (Custom Data)**
-- "Executar script em VM ja criada" -> **Custom Script Extension**
-- "Troubleshooting rapido sem RDP/SSH" -> **Run Command**
-- Custom Data e passado em **base64** no ARM/Bicep (`properties.osProfile.customData`)
-- Cloud-init NAO funciona em Windows
-- User Data (diferente de Custom Data): pode ser atualizado apos criacao, acessivel via IMDS
-
-### CLI de referencia
-```bash
-# Cloud-init na criacao
-az vm create --custom-data cloud-init.yaml ...
-
-# Custom Script Extension pos-criacao
-az vm extension set --name CustomScript --publisher Microsoft.Azure.Extensions ...
-
-# Run Command ad-hoc
-az vm run-command invoke --command-id RunShellScript --scripts "apt update" ...
-```
+### Pegadinhas
+- "Instalar pacotes no 1o boot de VM Linux" → **cloud-init**
+- "Executar script em VM ja criada" → **Custom Script Extension**
+- "Troubleshooting rapido sem RDP/SSH" → **Run Command**
+- Custom Data em **base64** no ARM/Bicep
+- Cloud-init **NAO** funciona em Windows
 
 ---
 
-## Service Endpoint Policies
+## Storage
 
-- Service Endpoints habilitados numa subnet permitem acesso a **todos** os recursos do tipo PaaS (ex: todas as Storage Accounts do Azure)
-- **Service Endpoint Policies** restringem esse acesso para **recursos especificos** (ex: apenas `contosostorage01`)
-- A policy e aplicada na **subnet** (nao no recurso PaaS)
-- Servicos suportados: **Microsoft.Storage** (GA) e Azure SQL Database (preview)
-- Sem policy, dados podem ser exfiltrados para Storage Accounts de outros tenants via Service Endpoint
+### SAS Token e Revogacao
 
-### Diferenca entre mecanismos de restricao
+- Como revogar SAS: (1) Deletar stored access policy, (2) Regenerar storage key, (3) Alterar expiry
+- "SAS comprometido, revogacao mais rapida" → **deletar Stored Access Policy**
+- "Blob deletado acidentalmente, como recuperar?" → **Soft Delete** (se habilitado)
 
-| Mecanismo | O que filtra | Direcao |
-|-----------|-------------|---------|
-| NSG | IP, porta, protocolo | Entrada/saida na subnet |
-| Firewall do Storage | Subnet/IP de **origem** | Quem acessa o storage |
-| Service Endpoint Policy | Recurso PaaS de **destino** | Para onde a subnet pode enviar trafego |
-| Private Endpoint | Elimina acesso publico (IP privado) | Acesso totalmente privado |
+### Lifecycle Management vs Immutability
 
-### Pegadinhas de prova
-- "Subnet com Service Endpoint para Storage esta acessando Storage Accounts nao autorizadas" -> **Service Endpoint Policy**
-- "Restringir Service Endpoint para aceitar apenas uma Storage Account especifica" -> **Service Endpoint Policy**
-- NAO confunda com firewall do storage (filtra origem) — a policy filtra **destino**
-- Service Endpoint Policy so funciona com Service Endpoints habilitados (nao com Private Endpoints)
+- Lifecycle = **automacao de custo** (mover entre tiers)
+- Immutability = **compliance e retencao legal** (impedir alteracao/delecao)
+
+### Replicacao e Transferencia
+
+- **GRS/GZRS** = replicacao sincrona gerenciada (redundancia)
+- **Object Replication** = replicacao assincrona configuravel (flexibilidade, qualquer regiao)
+- **AzCopy** = ferramenta recomendada para transferencias em massa
+- Storage Explorer usa AzCopy internamente
+
+### Criptografia
+
+- **SSE** = padrao, automatico, no storage layer (sempre ativo)
+- **ADE** = no OS (BitLocker/DM-Crypt), requer Key Vault
+- SSE e ADE sao complementares
+- **CMK** requer Key Vault com **purge protection** habilitado
+
+### Azure Files - Autenticacao
+
+- 3 metodos: (1) Storage account key (padrao), (2) Entra ID Domain Services, (3) On-premises AD DS
+- RBAC controla acesso no nivel do **share**; ACLs NTFS controlam acesso **granular**
+
+---
+
+## App Service e Containers
+
+### App Service
+
+- Connection strings com prefixo no ambiente: `CUSTOMCONNSTR_`, `SQLCONNSTR_`, `SQLAZURECONNSTR_`
+- Slot settings marcados como "deployment slot setting" **NAO** sao swapped
+- Backup requer **Standard+**, limite de 10 GB
+- VNet Integration = **outbound** (App Service acessa VNet)
+- Private Endpoint = **inbound** (VNet acessa App Service)
+- Subnet dedicada /28 minimo para VNet Integration
+
+### Custom Domain e TLS
+
+- **CNAME** = subdominio (www.contoso.com); **A record** = apex domain (contoso.com)
+- TXT record `asuid` = verificacao de propriedade
+- Free/Shared tier **nao** suporta custom domains
+- App Service Managed Certificate = gratis, automatico, **so subdomains**
+- Apex domain ou wildcard → certificado do Key Vault ou upload .pfx
+- SNI SSL (padrao) vs IP-based SSL (requer IP dedicado)
+- HTTPS Only forca redirect **301** de HTTP para HTTPS
+
+### ACR (Azure Container Registry)
+
+| SKU | Storage | Features extras |
+|-----|---------|-----------------|
+| Basic | 10 GiB | - |
+| Standard | 100 GiB | Webhooks |
+| Premium | 500 GiB | Geo-replication, Private Link, CMK |
+
+### Containers: ACI vs AKS vs Container Apps
+
+| Servico | Quando usar |
+|---------|-------------|
+| ACI | Containers simples, sem orquestracao |
+| Container Apps | Serverless com auto-scale, revisions, HTTPS automatico |
+| AKS | Controle total do Kubernetes |
+
+---
+
+## Backup e Recuperacao
+
+### Recovery Services Vault vs Backup Vault
+
+| Workload | RSV | Backup Vault |
+|----------|:---:|:------------:|
+| VM backup | Sim | Nao |
+| Disk backup (snapshots) | Nao | Sim |
+| File Share backup | Sim | Nao |
+| Blob backup | Nao | Sim |
+| Site Recovery | Sim | Nao |
+
+- Disk backup via Backup Vault = **snapshots incrementais** (menor custo)
+- VM backup via RSV = ponto de restauracao **completo**
+
+### Backup Policy
+
+- Limites de retencao: daily (9999 dias), weekly (5163 semanas), monthly (1188 meses), yearly (99 anos)
+- Diferenciar: backup on-demand vs scheduled, full vs incremental, snapshot vs vault tier
+
+### Cross Region Restore (CRR)
+
+- CRR so funciona com **GRS** (Geo-Redundant Storage)
+- Replicacao do vault **NAO pode ser alterada** apos o primeiro backup
+- CRR tem RPO de ate **36 horas** (tempo de replicacao geo)
+- Para RPO menor, use **Site Recovery**
+
+### Site Recovery (DR)
+
+- Sincronizacao inicial pode levar horas (depende do tamanho dos discos)
+- RPO comeca a ser medido **apos a sincronizacao completar**
+- Recovery point **retention** ≠ RPO: retention = quanto tempo pontos sao mantidos; RPO = frequencia de criacao
+- App-consistent snapshots sao menos frequentes e tem maior impacto no IO
+
+### Tipos de Failover
+
+| Tipo | Data Loss | Quando usar |
+|------|:---------:|-------------|
+| Test Failover | Nenhum | Validacao (VM isolada, sem impacto) |
+| Planned Failover | Zero | Migracao planejada (VM desligada antes) |
+| Unplanned Failover | Possivel (ate RPO) | Desastre (ultimo recovery point) |
+
+- Apos failover real: **Commit** para confirmar ou **Change recovery point** para usar outro ponto
+
+### Mover Recursos
+
+| Cenario | Metodo | Downtime |
+|---------|--------|----------|
+| Entre RGs (mesma regiao) | `az resource move` | Nenhum |
+| Entre subscriptions | `az resource move` | Nenhum |
+| Entre regioes | ASR / Resource Mover / Recriar | Variavel |
+
+- `az resource move` **NAO** suporta move entre regioes para VMs
+- Resources com **locks** nao podem ser movidos
+- **Azure Resource Mover** orquestra dependencias para moves cross-region
+
+---
+
+## Monitoramento
+
+### Azure Monitor - Tipos de Alerta
+
+| Tipo | Monitora | Uso |
+|------|----------|-----|
+| Metric alert (Static) | Valor fixo (ex: CPU > 80%) | Thresholds conhecidos |
+| Metric alert (Dynamic) | Anomalias via ML | Comportamento que varia ao longo do dia |
+| Activity Log alert | Operacoes de controle (create, delete) | Auditoria e compliance |
+| Log query alert (KQL) | Queries em Log Analytics | Analise complexa |
+| Service Health alert | Eventos da plataforma Azure | Outages, manutencao |
+
+- Dynamic threshold precisa de **~3 dias** de dados historicos
+- "Detectar comportamento anomalo" → **Dynamic**; "CPU > 80%" → **Static**
+- Service Health so monitora **plataforma Azure** (nao metricas dos seus recursos)
+
+### Service Health - Tipos de Evento
+
+1. **Service issues** — servico indisponivel (outage)
+2. **Planned maintenance** — manutencao agendada
+3. **Health advisories** — mudancas que podem afetar voce
+4. **Security advisories** — alertas de seguranca
+
+### Metricas Host vs Guest
+
+| Tipo | Exemplos | Agente necessario |
+|------|----------|:-----------------:|
+| Host | CPU, Network In/Out, Disk | Nao |
+| Guest | Memoria, Processos | Sim (AMA + DCR) |
+
+- "Metrica de memoria nao aparece" → instalar **Azure Monitor Agent** + configurar **Data Collection Rules**
+
+### KQL (Kusto Query Language)
+
+- Operadores essenciais: `where`, `summarize`, `project`, `render`, `ago()`, `bin()`
