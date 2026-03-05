@@ -708,6 +708,102 @@ az storage account show -n "$STORAGE_ACCOUNT_NAME" -g "$RG6" \
 
 ---
 
+### Task 1.6b: Service Endpoint Policy via Bicep
+
+> **Conceito AZ-104 — Service Endpoint Policy:**
+> Service Endpoint Policy restringe o trafego de Service Endpoint para recursos Azure **especificos**.
+> Sem policy, qualquer Storage Account na regiao e acessivel via Service Endpoint.
+> Com policy, apenas as Storage Accounts listadas sao permitidas — protege contra data exfiltration.
+
+Salve como **`bloco1-service-endpoint-policy.bicep`**:
+
+```bicep
+// ============================================================
+// bloco1-service-endpoint-policy.bicep
+// Scope: resourceGroup (az104-rg6)
+// Cria Service Endpoint Policy e associa a subnet
+// ============================================================
+
+@description('Nome da Storage Account existente')
+param storageAccountName string
+
+@description('Localizacao')
+param location string = resourceGroup().location
+
+// Referencia a Storage Account existente
+resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' existing = {
+  name: storageAccountName
+}
+
+// ==================== Service Endpoint Policy ====================
+// Restringe trafego do Service Endpoint a storage accounts especificas
+// Sem policy: qualquer storage account na regiao e acessivel
+// Com policy: apenas as listadas em serviceResources sao permitidas
+resource serviceEndpointPolicy 'Microsoft.Network/serviceEndpointPolicies@2023-04-01' = {
+  name: 'policy-storage-contoso'
+  location: location
+  properties: {
+    serviceEndpointPolicyDefinitions: [
+      {
+        name: 'allow-contoso-storage'
+        properties: {
+          // service: qual servico Azure restringir
+          service: 'Microsoft.Storage'
+          // serviceResources: lista de recursos permitidos
+          serviceResources: [
+            storageAccount.id
+          ]
+        }
+      }
+    ]
+  }
+}
+
+// ==================== Atualizar Subnet ====================
+// Associar a policy a subnet que tem Service Endpoint habilitado
+resource vnet 'Microsoft.Network/virtualNetworks@2023-04-01' existing = {
+  name: 'storage-vnet'
+}
+
+resource subnet 'Microsoft.Network/virtualNetworks/subnets@2023-04-01' = {
+  parent: vnet
+  name: 'default'
+  properties: {
+    addressPrefix: '10.50.0.0/24'
+    serviceEndpoints: [
+      {
+        service: 'Microsoft.Storage'
+      }
+    ]
+    // serviceEndpointPolicies: associa policies a subnet
+    serviceEndpointPolicies: [
+      {
+        id: serviceEndpointPolicy.id   // Dependencia implicita via referencia
+      }
+    ]
+  }
+}
+
+// ==================== Outputs ====================
+output policyId string = serviceEndpointPolicy.id
+output policyName string = serviceEndpointPolicy.name
+```
+
+Deploy:
+
+```bash
+az deployment group create \
+    --resource-group "$RG6" \
+    --template-file bloco1-service-endpoint-policy.bicep \
+    --parameters storageAccountName="$STORAGE_ACCOUNT_NAME"
+
+# Verificar policy associada a subnet
+az network vnet subnet show -g "$RG6" --vnet-name "storage-vnet" -n "default" \
+    --query "serviceEndpointPolicies[].id" -o tsv
+```
+
+---
+
 ## Modo Desafio - Bloco 1
 
 - [ ] Criar Resource Group `az104-rg6`
@@ -3468,6 +3564,17 @@ az webapp show \
   --name "$APP_NAME" \
   --query "{httpsOnly: httpsOnly, minTls: siteConfig.minTlsVersion}" \
   -o table
+```
+
+```bash
+# TASK 7.5 (validacao) - Testar redirect HTTP → HTTPS
+# HTTPS Only forca redirect 301 de HTTP para HTTPS
+WEBAPP_URL=$(az webapp show -g az104-rg8 -n "$APP_NAME" --query "defaultHostName" -o tsv)
+curl -I http://$WEBAPP_URL 2>/dev/null | head -5
+# Resultado esperado:
+# HTTP/1.1 301 Moved Permanently
+# Location: https://$WEBAPP_URL/
+echo "Redirect HTTP → HTTPS configurado com sucesso"
 ```
 
 ---

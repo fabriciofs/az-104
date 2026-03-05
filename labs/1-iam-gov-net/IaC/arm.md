@@ -249,6 +249,46 @@ az ad group member add --group "$HELPDESK_GROUP_ID" --member-id "$USER1_ID"
 
 ---
 
+### Task 1.5: Criar grupo dinamico (requer Entra ID P1/P2)
+
+```bash
+# ============================================================
+# TASK 1.5 - Criar grupo dinamico (requer Entra ID P1/P2)
+# ============================================================
+# CONCEITO: Grupos dinamicos NAO podem ser criados via ARM templates.
+# ARM gerencia recursos do Azure Resource Manager, mas grupos do Entra ID
+# sao objetos de diretorio gerenciados via Microsoft Graph API.
+# Alternativas: az CLI, Microsoft Graph REST API ou PowerShell.
+
+# Opcao 1: az CLI com extensao
+az ad group create \
+    --display-name "IT Dynamic Group" \
+    --mail-nickname "it-dynamic" \
+    --description "Grupo dinamico baseado no departamento IT"
+# NOTA: az ad group create nao suporta dynamic membership diretamente.
+# Use a Graph API para configurar a regra dinamica:
+
+# Opcao 2: Microsoft Graph REST API via az rest
+GROUP_ID=$(az ad group show --group "IT Dynamic Group" --query id -o tsv)
+
+az rest --method PATCH \
+    --url "https://graph.microsoft.com/v1.0/groups/${GROUP_ID}" \
+    --headers "Content-Type=application/json" \
+    --body '{
+        "groupTypes": ["DynamicMembership"],
+        "membershipRule": "(user.department -eq \"IT\")",
+        "membershipRuleProcessingState": "On"
+    }'
+
+# Verificar configuracao
+az rest --method GET \
+    --url "https://graph.microsoft.com/v1.0/groups/${GROUP_ID}?$select=displayName,groupTypes,membershipRule,membershipRuleProcessingState"
+
+echo "Grupo dinamico configurado. Aguarde alguns minutos para processamento da regra."
+```
+
+---
+
 ## Modo Desafio - Bloco 1
 
 - [ ] Criar `az104-user1` + atualizar via Graph API
@@ -1826,6 +1866,28 @@ az vm run-command invoke \
 
 ---
 
+### Task 5.6b: Testar nao-transitividade do peering
+
+```bash
+# ============================================================
+# TASK 5.6b - Testar nao-transitividade do peering
+# ============================================================
+# CONCEITO AZ-104: Peering e NAO transitivo!
+# CoreServicesVnet ↔ ManufacturingVnet, mas trafego NAO transita para outras VNets
+# Para transitividade: hub-spoke com NVA ou Azure Virtual WAN.
+
+az vm run-command invoke \
+    --resource-group "$RG5" \
+    --name "ManufacturingVM" \
+    --command-id RunPowerShellScript \
+    --scripts "Test-NetConnection -ComputerName 10.40.0.4 -Port 3389 -WarningAction SilentlyContinue | Select-Object TcpTestSucceeded"
+
+# Resultado esperado: TcpTestSucceeded: False
+# Peering e NAO transitivo: A↔B e B↔C nao significa A↔C
+```
+
+---
+
 ### Task 5.7: DNS update via ARM
 
 Salve como **`bloco5-dns-update.json`**:
@@ -2466,6 +2528,41 @@ echo "Teste: http://${LB_PIP}"
 
 ---
 
+### Task 6.3b: Testar Session Persistence
+
+```bash
+# ============================================================
+# TASK 6.3b - Testar Session Persistence
+# ============================================================
+# CONCEITO AZ-104: Load Distribution (Session Persistence)
+#   | Modo                    | Hash           | Comportamento                    |
+#   |-------------------------|----------------|----------------------------------|
+#   | None (Default)          | 5-tuple        | src IP+port, dst IP+port, proto  |
+#   | Client IP (SourceIP)    | 2-tuple        | src IP + dst IP                  |
+#   | Client IP and Protocol  | 3-tuple        | src IP + dst IP + proto          |
+# None = melhor distribuicao | SourceIP = sticky sessions
+
+# Modo 1: None (5-tuple hash) - padrao, ja testado
+az network lb rule show -g "$RG6" --lb-name "az104-pub-lb" -n "az104-lb-rule" \
+    --query loadDistribution -o tsv
+
+# Modo 2: Client IP (2-tuple: source IP + dest IP)
+az network lb rule update -g "$RG6" --lb-name "az104-pub-lb" -n "az104-lb-rule" \
+    --load-distribution SourceIP
+# Testar: refresh no navegador → mesmo servidor responde
+
+# Modo 3: Client IP and Protocol (3-tuple)
+az network lb rule update -g "$RG6" --lb-name "az104-pub-lb" -n "az104-lb-rule" \
+    --load-distribution SourceIPProtocol
+
+# Reverter para None (5-tuple)
+az network lb rule update -g "$RG6" --lb-name "az104-pub-lb" -n "az104-lb-rule" \
+    --load-distribution Default
+echo "Session persistence revertida para Default (5-tuple)"
+```
+
+---
+
 ### Task 6.4: Testar failover
 
 ```bash
@@ -2882,6 +2979,38 @@ echo "Cost Management > Budgets > az104-lab-budget > Edit"
 
 ---
 
+### Task 7.4b: Configurar enforcement automatico com Action Group
+
+```bash
+# ============================================================
+# TASK 7.4b - Configurar enforcement automatico com Action Group
+# ============================================================
+# CONCEITO: Budgets alertam mas NAO bloqueiam. Para enforcement:
+# - Azure Policy: restringir SKUs de VM permitidos
+# - Automation Runbook: desligar VMs quando budget atingido
+# - Spending Limit: apenas para subscriptions dev/test
+
+# Criar Action Group
+az monitor action-group create \
+    -g "$RG6" \
+    -n "az104-budget-ag" \
+    --short-name "budgetag" \
+    --action email admin-email your@email.com
+
+echo "Action Group az104-budget-ag criado"
+
+# Atualizar budget para usar Action Group (via portal ou REST API)
+echo ""
+echo "=== Vincular Action Group ao Budget ==="
+echo "Portal: Cost Management > Budgets > az104-lab-budget > Edit"
+echo "  Alert conditions > Action group: az104-budget-ag"
+echo ""
+echo "Ou via REST API:"
+echo '  az rest --method PUT --url "https://management.azure.com/subscriptions/{sub-id}/providers/Microsoft.Consumption/budgets/az104-lab-budget?api-version=2023-05-01"'
+```
+
+---
+
 ### Task 7.5: Revisar Azure Advisor
 
 ```bash
@@ -2922,6 +3051,48 @@ az network watcher test-ip-flow \
     --resource-group "$RG6" --vm "LB-VM1" \
     --direction "Inbound" --protocol "TCP" \
     --local "${VM1_IP}:22" --remote "10.0.0.1:12345"
+```
+
+---
+
+### Task 7.6b: Testar ordem de avaliacao NSG (subnet vs NIC)
+
+```bash
+# ============================================================
+# TASK 7.6b - Testar ordem de avaliacao NSG (subnet vs NIC)
+# ============================================================
+# CONCEITO AZ-104: Ordem de avaliacao NSG
+#   Inbound:  subnet NSG primeiro → depois NIC NSG (ambos devem permitir)
+#   Outbound: NIC NSG primeiro → depois subnet NSG
+#   Se QUALQUER um bloquear, o trafego e negado.
+
+# 1. Criar NSG para associar a NIC
+az network nsg create -g "$RG6" -n "nsg-nic-test"
+
+# 2. Adicionar regra Deny HTTP na NIC
+az network nsg rule create -g "$RG6" --nsg-name "nsg-nic-test" \
+    -n "DenyHTTP" --priority 100 --access Deny --protocol Tcp \
+    --direction Inbound --destination-port-ranges 80
+
+# 3. Associar NSG a NIC da LB-VM1
+NIC_NAME=$(az vm show -g "$RG6" -n "LB-VM1" \
+    --query "networkProfile.networkInterfaces[0].id" -o tsv | xargs basename)
+az network nic update -g "$RG6" -n "$NIC_NAME" \
+    --network-security-group "nsg-nic-test"
+
+echo "NSG nsg-nic-test associado a NIC $NIC_NAME"
+
+# 4. Testar com IP Flow Verify - HTTP agora bloqueado
+echo "=== IP Flow Verify: HTTP porta 80 (agora DENY pela NIC) ==="
+az network watcher test-ip-flow \
+    -g "$RG6" --vm "LB-VM1" --direction Inbound \
+    --protocol TCP --local "${VM1_IP}:80" --remote "10.0.0.1:12345"
+# Resultado: Access DENY — subnet NSG permite, mas NIC NSG bloqueia
+
+# 5. Cleanup: remover NSG da NIC
+az network nic update -g "$RG6" -n "$NIC_NAME" --remove networkSecurityGroup
+az network nsg delete -g "$RG6" -n "nsg-nic-test"
+echo "Cleanup: NSG nsg-nic-test removido"
 ```
 
 ---

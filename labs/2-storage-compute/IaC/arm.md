@@ -631,6 +631,106 @@ az storage account show -g "$RG6" -n "$STORAGE_ACCOUNT_NAME" \
 
 ---
 
+### Task 1.6b: Service Endpoint Policy via ARM
+
+> **Conceito AZ-104 — Service Endpoint Policy:**
+> Service Endpoint Policy restringe o trafego de Service Endpoint para recursos Azure **especificos**.
+> Sem policy, qualquer Storage Account na regiao e acessivel via Service Endpoint.
+> Com policy, apenas as Storage Accounts listadas sao permitidas — protege contra data exfiltration.
+
+Salve como **`bloco1-service-endpoint-policy.json`**:
+
+```json
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "storageAccountName": {
+            "type": "string",
+            "metadata": {
+                "description": "Nome da Storage Account existente"
+            }
+        },
+        "location": {
+            "type": "string",
+            "defaultValue": "[resourceGroup().location]"
+        }
+    },
+    "variables": {
+        "storageAccountName": "[parameters('storageAccountName')]",
+        "vnetName": "storage-vnet",
+        "subnetName": "default"
+    },
+    "resources": [
+        // --------------------------------------------------------
+        // 1. Service Endpoint Policy
+        // Restringe trafego do Service Endpoint a storage accounts especificas
+        // --------------------------------------------------------
+        {
+            "type": "Microsoft.Network/serviceEndpointPolicies",
+            "apiVersion": "2023-04-01",
+            "name": "policy-storage-contoso",
+            "location": "[parameters('location')]",
+            "properties": {
+                "serviceEndpointPolicyDefinitions": [
+                    {
+                        "name": "allow-contoso-storage",
+                        "properties": {
+                            // service: qual servico Azure restringir
+                            "service": "Microsoft.Storage",
+                            // serviceResources: lista de recursos permitidos
+                            "serviceResources": [
+                                "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        // --------------------------------------------------------
+        // 2. Atualizar Subnet para associar a policy
+        // --------------------------------------------------------
+        {
+            "type": "Microsoft.Network/virtualNetworks/subnets",
+            "apiVersion": "2023-04-01",
+            "name": "[concat(variables('vnetName'), '/', variables('subnetName'))]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/serviceEndpointPolicies', 'policy-storage-contoso')]"
+            ],
+            "properties": {
+                "addressPrefix": "10.50.0.0/24",
+                "serviceEndpoints": [
+                    {
+                        "service": "Microsoft.Storage"
+                    }
+                ],
+                // serviceEndpointPolicies: associa policies a subnet
+                "serviceEndpointPolicies": [
+                    {
+                        "id": "[resourceId('Microsoft.Network/serviceEndpointPolicies', 'policy-storage-contoso')]"
+                    }
+                ]
+            }
+        }
+    ]
+}
+```
+
+Deploy:
+
+```bash
+az deployment group create \
+    --resource-group "$RG6" \
+    --template-file bloco1-service-endpoint-policy.json \
+    --parameters storageAccountName="$STORAGE_ACCOUNT_NAME"
+
+# Verificar policy associada a subnet
+az network vnet subnet show -g "$RG6" --vnet-name "storage-vnet" -n "default" \
+    --query "serviceEndpointPolicies[].id" -o tsv
+```
+
+---
+
 ### Task 1.5: Private Endpoint + Private DNS Zone via ARM
 
 > **Cobranca:** Private Endpoints geram cobranca enquanto existirem.
@@ -3668,6 +3768,17 @@ az webapp config set -g az104-rg8 -n "$APP_NAME" --min-tls-version 1.2
 
 az webapp show -g az104-rg8 -n "$APP_NAME" \
   --query "{httpsOnly: httpsOnly, minTls: siteConfig.minTlsVersion}" -o table
+```
+
+```bash
+# TASK 7.5 (validacao) - Testar redirect HTTP → HTTPS
+# HTTPS Only forca redirect 301 de HTTP para HTTPS
+WEBAPP_URL=$(az webapp show -g az104-rg8 -n "$APP_NAME" --query "defaultHostName" -o tsv)
+curl -I http://$WEBAPP_URL 2>/dev/null | head -5
+# Resultado esperado:
+# HTTP/1.1 301 Moved Permanently
+# Location: https://$WEBAPP_URL/
+echo "Redirect HTTP → HTTPS configurado com sucesso"
 ```
 
 ---

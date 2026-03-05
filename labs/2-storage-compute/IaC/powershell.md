@@ -556,6 +556,55 @@ Write-Host "  Subnet permitida: $($subnet.Name) (com Service Endpoint)"
 
 ---
 
+### Task 1.6b: Criar Service Endpoint Policy
+
+```powershell
+# ============================================================
+# TASK 1.6b - Criar Service Endpoint Policy
+# ============================================================
+
+# Service Endpoint Policy restringe o trafego do Service Endpoint
+# para recursos Azure ESPECIFICOS. Sem policy, qualquer Storage Account
+# na regiao e acessivel via Service Endpoint da subnet.
+# Com policy: apenas as Storage Accounts listadas sao permitidas.
+
+# Obter ID da Storage Account para a policy
+$storageId = (Get-AzStorageAccount -ResourceGroupName $rg6 -Name $storageAccountName).Id
+
+# Criar definicao da policy
+# -Service: qual servico restringir (Microsoft.Storage, Microsoft.Sql, etc.)
+# -ServiceResource: lista de resource IDs permitidos
+$policyDef = New-AzServiceEndpointPolicyDefinition `
+    -Name "allow-contoso-storage" `
+    -Service "Microsoft.Storage" `
+    -ServiceResource $storageId
+
+# Criar a Service Endpoint Policy
+$policy = New-AzServiceEndpointPolicy `
+    -Name "policy-storage-contoso" `
+    -ResourceGroupName $rg6 `
+    -Location $location `
+    -ServiceEndpointPolicyDefinition $policyDef
+
+Write-Host "Service Endpoint Policy criada: $($policy.Name)"
+Write-Host "  Definicao: allow-contoso-storage"
+Write-Host "  Recurso permitido: $storageId"
+
+# Associar a policy a subnet que tem Service Endpoint habilitado
+$vnet = Get-AzVirtualNetwork -Name "az104-vnet-storage" -ResourceGroupName $rg6
+$subnet = Get-AzVirtualNetworkSubnetConfig -Name "default" -VirtualNetwork $vnet
+$subnet.ServiceEndpointPolicies = @($policy)
+Set-AzVirtualNetwork -VirtualNetwork $vnet
+
+Write-Host "Policy associada a subnet 'default'"
+```
+
+> **Conceito:** Service Endpoint Policy protege contra **data exfiltration**.
+> Sem policy, um atacante com acesso a subnet poderia enviar dados para QUALQUER
+> Storage Account via Service Endpoint. Com policy, apenas as contas listadas sao alcancaveis.
+
+---
+
 ### Task 1.7: Configurar Private Endpoint
 
 > **Cobranca:** Private Endpoints geram cobranca enquanto existirem.
@@ -3195,6 +3244,22 @@ Set-AzWebApp `
 $app = Get-AzWebApp -ResourceGroupName "az104-rg8" -Name $appName
 Write-Host "HTTPS Only: $($app.HttpsOnly)"
 Write-Host "Min TLS: $($app.SiteConfig.MinTlsVersion)"
+
+# 3. Testar redirect HTTP → HTTPS
+# HTTPS Only forca redirect 301 de HTTP para HTTPS
+$webappUrl = (Get-AzWebApp -ResourceGroupName "az104-rg8" -Name $appName).DefaultHostName
+try {
+    $response = Invoke-WebRequest -Uri "http://$webappUrl" -MaximumRedirection 0 -ErrorAction Stop
+} catch {
+    $response = $_.Exception.Response
+}
+Write-Host "`nTeste redirect HTTP → HTTPS:"
+Write-Host "  Status Code: $([int]$response.StatusCode) ($($response.StatusCode))"
+Write-Host "  Location: $($response.Headers.Location)"
+# Resultado esperado:
+# Status Code: 301 (Moved)
+# Location: https://<webapp>.azurewebsites.net/
+Write-Host "Redirect HTTP → HTTPS configurado com sucesso"
 ```
 
 ---

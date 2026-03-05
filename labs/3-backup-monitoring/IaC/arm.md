@@ -742,6 +742,43 @@ echo "Restore iniciado. Os discos serao criados no RG $RG11"
 
 ---
 
+### Task 1.6b: Cross Region Restore (CRR)
+
+> **POR QUE CLI?** A configuracao de redundancia e CRR no vault e uma operacao
+> de propriedade do vault, nao um recurso declarativo. Deve ser feita ANTES de
+> proteger qualquer item.
+
+```bash
+# ============================================================
+# TASK 1.6b - Configurar Cross Region Restore
+# ============================================================
+# IMPORTANTE: Deve ser feito ANTES de proteger qualquer item no vault
+# Nao e possivel alterar de LRS para GRS apos o primeiro backup.
+
+az backup vault backup-properties set \
+    --name "$VAULT_NAME" \
+    --resource-group "$RG11" \
+    --backup-storage-redundancy GeoRedundant \
+    --cross-region-restore-flag true
+
+# Verificar configuracao
+az backup vault backup-properties show \
+    --name "$VAULT_NAME" \
+    --resource-group "$RG11" \
+    --query "{redundancy:storageType, crr:crossRegionRestoreFlag}" -o table
+
+echo "Vault configurado com GRS + Cross Region Restore"
+echo "Dados serao replicados para a regiao pareada"
+```
+
+> **Conceito AZ-104 — GRS e CRR:**
+> - **GRS** (Geo-Redundant Storage): replica dados para a regiao pareada do Azure
+> - **CRR** (Cross Region Restore): permite restaurar backups na regiao secundaria
+> - GRS custa mais que LRS (~2x), mas habilita DR cross-region
+> - Na prova: "restaurar VM em outra regiao" = GRS + CRR habilitados no vault
+
+---
+
 ## Modo Desafio - Bloco 1
 
 - [ ] Deploy `bloco1-vm.json` com VM para backup
@@ -1402,6 +1439,43 @@ az rest --method GET \
 
 ---
 
+### Task 3.2b: Politica de replicacao customizada (CLI)
+
+```bash
+# ============================================================
+# TASK 3.2b - Criar politica de replicacao customizada
+# ============================================================
+# Politicas customizadas permitem ajustar RPO e retencao para
+# cenarios especificos. Aqui criamos uma policy com retencao curta (4h).
+
+az site-recovery policy create \
+    --resource-group "$RG11" \
+    --vault-name "$VAULT_NAME" \
+    --name "contoso-4h-retention" \
+    --provider-specific-input '{
+        "instanceType": "A2A",
+        "recoveryPointHistory": 240,
+        "appConsistentFrequencyInMinutes": 120,
+        "crashConsistentFrequencyInMinutes": 5
+    }'
+
+# Verificar policy criada
+az rest --method GET \
+    --url "https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG11}/providers/Microsoft.RecoveryServices/vaults/${VAULT_NAME}/replicationPolicies/contoso-4h-retention?api-version=2023-06-01" \
+    --query "{name:name, rpo:properties.providerSpecificDetails.recoveryPointHistory, appConsistent:properties.providerSpecificDetails.appConsistentFrequencyInMinutes}" -o table
+
+echo "Policy customizada criada: contoso-4h-retention"
+```
+
+> **Conceito AZ-104 — Replication Policy:**
+> - `recoveryPointHistory: 240` = retencao de 4h (armazena pontos das ultimas 4 horas)
+> - `appConsistentFrequencyInMinutes: 120` = snapshot consistente com aplicacao a cada 2h
+> - `crashConsistentFrequencyInMinutes: 5` = snapshot crash-consistent a cada 5 min
+> - Menor retencao = menos storage, mas menos opcoes de recovery point
+> - Na prova: "RPO de 5 min" = crash-consistent frequency de 5 min
+
+---
+
 ### Task 3.3: Container Mapping e Replicacao (CLI)
 
 > **Cobranca:** A replicacao ASR gera cobranca continua por VM replicada. Nao pode ser pausada — so desabilitada.
@@ -1818,6 +1892,46 @@ az monitor metrics alert show \
 
 ---
 
+### Task 4.3b: Alerta com Dynamic Threshold (CLI)
+
+> **POR QUE CLI?** Dynamic Threshold alerts sao mais simples de criar via CLI
+> do que com ARM Templates, pois a estrutura de criteria e complexa.
+
+```bash
+# ============================================================
+# TASK 4.3b - Criar alerta com Dynamic Threshold
+# ============================================================
+# Dynamic Threshold usa Machine Learning para aprender o padrao de uso
+# e alerta quando detecta desvios (anomalias).
+
+az monitor metrics alert create \
+    -g "$RG13" \
+    -n "az104-cpu-dynamic-alert" \
+    --scopes $(az vm show -g "$RG11" -n "az104-vm-backup" --query id -o tsv) \
+    --condition "avg Percentage CPU > dynamic medium of 4 violations out of 4 since 2024-01-01" \
+    --action $(az monitor action-group show -g "$RG13" -n "az104-action-group" --query id -o tsv) \
+    --severity 2 \
+    --description "Alert com Dynamic Threshold - detecta anomalias baseado em ML"
+
+# Verificar alerta
+az monitor metrics alert show \
+    -g "$RG13" \
+    -n "az104-cpu-dynamic-alert" \
+    --query "{name:name, severity:severity, enabled:enabled}" -o table
+
+echo "Dynamic Threshold Alert criado"
+echo "O ML precisa de ~3 dias de dados historicos para melhor resultado"
+```
+
+> **Conceito AZ-104 — Static vs Dynamic Threshold:**
+> - **Static:** valor fixo (ex: CPU > 80%) — voce define o limite
+> - **Dynamic:** Machine Learning detecta anomalias automaticamente
+> - Sensitivity: High (alerta em desvios pequenos), Medium, Low (apenas desvios grandes)
+> - Precisa de ~3 dias de dados historicos para melhor resultado
+> - Na prova: "detectar comportamento anomalo" = Dynamic; "CPU > 80%" = Static
+
+---
+
 ### Task 4.3: Diagnostic Settings via ARM
 
 Salve como **`bloco4-diagnostics.json`**:
@@ -1926,6 +2040,53 @@ az deployment group create \
 echo "Diagnostic settings configurado para az104-vm-backup"
 echo "Metricas serao enviadas para o workspace $WORKSPACE_NAME"
 ```
+
+---
+
+### Task 4.6b: Service Health Alerts (CLI)
+
+> **POR QUE CLI?** Activity Log Alerts para Service Health sao acoes
+> de configuracao que a CLI simplifica significativamente.
+
+```bash
+# ============================================================
+# TASK 4.6b - Criar alerta de Service Health
+# ============================================================
+# Service Health monitora incidentes, manutencao e advisories do Azure.
+# Diferente de Metric Alerts, usa Activity Log Alerts.
+
+# Alerta para incidentes de servico (outages)
+az monitor activity-log alert create \
+    -g "$RG13" \
+    -n "az104-service-health-incident" \
+    --condition category=ServiceHealth and properties.incidentType=Incident \
+    --action-group $(az monitor action-group show -g "$RG13" -n "az104-action-group" --query id -o tsv) \
+    --description "Alerta para incidentes de Service Health"
+
+# Alerta para manutencao planejada
+az monitor activity-log alert create \
+    -g "$RG13" \
+    -n "az104-service-health-maintenance" \
+    --condition category=ServiceHealth and properties.incidentType=Maintenance \
+    --action-group $(az monitor action-group show -g "$RG13" -n "az104-action-group" --query id -o tsv) \
+    --description "Alerta para manutencao planejada"
+
+# Verificar alertas criados
+az monitor activity-log alert list -g "$RG13" \
+    --query "[?contains(name,'service-health')].{name:name, enabled:enabled}" -o table
+
+echo "Service Health Alerts criados: incident + maintenance"
+```
+
+> **Conceito AZ-104 — Service Health:**
+> Service Health tem 4 tipos de eventos:
+> 1. **Service issues** (outages) — servico indisponivel
+> 2. **Planned maintenance** — manutencao agendada
+> 3. **Health advisories** — mudancas que podem afetar voce
+> 4. **Security advisories** — alertas de seguranca
+>
+> Na prova: "ser notificado quando Azure tiver problemas" = Service Health Alert.
+> Service Health usa **Activity Log Alerts**, nao Metric Alerts.
 
 ---
 
@@ -2562,6 +2723,56 @@ az rest --method post \
     --query "tables[0].rows" -o table 2>/dev/null || \
 echo "Eventos podem levar 10-15 min para aparecer"
 ```
+
+---
+
+### Task 5.9b: NSG Flow Logs com Traffic Analytics (CLI)
+
+> **POR QUE CLI?** NSG Flow Logs envolvem multiplas dependencias (NSG, Storage Account,
+> Log Analytics Workspace). A CLI simplifica a configuracao.
+
+```bash
+# ============================================================
+# TASK 5.9b - Configurar NSG Flow Logs com Traffic Analytics
+# ============================================================
+# Flow Logs registram todo trafego que passa pelo NSG (permitido e negado).
+# Traffic Analytics agrega os dados no Log Analytics para visualizacao.
+
+# Obter IDs necessarios
+NSG_ID=$(az network nsg show -g "$RG11" -n "az104-nsg" --query id -o tsv)
+WORKSPACE_ID=$(az monitor log-analytics workspace show -g "$RG13" -n "$WORKSPACE_NAME" --query id -o tsv)
+STORAGE_ID=$(az storage account show -g "$RG11" -n "$STORAGE_ACCOUNT_NAME" --query id -o tsv)
+
+# Criar Flow Log com versao 2 e Traffic Analytics
+az network watcher flow-log create \
+    --location "$LOCATION" \
+    --name "nsg-flow-log" \
+    --nsg $NSG_ID \
+    --storage-account $STORAGE_ID \
+    --retention 30 \
+    --format JSON \
+    --log-version 2 \
+    --traffic-analytics true \
+    --workspace $WORKSPACE_ID \
+    --interval 10
+
+# Verificar flow log criado
+az network watcher flow-log show \
+    --location "$LOCATION" \
+    --name "nsg-flow-log" \
+    --query "{name:name, enabled:enabled, version:format.version, trafficAnalytics:flowAnalyticsConfiguration.networkWatcherFlowAnalyticsConfiguration.enabled}" -o table
+
+echo "NSG Flow Log criado com Traffic Analytics habilitado"
+echo "Dados ficam no storage: insights-logs-networksecuritygroupflowevent"
+echo "Traffic Analytics agrega dados no workspace: $WORKSPACE_NAME"
+```
+
+> **Conceito AZ-104 — NSG Flow Logs:**
+> - Flow Logs v2 inclui estado do fluxo (Begin, Continuing, End) e throughput
+> - Traffic Analytics agrega flow logs no Log Analytics para visualizacao
+> - Dados ficam no storage account: `insights-logs-networksecuritygroupflowevent`
+> - Retencao: 0 = ilimitado (dependendo do storage); recomendado >= 30 dias
+> - Na prova: "analisar trafego de rede" = NSG Flow Logs + Traffic Analytics
 
 ---
 

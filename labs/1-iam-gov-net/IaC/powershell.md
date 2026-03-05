@@ -366,6 +366,46 @@ Write-Host "`n=== Grupos criados ===" -ForegroundColor Green
 
 ---
 
+### Task 1.5: Criar grupo dinamico (requer Entra ID P1/P2)
+
+```powershell
+# ============================================================
+# TASK 1.5 - Criar grupo dinamico (requer Entra ID P1/P2)
+# ============================================================
+# CONCEITO: Grupos dinamicos adicionam/removem membros automaticamente
+# com base em regras de propriedades do usuario (department, jobTitle, etc.)
+# Requer licenca Entra ID Premium P1 ou P2.
+# Grupos Assigned = membros manuais | Dynamic = membros por regra
+
+$dynamicGroup = New-MgGroup -DisplayName "IT Dynamic Group" `
+    -Description "Grupo dinamico baseado no departamento IT" `
+    -MailEnabled:$false `
+    -SecurityEnabled:$true `
+    -MailNickname "it-dynamic" `
+    -GroupTypes "DynamicMembership" `
+    -MembershipRule '(user.department -eq "IT")' `
+    -MembershipRuleProcessingState "On"
+
+# Verificar grupo criado
+Write-Host "Grupo dinamico criado: $($dynamicGroup.DisplayName)" -ForegroundColor Green
+Write-Host "  Membership Rule: $($dynamicGroup.MembershipRule)"
+Write-Host "  Processing State: $($dynamicGroup.MembershipRuleProcessingState)"
+
+# Aguardar processamento (pode levar alguns minutos)
+Write-Host "Aguarde alguns minutos para o Entra ID processar a regra..." -ForegroundColor Yellow
+Start-Sleep -Seconds 30
+
+# Verificar membros dinamicos
+$members = Get-MgGroupMember -GroupId $dynamicGroup.Id
+Write-Host "Membros atuais: $($members.Count)"
+$members | ForEach-Object {
+    $u = Get-MgUser -UserId $_.Id
+    Write-Host "  - $($u.DisplayName) (Department: $($u.Department))"
+}
+```
+
+---
+
 ## Modo Desafio - Bloco 1
 
 - [ ] Criar usuario `az104-user1` com Job title `IT Lab Administrator`, Department `IT`, Usage location `US`
@@ -2026,6 +2066,33 @@ $result.Value[0].Message
 # Esperado: TcpTestSucceeded: True
 ```
 
+---
+
+### Task 5.6b: Testar nao-transitividade do peering
+
+```powershell
+# ============================================================
+# TASK 5.6b - Testar nao-transitividade do peering
+# ============================================================
+# CONCEITO AZ-104: Peering e NAO transitivo!
+# Se CoreServicesVnet ↔ ManufacturingVnet e
+# ManufacturingVnet ↔ ResearchVnet,
+# CoreServicesVnet NAO fala com ResearchVnet automaticamente.
+# Para transitividade: hub-spoke com NVA ou Azure Virtual WAN.
+
+# Testar conectividade para um IP de uma terceira VNet inexistente
+# (simulando que nao ha peering direto)
+$result = Invoke-AzVMRunCommand `
+    -ResourceGroupName $rg5 `
+    -VMName $vmMfg `
+    -CommandId "RunPowerShellScript" `
+    -ScriptString "Test-NetConnection -ComputerName 10.40.0.4 -Port 3389 -WarningAction SilentlyContinue | Select-Object TcpTestSucceeded"
+
+$result.Value[0].Message
+# Resultado esperado: TcpTestSucceeded: False
+# Peering e NAO transitivo: A↔B e B↔C nao significa A↔C
+```
+
 > O peering funciona! As VMs se comunicam pela rede backbone da Microsoft.
 
 ---
@@ -2574,6 +2641,46 @@ Write-Host "Teste: http://$($lbPip.IpAddress) + hard refresh (Ctrl+Shift+R)" -Fo
 
 ---
 
+### Task 6.3b: Testar Session Persistence
+
+```powershell
+# ============================================================
+# TASK 6.3b - Testar Session Persistence
+# ============================================================
+# CONCEITO AZ-104: Load Distribution (Session Persistence)
+#   | Modo                    | Hash           | Comportamento                    |
+#   |-------------------------|----------------|----------------------------------|
+#   | None (Default)          | 5-tuple        | src IP+port, dst IP+port, proto  |
+#   | Client IP (SourceIP)    | 2-tuple        | src IP + dst IP                  |
+#   | Client IP and Protocol  | 3-tuple        | src IP + dst IP + proto          |
+# None = melhor distribuicao | SourceIP = sticky sessions
+
+# Obter LB e regra atual
+$lb = Get-AzLoadBalancer -Name "az104-pub-lb" -ResourceGroupName $rg6
+$rule = $lb.LoadBalancingRules[0]
+
+# Modo 1: None (5-tuple hash) - padrao, ja testado
+Write-Host "Modo atual: $($rule.LoadDistribution)" -ForegroundColor Cyan
+
+# Modo 2: Client IP (2-tuple: source IP + dest IP)
+$rule.LoadDistribution = "SourceIP"
+Set-AzLoadBalancer -LoadBalancer $lb | Out-Null
+Write-Host "Alterado para SourceIP (2-tuple)" -ForegroundColor Yellow
+Write-Host "Teste: refresh no navegador → mesmo servidor responde" -ForegroundColor Cyan
+
+# Modo 3: Client IP and Protocol (3-tuple)
+$rule.LoadDistribution = "SourceIPProtocol"
+Set-AzLoadBalancer -LoadBalancer $lb | Out-Null
+Write-Host "Alterado para SourceIPProtocol (3-tuple)" -ForegroundColor Yellow
+
+# Reverter para None (5-tuple) - padrao
+$rule.LoadDistribution = "Default"
+Set-AzLoadBalancer -LoadBalancer $lb | Out-Null
+Write-Host "Revertido para Default (5-tuple)" -ForegroundColor Green
+```
+
+---
+
 ### Task 6.4: Testar failover
 
 ```powershell
@@ -2878,6 +2985,43 @@ Write-Host '  az consumption budget create --budget-name "az104-lab-budget" --am
 
 ---
 
+### Task 7.4b: Configurar enforcement automatico com Action Group
+
+```powershell
+# ============================================================
+# TASK 7.4b - Configurar enforcement automatico com Action Group
+# ============================================================
+# CONCEITO: Budgets alertam mas NAO bloqueiam. Para enforcement:
+# - Azure Policy: restringir SKUs de VM permitidos
+# - Automation Runbook: desligar VMs quando budget atingido
+# - Spending Limit: apenas para subscriptions dev/test
+
+# Criar Action Group para notificacoes de budget
+$emailReceiver = New-AzActionGroupEmailReceiverObject `
+    -Name "admin-email" `
+    -EmailAddress "your@email.com"
+
+$actionGroup = Set-AzActionGroup `
+    -ResourceGroupName $rg6 `
+    -Name "az104-budget-ag" `
+    -ShortName "budgetag" `
+    -EmailReceiver $emailReceiver
+
+Write-Host "Action Group criado: $($actionGroup.Name)" -ForegroundColor Green
+Write-Host "  Email: your@email.com"
+
+# Atualizar budget para usar Action Group
+Write-Host ""
+Write-Host "=== Para vincular Action Group ao Budget ===" -ForegroundColor Yellow
+Write-Host "Portal: Cost Management > Budgets > az104-lab-budget > Edit"
+Write-Host "  Alert conditions > Action group: az104-budget-ag"
+Write-Host ""
+Write-Host "Ou via REST API (az CLI dentro do PowerShell):"
+Write-Host '  az rest --method PUT --url "https://management.azure.com/subscriptions/{sub-id}/providers/Microsoft.Consumption/budgets/az104-lab-budget?api-version=2023-05-01"'
+```
+
+---
+
 ### Task 7.5: Revisar Azure Advisor
 
 ```powershell
@@ -2945,6 +3089,67 @@ Test-AzNetworkWatcherIPFlow -NetworkWatcher $nw `
     -LocalPort "22" `
     -RemoteIPAddress "10.0.0.1" `
     -RemotePort "12345"
+```
+
+---
+
+### Task 7.6b: Testar ordem de avaliacao NSG (subnet vs NIC)
+
+```powershell
+# ============================================================
+# TASK 7.6b - Testar ordem de avaliacao NSG (subnet vs NIC)
+# ============================================================
+# CONCEITO AZ-104: Ordem de avaliacao NSG
+#   Inbound:  subnet NSG primeiro → depois NIC NSG (ambos devem permitir)
+#   Outbound: NIC NSG primeiro → depois subnet NSG
+#   Se QUALQUER um bloquear, o trafego e negado.
+
+# 1. Criar NSG para associar a NIC
+$nsgNicTest = New-AzNetworkSecurityGroup -Name "nsg-nic-test" `
+    -ResourceGroupName $rg6 `
+    -Location $location
+
+# 2. Adicionar regra Deny HTTP na NIC
+$nsgNicTest | Add-AzNetworkSecurityRuleConfig `
+    -Name "DenyHTTP" `
+    -Priority 100 `
+    -Direction "Inbound" `
+    -Access "Deny" `
+    -Protocol "Tcp" `
+    -SourcePortRange "*" `
+    -DestinationPortRange "80" `
+    -SourceAddressPrefix "*" `
+    -DestinationAddressPrefix "*" | Set-AzNetworkSecurityGroup | Out-Null
+
+Write-Host "NSG nsg-nic-test criado com regra DenyHTTP" -ForegroundColor Yellow
+
+# 3. Associar NSG a NIC da LB-VM1
+$vm1 = Get-AzVM -ResourceGroupName $rg6 -Name "LB-VM1"
+$nicId = $vm1.NetworkProfile.NetworkInterfaces[0].Id
+$nicName = ($nicId -split "/")[-1]
+$nic = Get-AzNetworkInterface -Name $nicName -ResourceGroupName $rg6
+$nic.NetworkSecurityGroup = $nsgNicTest
+$nic | Set-AzNetworkInterface | Out-Null
+
+Write-Host "NSG associado a NIC $nicName" -ForegroundColor Yellow
+
+# 4. Testar com IP Flow Verify - HTTP agora bloqueado
+Write-Host "`n=== IP Flow Verify: HTTP porta 80 (agora DENY pela NIC) ===" -ForegroundColor Cyan
+Test-AzNetworkWatcherIPFlow -NetworkWatcher $nw `
+    -TargetVirtualMachineId $vm1.Id `
+    -Direction "Inbound" `
+    -Protocol "TCP" `
+    -LocalIPAddress $vm1Ip `
+    -LocalPort "80" `
+    -RemoteIPAddress "10.0.0.1" `
+    -RemotePort "12345"
+# Resultado: Access DENY — subnet NSG permite, mas NIC NSG bloqueia
+
+# 5. Cleanup: remover NSG da NIC
+$nic.NetworkSecurityGroup = $null
+$nic | Set-AzNetworkInterface | Out-Null
+Remove-AzNetworkSecurityGroup -Name "nsg-nic-test" -ResourceGroupName $rg6 -Force
+Write-Host "Cleanup: NSG nsg-nic-test removido" -ForegroundColor Green
 ```
 
 ---

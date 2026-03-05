@@ -484,6 +484,40 @@ if ($recoveryPoints.Count -gt 0) {
 
 ---
 
+### Task 1.6b: Cross Region Restore (CRR)
+
+```powershell
+# ============================================================
+# TASK 1.6b - Configurar Cross Region Restore
+# ============================================================
+# IMPORTANTE: Deve ser feito ANTES de proteger qualquer item no vault.
+# Nao e possivel alterar de LRS para GRS apos o primeiro backup.
+
+# Set-AzRecoveryServicesBackupProperty: configura propriedades do vault
+# -BackupStorageRedundancy: LocallyRedundant, GeoRedundant, ZoneRedundant
+# -EnableCrossRegionRestore: habilita restauracao na regiao pareada
+Set-AzRecoveryServicesBackupProperty `
+    -Vault $vault `
+    -BackupStorageRedundancy GeoRedundant `
+    -EnableCrossRegionRestore $true
+
+# Verificar configuracao
+$vaultProperties = Get-AzRecoveryServicesBackupProperty -Vault $vault
+Write-Host "Redundancia: $($vaultProperties.BackupStorageRedundancy)"
+Write-Host "Cross Region Restore: $($vaultProperties.CrossRegionRestore)"
+
+Write-Host "`nVault configurado com GRS + Cross Region Restore"
+Write-Host "Dados serao replicados para a regiao pareada"
+```
+
+> **Conceito AZ-104 — GRS e CRR:**
+> - **GRS** (Geo-Redundant Storage): replica dados para a regiao pareada do Azure
+> - **CRR** (Cross Region Restore): permite restaurar backups na regiao secundaria
+> - GRS custa mais que LRS (~2x), mas habilita DR cross-region
+> - Na prova: "restaurar VM em outra regiao" = GRS + CRR habilitados no vault
+
+---
+
 ## Modo Desafio - Bloco 1
 
 - [ ] Criar Recovery Services Vault no mesmo RG e regiao da VM
@@ -1133,6 +1167,49 @@ Write-Host "Mapping: $($containerMapping.FriendlyName) - State: $($containerMapp
 
 ---
 
+### Task 3.4b: Politica de replicacao customizada
+
+```powershell
+# ============================================================
+# TASK 3.2b - Criar politica de replicacao customizada
+# ============================================================
+# Politicas customizadas permitem ajustar RPO e retencao para
+# cenarios especificos. Aqui criamos uma policy com retencao curta (4h).
+
+# New-AzRecoveryServicesAsrPolicy: cria policy de replicacao
+# -RecoveryPointRetentionInHours: 4 = retencao de 4 horas
+# -ApplicationConsistentSnapshotFrequencyInHours: 2 = app-consistent a cada 2h
+# -RPOWarningThresholdInMinutes: 5 = alerta se RPO exceder 5 min
+$customPolicy = New-AzRecoveryServicesAsrPolicy `
+    -Name "contoso-4h-retention" `
+    -ReplicationProvider "A2A" `
+    -RecoveryPointRetentionInHours 4 `
+    -ApplicationConsistentSnapshotFrequencyInHours 2 `
+    -RPOWarningThresholdInMinutes 5
+
+# Aguardar criacao da policy
+$policyJob = Get-AzRecoveryServicesAsrJob -Name $customPolicy.Name
+while ($policyJob.State -eq "InProgress") {
+    Start-Sleep -Seconds 10
+    $policyJob = Get-AzRecoveryServicesAsrJob -Name $policyJob.Name
+}
+
+# Verificar policy criada
+$createdPolicy = Get-AzRecoveryServicesAsrPolicy -Name "contoso-4h-retention"
+Write-Host "Policy customizada criada: $($createdPolicy.FriendlyName)"
+Write-Host "Retencao: $($createdPolicy.ReplicationProviderSettings.RecoveryPointHistory) min"
+Write-Host "App-consistent: $($createdPolicy.ReplicationProviderSettings.AppConsistentFrequencyInMinutes) min"
+```
+
+> **Conceito AZ-104 — Replication Policy:**
+> - `RecoveryPointRetentionInHours: 4` = armazena pontos das ultimas 4 horas
+> - `ApplicationConsistentSnapshotFrequencyInHours: 2` = snapshot app-consistent a cada 2h
+> - Crash-consistent: a cada 5 min (padrao A2A, nao configuravel diretamente)
+> - Menor retencao = menos storage, mas menos opcoes de recovery point
+> - Na prova: "RPO de 5 min" = crash-consistent frequency de 5 min
+
+---
+
 ### Task 3.5: Habilitar replicacao da VM
 
 > **Cobranca:** A replicacao ASR gera cobranca continua por VM replicada. Nao pode ser pausada — so desabilitada.
@@ -1517,6 +1594,59 @@ Get-AzMetricAlertRuleV2 -ResourceGroupName $rg13 -Name $alertRuleName |
 
 ---
 
+### Task 4.3b: Alerta com Dynamic Threshold
+
+```powershell
+# ============================================================
+# TASK 4.3b - Criar alerta com Dynamic Threshold
+# ============================================================
+# Dynamic Threshold usa Machine Learning para aprender o padrao de uso
+# e alerta quando detecta desvios (anomalias).
+
+$vm = Get-AzVM -ResourceGroupName $vmRg -Name $vmName
+
+# New-AzMetricAlertRuleV2DimensionSelection: (nao necessario aqui)
+# New-AzMetricAlertRuleV2Criteria com -DynamicThreshold: define criterio dinamico
+# -MetricName: metrica a monitorar
+# -TimeAggregation: agregacao (Average, Maximum, etc.)
+# -Operator: GreaterThan, LessThan, GreaterOrLessThan
+# -Sensitivity: High, Medium, Low (sensibilidade do ML)
+# -FailingPeriod: numero de violacoes para disparar
+# -ExaminedPeriod: janela de avaliacao
+$dynamicCondition = New-AzMetricAlertRuleV2Criteria `
+    -MetricName "Percentage CPU" `
+    -TimeAggregation "Average" `
+    -DynamicThreshold `
+    -Operator "GreaterThan" `
+    -Sensitivity "Medium" `
+    -FailingPeriod 4 `
+    -ExaminedPeriod 4
+
+Add-AzMetricAlertRuleV2 `
+    -Name "az104-vm-cpu-dynamic" `
+    -ResourceGroupName $rg13 `
+    -WindowSize (New-TimeSpan -Minutes 20) `
+    -Frequency (New-TimeSpan -Minutes 5) `
+    -TargetResourceId $vm.Id `
+    -Condition $dynamicCondition `
+    -ActionGroupId @($actionGroupId) `
+    -Severity 2 `
+    -Description "Alert com Dynamic Threshold - detecta anomalias baseado em ML"
+
+Write-Host "Dynamic Threshold Alert criado"
+Write-Host "O ML precisa de ~3 dias de dados historicos para melhor resultado"
+```
+
+> **Conceito AZ-104 — Static vs Dynamic Threshold:**
+> - **Static:** valor fixo (ex: CPU > 80%) — voce define o limite
+> - **Dynamic:** Machine Learning detecta anomalias automaticamente
+> - Sensitivity: High (alerta em desvios pequenos), Medium, Low (apenas desvios grandes)
+> - FailingPeriod/ExaminedPeriod: quantas violacoes em quantas avaliacoes (ex: 4 de 4)
+> - Precisa de ~3 dias de dados historicos para melhor resultado
+> - Na prova: "detectar comportamento anomalo" = Dynamic; "CPU > 80%" = Static
+
+---
+
 ### Task 4.4: Configurar Diagnostic Settings na VM
 
 > **Cobranca:** O workspace gera cobranca por GB de dados ingeridos.
@@ -1602,6 +1732,70 @@ Get-AzMetricDefinition -ResourceId $vm.Id |
     Select-Object Name, Unit, PrimaryAggregationType |
     Format-Table -AutoSize
 ```
+
+---
+
+### Task 4.6b: Service Health Alerts
+
+```powershell
+# ============================================================
+# TASK 4.6b - Criar alerta de Service Health
+# ============================================================
+# Service Health monitora incidentes, manutencao e advisories do Azure.
+# Usa Activity Log Alerts, nao Metric Alerts.
+
+# Criar condicao para Service Health Incidents
+$conditionIncident = New-AzActivityLogAlertAlertRuleAnyOfOrLeafConditionObject `
+    -Equal "ServiceHealth" `
+    -Field "category"
+
+$conditionIncidentType = New-AzActivityLogAlertAlertRuleAnyOfOrLeafConditionObject `
+    -Equal "Incident" `
+    -Field "properties.incidentType"
+
+# Criar Action Group reference
+$actionGroupRef = New-AzActivityLogAlertActionGroupObject `
+    -Id $actionGroup.Id
+
+# Criar alerta para incidentes (outages)
+New-AzActivityLogAlert `
+    -Name "az104-service-health-incident" `
+    -ResourceGroupName $rg13 `
+    -Location "Global" `
+    -Scope "/subscriptions/$((Get-AzContext).Subscription.Id)" `
+    -Condition @($conditionIncident, $conditionIncidentType) `
+    -Action @($actionGroupRef) `
+    -Description "Alerta para incidentes de Service Health"
+
+Write-Host "Service Health Alert (Incidents) criado"
+
+# Criar condicao para Planned Maintenance
+$conditionMaintenance = New-AzActivityLogAlertAlertRuleAnyOfOrLeafConditionObject `
+    -Equal "Maintenance" `
+    -Field "properties.incidentType"
+
+# Criar alerta para manutencao planejada
+New-AzActivityLogAlert `
+    -Name "az104-service-health-maintenance" `
+    -ResourceGroupName $rg13 `
+    -Location "Global" `
+    -Scope "/subscriptions/$((Get-AzContext).Subscription.Id)" `
+    -Condition @($conditionIncident, $conditionMaintenance) `
+    -Action @($actionGroupRef) `
+    -Description "Alerta para manutencao planejada"
+
+Write-Host "Service Health Alert (Maintenance) criado"
+```
+
+> **Conceito AZ-104 — Service Health:**
+> Service Health tem 4 tipos de eventos:
+> 1. **Service issues** (outages) — servico indisponivel
+> 2. **Planned maintenance** — manutencao agendada
+> 3. **Health advisories** — mudancas que podem afetar voce
+> 4. **Security advisories** — alertas de seguranca
+>
+> Na prova: "ser notificado quando Azure tiver problemas" = Service Health Alert.
+> Service Health usa **Activity Log Alerts**, nao Metric Alerts.
 
 ---
 
@@ -2137,6 +2331,62 @@ if ($nic) {
     Write-Host "NIC da VM nao encontrada." -ForegroundColor Yellow
 }
 ```
+
+---
+
+### Task 5.9b: NSG Flow Logs com Traffic Analytics
+
+```powershell
+# ============================================================
+# TASK 5.9b - Configurar NSG Flow Logs com Traffic Analytics
+# ============================================================
+# Flow Logs registram todo trafego que passa pelo NSG (permitido e negado).
+# Traffic Analytics agrega os dados no Log Analytics para visualizacao.
+
+# Obter NSG, Storage Account e Workspace
+$nsg = Get-AzNetworkSecurityGroup -ResourceGroupName $vmRg -Name "az104-nsg"
+$storageAccount = Get-AzStorageAccount -ResourceGroupName $vmRg |
+    Select-Object -First 1
+
+# Configurar Traffic Analytics
+$trafficAnalyticsConfig = New-AzNetworkWatcherFlowLogTrafficAnalyticsConfigurationObject `
+    -Enabled $true `
+    -WorkspaceResourceId $workspace.ResourceId `
+    -TrafficAnalyticsInterval 10
+
+# New-AzNetworkWatcherFlowLog: cria NSG Flow Log
+# -NetworkWatcherName: nome do Network Watcher na regiao
+# -FlowLogName: nome do flow log
+# -TargetResourceId: ID do NSG monitorado
+# -StorageAccountId: storage para armazenar logs brutos
+# -Enabled: habilitar coleta
+# -FormatVersion: 2 = inclui estado do fluxo (Begin, Continuing, End)
+# -RetentionInDays: dias para manter logs no storage
+# -EnableTrafficAnalytics: habilitar Traffic Analytics
+New-AzNetworkWatcherFlowLog `
+    -NetworkWatcherName $networkWatcher.Name `
+    -ResourceGroupName $networkWatcher.ResourceGroupName `
+    -FlowLogName "nsg-flow-log" `
+    -TargetResourceId $nsg.Id `
+    -StorageAccountId $storageAccount.Id `
+    -Enabled $true `
+    -FormatVersion 2 `
+    -RetentionInDays 30 `
+    -TrafficAnalyticsConfiguration $trafficAnalyticsConfig
+
+Write-Host "NSG Flow Log criado com Traffic Analytics habilitado"
+Write-Host "NSG: $($nsg.Name)"
+Write-Host "Storage: $($storageAccount.StorageAccountName)"
+Write-Host "Workspace: $($workspace.Name)"
+Write-Host "Dados ficam no storage: insights-logs-networksecuritygroupflowevent"
+```
+
+> **Conceito AZ-104 — NSG Flow Logs:**
+> - Flow Logs v2 inclui estado do fluxo (Begin, Continuing, End) e throughput
+> - Traffic Analytics agrega flow logs no Log Analytics para visualizacao
+> - Dados ficam no storage account: `insights-logs-networksecuritygroupflowevent`
+> - Retencao: 0 = ilimitado (dependendo do storage); recomendado >= 30 dias
+> - Na prova: "analisar trafego de rede" = NSG Flow Logs + Traffic Analytics
 
 ---
 
