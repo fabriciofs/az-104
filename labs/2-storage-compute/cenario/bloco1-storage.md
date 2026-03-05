@@ -286,6 +286,49 @@ Voce restringe o acesso a Storage Account para aceitar trafego apenas da SharedS
 
 ---
 
+### Task 1.6b: Aplicar Service Endpoint Policy na subnet
+
+Sem uma policy, a subnet com Service Endpoint para `Microsoft.Storage` pode acessar **qualquer** Storage Account do Azure — inclusive de outros tenants. Voce cria uma policy para restringir o acesso apenas a Storage Account da Contoso.
+
+1. No portal, pesquise **Service endpoint policies** na barra de busca e clique no servico
+
+2. Clique em **+ Create**
+
+3. Aba **Basics**:
+
+   | Setting        | Value                          |
+   | -------------- | ------------------------------ |
+   | Subscription   | *sua subscription*             |
+   | Resource group | `az104-rg6`                    |
+   | Name           | `policy-storage-contoso`       |
+   | Location       | **East US** (mesma da VNet)    |
+
+4. Aba **Policy definitions**, clique em **+ Add a resource**:
+
+   | Setting          | Value                                              |
+   | ---------------- | -------------------------------------------------- |
+   | Service          | **Microsoft.Storage**                              |
+   | Scope            | **Select a single account**                        |
+   | Subscription     | *sua subscription*                                 |
+   | Resource group   | `az104-rg6`                                        |
+   | Resource         | *sua Storage Account* (`contosostore<uniqueid>`)   |
+
+5. Clique em **Add** e depois **Review + create** > **Create**
+
+6. Agora associe a policy a subnet. Navegue para **Virtual networks** > **CoreServicesVnet** > **Subnets** > **SharedServicesSubnet**
+
+7. Em **Service endpoint policy**, selecione **policy-storage-contoso**
+
+8. Clique em **Save**
+
+9. **Validacao:** A partir de agora, VMs nessa subnet so conseguem acessar via Service Endpoint a Storage Account especificada na policy. Tentativas de acessar outras Storage Accounts serao bloqueadas.
+
+   > **Conceito:** Service Endpoint Policies filtram o **destino** do trafego de Service Endpoints. Sem policy, a subnet pode acessar qualquer recurso PaaS do tipo habilitado. Com policy, apenas recursos especificos sao permitidos. Isso evita exfiltracao de dados para Storage Accounts nao autorizadas (inclusive de outros tenants). A policy so funciona com Service Endpoints habilitados e atualmente suporta **Microsoft.Storage** (GA) e Azure SQL Database (preview).
+
+   > **Dica AZ-104:** Na prova, se o cenario diz "permitir acesso via Service Endpoint apenas a uma Storage Account especifica (nao a todas)", a resposta e **Service Endpoint Policy**. Nao confunda com NSG (que filtra IP/porta) nem com firewall do storage (que filtra subnet/IP de origem). A policy filtra o **destino** do Service Endpoint.
+
+---
+
 ### Task 1.7: Criar Private Endpoint para o Storage Account
 
 > **Cobranca:** Private Endpoints geram cobranca enquanto existirem.
@@ -380,6 +423,8 @@ O Private Endpoint atribui um IP privado da VNet ao storage, eliminando exposica
 - [ ] Configurar Lifecycle Management: Cool (30d), Archive (90d)
 - [ ] Configurar Immutability policy (7 dias) no container `data`
 - [ ] **Integracao Semana 1:** Service Endpoint na SharedServicesSubnet da CoreServicesVnet
+- [ ] Criar Service Endpoint Policy restringindo acesso apenas a Storage Account da Contoso
+- [ ] Associar a policy na SharedServicesSubnet
 - [ ] **Integracao Semana 1:** Private Endpoint (blob) na SharedServicesSubnet
 - [ ] Testar acesso anonimo → reverter para Private
 - [ ] Testar Soft Delete: deletar e restaurar blob
@@ -406,6 +451,23 @@ Lifecycle Management permite criar regras baseadas em ultima modificacao ou ulti
 </details>
 
 ### Questao 1.2
+**Uma subnet tem Service Endpoint habilitado para Microsoft.Storage. A equipe de seguranca reporta que VMs nessa subnet estao acessando Storage Accounts de outros departamentos nao autorizados. O que voce deve configurar para restringir o acesso apenas a Storage Account autorizada, sem remover o Service Endpoint?**
+
+A) Network Security Group com regra de saida bloqueando IPs das outras Storage Accounts
+B) Service Endpoint Policy associada a subnet, permitindo apenas a Storage Account autorizada
+C) Firewall da Storage Account nao autorizada bloqueando a subnet
+D) Azure Policy com efeito Deny para Storage Accounts fora do resource group
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: B) Service Endpoint Policy associada a subnet, permitindo apenas a Storage Account autorizada**
+
+Service Endpoint Policies filtram o destino do trafego de Service Endpoints. A policy e aplicada na subnet e restringe quais recursos PaaS especificos podem ser acessados. NSG filtra IP/porta (nao recurso PaaS). Firewall do storage filtra origem (nao resolve o problema na subnet). Azure Policy governa criacao de recursos, nao trafego de rede.
+
+</details>
+
+### Questao 1.3
 **Qual a diferenca entre Service Endpoint e Private Endpoint para Storage?**
 
 A) Service Endpoint cria um IP privado; Private Endpoint usa rota otimizada
@@ -422,7 +484,7 @@ Service Endpoint: rota otimizada, trafego via backbone Microsoft, servico contin
 
 </details>
 
-### Questao 1.3
+### Questao 1.4
 **Um SAS token foi comprometido. Qual a maneira MAIS RAPIDA de revogar acesso se o SAS foi gerado com uma Stored Access Policy?**
 
 A) Regenerar todas as storage keys
@@ -439,7 +501,7 @@ Deletar ou modificar a Stored Access Policy revoga imediatamente todos os SAS to
 
 </details>
 
-### Questao 1.4
+### Questao 1.5
 **Voce habilitou Soft Delete para blobs com retencao de 14 dias. Um usuario deleta um blob. Apos 10 dias, ele tenta restaurar. O que acontece?**
 
 A) O blob nao pode ser restaurado apos a delecao

@@ -88,3 +88,28 @@ az vm extension set --name CustomScript --publisher Microsoft.Azure.Extensions .
 # Run Command ad-hoc
 az vm run-command invoke --command-id RunShellScript --scripts "apt update" ...
 ```
+
+---
+
+## Service Endpoint Policies
+
+- Service Endpoints habilitados numa subnet permitem acesso a **todos** os recursos do tipo PaaS (ex: todas as Storage Accounts do Azure)
+- **Service Endpoint Policies** restringem esse acesso para **recursos especificos** (ex: apenas `contosostorage01`)
+- A policy e aplicada na **subnet** (nao no recurso PaaS)
+- Servicos suportados: **Microsoft.Storage** (GA) e Azure SQL Database (preview)
+- Sem policy, dados podem ser exfiltrados para Storage Accounts de outros tenants via Service Endpoint
+
+### Diferenca entre mecanismos de restricao
+
+| Mecanismo | O que filtra | Direcao |
+|-----------|-------------|---------|
+| NSG | IP, porta, protocolo | Entrada/saida na subnet |
+| Firewall do Storage | Subnet/IP de **origem** | Quem acessa o storage |
+| Service Endpoint Policy | Recurso PaaS de **destino** | Para onde a subnet pode enviar trafego |
+| Private Endpoint | Elimina acesso publico (IP privado) | Acesso totalmente privado |
+
+### Pegadinhas de prova
+- "Subnet com Service Endpoint para Storage esta acessando Storage Accounts nao autorizadas" -> **Service Endpoint Policy**
+- "Restringir Service Endpoint para aceitar apenas uma Storage Account especifica" -> **Service Endpoint Policy**
+- NAO confunda com firewall do storage (filtra origem) — a policy filtra **destino**
+- Service Endpoint Policy so funciona com Service Endpoints habilitados (nao com Private Endpoints)
