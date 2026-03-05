@@ -1,6 +1,6 @@
 # IAM, Governance & Networking
 
-Labs e simulado cobrindo os 5 dominios fundamentais do AZ-104: Identity, Governance, IaC, Virtual Networking e Intersite Connectivity.
+Labs e simulado cobrindo principalmente os dominios de **Identity/Governance** e **Networking** do AZ-104, com IaC aplicado como habilidade transversal.
 
 ## Arquivos
 
@@ -71,8 +71,8 @@ az vm start -g az104-rg5 -n ManufacturingVM --no-wait
 
 | Bloco        | Dominio                                    | Peso no exame |
 | ------------ | ------------------------------------------ | ------------- |
-| Identity     | Manage Microsoft Entra ID users and groups | ~15-20%       |
-| Governance   | Manage subscriptions, RBAC, Azure Policy   | ~15-20%       |
-| IaC          | Deploy resources using ARM/Bicep           | ~5-10%        |
-| Networking   | Configure virtual networks, NSGs, DNS      | ~20-25%       |
-| Connectivity | Configure VNet peering, routing, VPN       | ~20-25%       |
+| Identity     | Manage identity and governance in Azure    | ~20-25%       |
+| Governance   | Manage identity and governance in Azure    | ~20-25%       |
+| IaC          | Topico do dominio 1 (sem peso isolado)     | n/a           |
+| Networking   | Configure and manage virtual networks      | ~15-20%       |
+| Connectivity | Configure and manage virtual networks      | ~15-20%       |

@@ -281,7 +281,7 @@ Possiveis causas para dados nao aparecerem no Log Analytics apos 1 hora de confi
 **5. Tempo de ingestao:**
 - Dados podem levar ate **10-15 minutos** para aparecer no Log Analytics. Se apos 1 hora nao aparecem, ha um problema real na configuracao.
 
-**[GOTCHA]** Diagnostic Settings para **VMs** requer agente. Para **outros recursos** (NSG, Storage Account, Key Vault, etc.), Diagnostic Settings funciona **sem agente** — os dados sao enviados diretamente pela plataforma Azure. No exame, distinga entre recursos que precisam de agente (VMs) e recursos que nao precisam (PaaS).
+**[GOTCHA]** Para coletar **guest metrics/logs** de VMs (ex: memoria, processos), voce precisa de agente (AMA + DCR). Ja metricas de **plataforma/host** e Diagnostic Settings de muitos recursos PaaS (NSG, Storage, Key Vault etc.) nao dependem desse agente na VM. No exame, diferencie host/plataforma de guest OS.
 
 **Referencia no lab:** Bloco 4 — Task 4.5
 
@@ -467,7 +467,7 @@ Move entre Resource Groups na mesma regiao nao requer parar a VM. O Azure atuali
 | 6 | **Test failover e NAO destrutivo** — producao nao e afetada | Q2.2 | Medo de testar DR por achar que afeta producao |
 | 7 | **Apos failover, precisa re-protect** — sem isso, sem replicacao | Q2.3 | Esquece que failover quebra a replicacao |
 | 8 | **Metric alert vs Log alert** — threshold simples vs query KQL | Q3.1 | Usa log alert para metrica simples |
-| 9 | **Diagnostic Settings para VMs requer agente** — PaaS nao | Q3.3 | Assume que Diagnostic Settings funciona igual para tudo |
+| 9 | **Guest metrics/logs de VMs requerem AMA+DCR**; host/PaaS seguem caminho de plataforma | Q3.3 | Assume que Diagnostic Settings funciona igual para tudo |
 | 10 | **VM Insights Map requer Dependency Agent** — AMA sozinho nao basta | Q4.3 | Instala so AMA e Map view nao funciona |
 
 ---

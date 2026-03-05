@@ -1,6 +1,6 @@
 # Storage & Compute
 
-Labs e simulado cobrindo os dominios 2 e 3 do AZ-104: Storage Accounts, Blob/File Storage, Virtual Machines, Web Apps e Containers.
+Labs e simulado cobrindo principalmente os dominios oficiais de **Storage** e **Compute** do AZ-104.
 
 ## Arquivos
 
@@ -100,13 +100,13 @@ az container start -g az104-rg9 -n az104-container-2
 
 ## Dominios AZ-104 cobertos
 
-| Bloco          | Dominio                                      | Peso no exame |
-| -------------- | -------------------------------------------- | ------------- |
-| Storage        | Implementar e gerenciar armazenamento        | ~15-20%       |
-| VMs            | Implantar e gerenciar recursos de computacao | ~20-25%       |
-| Web Apps       | Implantar e gerenciar recursos de computacao | ~20-25%       |
-| ACI            | Implantar e gerenciar recursos de computacao | ~20-25%       |
-| Container Apps | Implantar e gerenciar recursos de computacao | ~20-25%       |
+| Bloco          | Dominio oficial AZ-104                        | Peso no exame |
+| -------------- | --------------------------------------------- | ------------- |
+| Storage        | Implement and manage Azure storage            | ~15-20%       |
+| VMs            | Deploy and manage Azure compute resources     | ~20-25%       |
+| Web Apps       | Deploy and manage Azure compute resources     | ~20-25%       |
+| ACI            | Deploy and manage Azure compute resources     | ~20-25%       |
+| Container Apps | Deploy and manage Azure compute resources     | ~20-25%       |
 
 ## Resource Groups
 

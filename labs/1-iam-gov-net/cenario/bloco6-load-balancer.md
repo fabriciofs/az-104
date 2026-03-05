@@ -79,7 +79,7 @@ Voce cria a infraestrutura de backend: uma subnet dedicada, um Availability Set 
 
 4. **Review + create** > **Create**
 
-   > **Conceito:** Availability Sets distribuem VMs entre fault domains (racks fisicos diferentes) e update domains (reinicializacoes planejadas escalonadas). O Load Balancer Standard requer que as VMs estejam em um Availability Set, Availability Zone ou VMSS para o backend pool.
+   > **Conceito:** Availability Sets distribuem VMs entre fault domains (racks fisicos diferentes) e update domains (reinicializacoes planejadas escalonadas). No Standard Load Balancer, o requisito principal do backend pool e estar na mesma VNet; usar Availability Set/Zone melhora resiliencia, mas nao e requisito obrigatorio para participar do pool.
 
 **Criar LB-VM1:**
 
@@ -205,7 +205,7 @@ Voce cria a infraestrutura de backend: uma subnet dedicada, um Availability Set 
 
    > **Conceito:** O Load Balancer Standard e zone-aware, suporta apenas backend pools na mesma VNet, e requer NSG explicito para permitir trafego (diferente do Basic que permite por padrao). Health probes verificam periodicamente a saude dos backends — se uma VM falhar no probe, ela e removida da rotacao.
 
-   > **Dica AZ-104:** Standard LB requer Standard SKU Public IP. Standard LB bloqueia trafego por padrao — voce precisa de NSG para permitir. Basic LB esta sendo descontinuado.
+   > **Dica AZ-104:** Standard LB requer Standard SKU Public IP. Standard LB bloqueia trafego por padrao — voce precisa de NSG para permitir. Basic LB entrou em retirement em 30/09/2025.
 
 ---
 

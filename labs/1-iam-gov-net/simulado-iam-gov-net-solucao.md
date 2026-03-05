@@ -623,31 +623,31 @@ Quando SSPR exige 2 metodos para reset, o usuario precisa ter registrado pelo me
 
 | Questao | Dominio AZ-104 | Peso Estimado no Exame |
 |---------|----------------|----------------------|
-| Q1.1 | Manage Microsoft Entra users and groups | ~15-20% |
-| Q1.2 | Manage Microsoft Entra users and groups | ~15-20% |
-| Q1.3 | Manage Microsoft Entra users and groups | ~15-20% |
-| Q2.1 | Manage access control (RBAC) | ~15-20% |
-| Q2.2 | Manage Azure Policy | ~15-20% |
-| Q2.3 | Manage subscriptions and governance | ~15-20% |
-| Q2.4 | Manage Azure Policy | ~15-20% |
-| Q3.1 | Deploy resources by using ARM templates and Bicep | ~5-10% |
-| Q3.2 | Deploy resources by using ARM templates and Bicep | ~5-10% |
-| Q3.3 | Manage Azure Policy + IaC | ~5-10% |
-| Q4.1 | Configure virtual networks | ~20-25% |
-| Q4.2 | Configure NSGs | ~20-25% |
-| Q4.3 | Configure Azure DNS | ~20-25% |
-| Q4.4 | Configure NSGs | ~20-25% |
-| Q4.5 | Configure Azure DNS | ~20-25% |
-| Q5.1 | Configure VNet connectivity (peering) | ~20-25% |
-| Q5.2 | Configure routing | ~20-25% |
-| Q5.3 | Configure VNet connectivity (peering) | ~20-25% |
-| Q6.1 | Configure load balancing | ~15-20% |
-| Q6.2 | Configure Azure Bastion | ~15-20% |
-| Q6.3 | Configure load balancing (troubleshooting) | ~15-20% |
-| Q7.1 | Manage Microsoft Entra ID (SSPR) | ~15-20% |
-| Q7.2 | Manage subscriptions and governance (Cost) | ~15-20% |
+| Q1.1 | Manage identity and governance in Azure (Entra users/groups) | ~20-25% |
+| Q1.2 | Manage identity and governance in Azure (Entra users/groups) | ~20-25% |
+| Q1.3 | Manage identity and governance in Azure (Entra users/groups) | ~20-25% |
+| Q2.1 | Manage identity and governance in Azure (RBAC) | ~20-25% |
+| Q2.2 | Manage identity and governance in Azure (Azure Policy) | ~20-25% |
+| Q2.3 | Manage identity and governance in Azure (subscriptions/governance) | ~20-25% |
+| Q2.4 | Manage identity and governance in Azure (Azure Policy) | ~20-25% |
+| Q3.1 | Manage identity and governance in Azure (IaC) | ~20-25% |
+| Q3.2 | Manage identity and governance in Azure (IaC) | ~20-25% |
+| Q3.3 | Manage identity and governance in Azure (Policy + IaC) | ~20-25% |
+| Q4.1 | Configure and manage virtual networks (VNets) | ~15-20% |
+| Q4.2 | Configure and manage virtual networks (NSGs) | ~15-20% |
+| Q4.3 | Configure and manage virtual networks (Azure DNS) | ~15-20% |
+| Q4.4 | Configure and manage virtual networks (NSGs) | ~15-20% |
+| Q4.5 | Configure and manage virtual networks (Azure DNS) | ~15-20% |
+| Q5.1 | Configure and manage virtual networks (peering) | ~15-20% |
+| Q5.2 | Configure and manage virtual networks (routing) | ~15-20% |
+| Q5.3 | Configure and manage virtual networks (peering) | ~15-20% |
+| Q6.1 | Configure and manage virtual networks (load balancing) | ~15-20% |
+| Q6.2 | Configure and manage virtual networks (Azure Bastion) | ~15-20% |
+| Q6.3 | Configure and manage virtual networks (LB troubleshooting) | ~15-20% |
+| Q7.1 | Manage identity and governance in Azure (SSPR) | ~20-25% |
+| Q7.2 | Manage identity and governance in Azure (Cost governance) | ~20-25% |
 
-> **Nota:** Os dominios de rede (VNets, NSG, DNS, Peering, Routing, Load Balancer) representam o maior peso no exame AZ-104 (~20-25%), seguidos por Identidade e Governanca (~15-20%). IaC tem peso menor (~5-10%) mas aparece frequentemente combinado com outros dominios.
+> **Nota:** Na matriz oficial atual da AZ-104, `Manage identity and governance in Azure` e `Deploy and manage Azure compute resources` tem maior peso (~20-25% cada). `Configure and manage virtual networks` e `Implement and manage Azure storage` ficam em ~15-20%, e `Monitor and maintain Azure resources` em ~10-15%. IaC e parte do dominio 1 (nao possui peso separado).
 
 ---
 

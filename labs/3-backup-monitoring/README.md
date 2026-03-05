@@ -1,6 +1,6 @@
 # Backup, Recovery & Monitoring
 
-Labs e simulado cobrindo os dominios 2 e 5 do AZ-104: Backup de VMs e File Shares, Azure Site Recovery, Azure Monitor, Log Analytics e Network Watcher.
+Labs e simulado cobrindo principalmente o dominio de **monitoramento/backup/recovery** da AZ-104, com cenarios conectados a storage e compute.
 
 ## Arquivos
 
@@ -98,13 +98,13 @@ az monitor metrics alert update -g az104-rg-monitor -n az104-vm-win-cpu-alert --
 
 ## Dominios AZ-104 cobertos
 
-| Bloco                | Dominio                               | Peso no exame |
-| -------------------- | ------------------------------------- | ------------- |
-| VM Backup            | Implementar e gerenciar armazenamento | ~15-20%       |
-| File/Blob Protection | Implementar e gerenciar armazenamento | ~15-20%       |
-| Site Recovery        | Implementar e gerenciar armazenamento | ~15-20%       |
-| Monitor & Alerts     | Monitorar e manter recursos do Azure  | ~10-15%       |
-| Log Analytics        | Monitorar e manter recursos do Azure  | ~10-15%       |
+| Bloco                | Dominio oficial AZ-104                              | Peso no exame |
+| -------------------- | --------------------------------------------------- | ------------- |
+| VM Backup            | Monitor and maintain Azure resources (backup)       | ~10-15%       |
+| File/Blob Protection | Monitor and maintain Azure resources (backup)       | ~10-15%       |
+| Site Recovery        | Monitor and maintain Azure resources (recovery)     | ~10-15%       |
+| Monitor & Alerts     | Monitor and maintain Azure resources (monitoring)   | ~10-15%       |
+| Log Analytics        | Monitor and maintain Azure resources (monitoring)   | ~10-15%       |
 
 ## Resource Groups
 

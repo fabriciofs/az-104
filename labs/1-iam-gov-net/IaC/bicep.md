@@ -2287,7 +2287,8 @@ Salve como **`bloco6-lb-infra.bicep`**:
 // CONCEITO AZ-104: Availability Sets distribuem VMs entre:
 //   - Fault Domains (FD): racks fisicos diferentes (max 3)
 //   - Update Domains (UD): reinicializacoes planejadas escalonadas (max 20)
-// O Load Balancer Standard requer VMs em Availability Set, Zone ou VMSS
+// No Standard LB, backend pool aceita VMs/VMSS na mesma VNet.
+// Availability Set/Zone melhora resiliencia, mas nao e requisito do pool.
 // ============================================================
 
 param location string = resourceGroup().location
@@ -2521,7 +2522,7 @@ Salve como **`bloco6-public-lb.bicep`**:
 // ============================================================
 // CONCEITO AZ-104: Standard LB vs Basic LB
 //   - Standard: zone-aware, backend por VNet, BLOQUEIA trafego por padrao (NSG obrigatorio)
-//   - Basic: sendo descontinuado, permite trafego por padrao
+//   - Basic: retirement em 30/09/2025; legado
 // Standard LB requer Standard SKU Public IP
 // ============================================================
 
