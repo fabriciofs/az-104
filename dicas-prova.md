@@ -67,6 +67,15 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 - **Allow Gateway Transit** permite compartilhar VPN Gateway entre VNets peered
 - Cada peering e configurado independentemente nos dois lados
 
+### VPN Gateway
+
+- **S2S** = conexao permanente on-premises ↔ Azure (IPsec/IKE)
+- **P2S** = clientes individuais → Azure (certificado ou RADIUS)
+- **GatewaySubnet** e obrigatoria (nome exato), recomendado /27+
+- Active-Passive (padrao) vs Active-Active (HA com 2 tuneis)
+- **Allow Gateway Transit** (hub) + **Use Remote Gateways** (spoke) = compartilhar gateway
+- **P2S + novo peering/subnet** → **reinstalar cliente VPN P2S** para obter novas rotas (rotas nao atualizam automaticamente)
+
 ### NSG (Network Security Groups)
 
 **Ordem de avaliacao:**

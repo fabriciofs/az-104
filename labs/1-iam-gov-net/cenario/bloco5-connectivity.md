@@ -392,6 +392,210 @@ Teste final que valida todo o RBAC configurado desde o Bloco 1.
 
 ---
 
+### Task 5.11: Criar GatewaySubnet e VPN Gateway
+
+> **Cobranca:** VPN Gateway gera custo significativo (~$0.04/h para VpnGw1). Faca cleanup assim que terminar. O provisionamento leva **30-45 minutos**.
+
+**Criar GatewaySubnet:**
+
+1. Navegue para **CoreServicesVnet** (em az104-rg4) > **Subnets** > **+ Subnet**:
+
+   | Setting          | Value            |
+   | ---------------- | ---------------- |
+   | Name             | `GatewaySubnet`  |
+   | Starting address | `10.20.2.0`      |
+   | Size             | `/27`            |
+
+2. Clique em **Add**
+
+   > **Conceito:** O nome **GatewaySubnet** e obrigatorio (exato). O Azure so permite criar VPN/ExpressRoute Gateways nesta subnet. Recomendacao minima: **/27** (32 IPs). Nunca associe NSG a GatewaySubnet.
+
+**Criar Public IP para o Gateway:**
+
+3. Pesquise **Public IP addresses** > **+ Create**:
+
+   | Setting        | Value              |
+   | -------------- | ------------------ |
+   | Name           | `pip-vpngw-core`   |
+   | SKU            | **Standard**       |
+   | Assignment     | **Static**         |
+   | Resource group | `az104-rg5`        |
+   | Region         | **East US**        |
+
+4. **Review + create** > **Create**
+
+**Criar VPN Gateway:**
+
+5. Pesquise **Virtual network gateways** > **+ Create**:
+
+   | Setting          | Value                            |
+   | ---------------- | -------------------------------- |
+   | Name             | `vpngw-CoreServices`             |
+   | Region           | **East US**                      |
+   | Gateway type     | **VPN**                          |
+   | SKU              | **VpnGw1**                       |
+   | Generation       | **Generation1**                  |
+   | Virtual network  | **CoreServicesVnet (az104-rg4)** |
+   | Public IP        | `pip-vpngw-core`                 |
+   | Enable active-active | **Disabled**                 |
+
+6. **Review + create** > **Create**
+
+7. **Aguarde o provisionamento** (~30-45 min). Continue lendo sobre os conceitos enquanto espera.
+
+   > **Conceito:** O SKU **VpnGw1** suporta ate 30 tuneis S2S e 250 conexoes P2S. Active-Passive e o padrao — se a instancia ativa falha, a passiva assume. Active-Active requer 2 Public IPs e oferece maior disponibilidade.
+
+---
+
+### Task 5.12: Configurar Point-to-Site (P2S) VPN
+
+> Esta task configura P2S usando autenticacao por certificado Azure, o metodo mais cobrado no AZ-104.
+
+**Gerar certificado raiz autoassinado (no seu computador local):**
+
+1. Abra **PowerShell como Administrador** no seu computador e execute:
+
+   ```powershell
+   # Criar certificado raiz
+   $rootCert = New-SelfSignedCertificate -Type Custom `
+     -KeySpec Signature `
+     -Subject "CN=P2SRootCert" `
+     -KeyExportPolicy Exportable `
+     -HashAlgorithm sha256 `
+     -KeyLength 2048 `
+     -CertStoreLocation "Cert:\CurrentUser\My" `
+     -KeyUsageProperty Sign `
+     -KeyUsage CertSign
+
+   # Criar certificado cliente
+   New-SelfSignedCertificate -Type Custom `
+     -DependsOn $rootCert `
+     -Subject "CN=P2SChildCert" `
+     -KeySpec Signature `
+     -KeyExportPolicy Exportable `
+     -HashAlgorithm sha256 `
+     -KeyLength 2048 `
+     -CertStoreLocation "Cert:\CurrentUser\My" `
+     -Signer $rootCert
+   ```
+
+2. Exporte o **certificado raiz** em Base64:
+
+   ```powershell
+   $rootCertData = [Convert]::ToBase64String($rootCert.RawData)
+   $rootCertData | Set-Clipboard
+   ```
+
+   > O valor copiado sera colado no portal na proxima etapa.
+
+**Configurar P2S no VPN Gateway:**
+
+3. Navegue para **vpngw-CoreServices** > **Settings** > **Point-to-site configuration**
+
+4. Clique em **Configure now**:
+
+   | Setting            | Value                                   |
+   | ------------------ | --------------------------------------- |
+   | Address pool       | `172.16.0.0/24`                         |
+   | Tunnel type        | **IKEv2 and SSTP (SSL)**                |
+   | Authentication type| **Azure certificate**                   |
+   | Root certificate name | `P2SRootCert`                        |
+   | Public certificate data | *cole o Base64 copiado no passo 2* |
+
+5. Clique em **Save** (aguarde alguns minutos)
+
+6. Clique em **Download VPN client** e salve o arquivo .zip
+
+7. Extraia o .zip e execute o instalador adequado (WindowsAmd64/VpnClientSetupAmd64.exe)
+
+   > **Conceito:** P2S usa o address pool (172.16.0.0/24) para atribuir IPs aos clientes. Cada cliente recebe um IP deste range ao conectar. **SSTP** funciona atraves de firewalls (porta 443), **IKEv2** e mais rapido mas pode ser bloqueado.
+
+---
+
+### Task 5.13: Testar conexao P2S e verificar rotas
+
+1. No seu computador, va para **Settings** > **Network & Internet** > **VPN**
+
+2. Conecte a VPN **CoreServicesVnet** (aparece automaticamente apos instalar o cliente)
+
+3. Apos conectar, abra **PowerShell** e verifique as rotas:
+
+   ```powershell
+   Get-NetRoute | Where-Object { $_.DestinationPrefix -like "10.20.*" }
+   ```
+
+4. **Resultado esperado:** Voce vera rotas para `10.20.0.0/16` (CoreServicesVnet)
+
+5. **Note:** Voce **NAO** vera rotas para `10.30.0.0/16` (ManufacturingVnet), mesmo com peering ativo
+
+   > **Conceito:** O cliente VPN P2S recebe as rotas no momento do download/instalacao. O peering entre CoreServicesVnet e ManufacturingVnet ja existe (Task 5.5), mas as rotas da ManufacturingVnet nao estao no cliente.
+
+---
+
+### Task 5.14: Habilitar Gateway Transit e reinstalar cliente P2S
+
+Esta task demonstra a pegadinha classica do AZ-104: **cliente P2S precisa ser reinstalado apos mudancas na topologia**.
+
+**Habilitar Gateway Transit no peering:**
+
+1. Navegue para **CoreServicesVnet** > **Peerings** > selecione `CoreServicesVnet-to-ManufacturingVnet`
+
+2. Marque **Allow gateway transit** > **Save**
+
+3. Navegue para **ManufacturingVnet** > **Peerings** > selecione `ManufacturingVnet-to-CoreServicesVnet`
+
+4. Marque **Use remote gateway** > **Save**
+
+   > **Conceito:** "Allow Gateway Transit" no hub permite que spokes usem seu VPN Gateway. "Use Remote Gateways" no spoke diz para usar o gateway do peer em vez de precisar de um proprio.
+
+**Verificar que o cliente P2S NAO tem as novas rotas:**
+
+5. No seu computador (ainda conectado via VPN), verifique:
+
+   ```powershell
+   Get-NetRoute | Where-Object { $_.DestinationPrefix -like "10.30.*" }
+   ```
+
+6. **Resultado esperado:** Nenhuma rota para 10.30.0.0/16 — o cliente **nao sabe** que Gateway Transit foi habilitado
+
+**Reinstalar cliente P2S:**
+
+7. Desconecte a VPN
+
+8. No portal, va para **vpngw-CoreServices** > **Point-to-site configuration** > **Download VPN client** novamente
+
+9. Extraia e **reinstale** o cliente VPN
+
+10. Conecte novamente e verifique:
+
+    ```powershell
+    Get-NetRoute | Where-Object { $_.DestinationPrefix -like "10.30.*" }
+    ```
+
+11. **Resultado esperado:** Agora voce vera rotas para `10.30.0.0/16` — ManufacturingVnet acessivel via P2S!
+
+    > **PEGADINHA AZ-104:** Sempre que a topologia de rede muda (novo peering, gateway transit, novas subnets), o cliente VPN P2S precisa ser **baixado e reinstalado** para obter as rotas atualizadas. As rotas NAO se atualizam automaticamente no cliente.
+
+---
+
+### Task 5.15: Cleanup dos recursos VPN
+
+> **Importante:** VPN Gateway gera custo continuo. Faca cleanup ao terminar.
+
+1. Navegue para **Virtual network gateways** > **vpngw-CoreServices** > **Delete** (demora ~15 min)
+
+2. Aguarde a exclusao completar
+
+3. Delete o Public IP **pip-vpngw-core**
+
+4. (Opcional) Remova a **GatewaySubnet** da CoreServicesVnet
+
+5. Reverta o peering: remova "Allow Gateway Transit" e "Use Remote Gateways" das configuracoes de peering
+
+   > **Nota:** Delete o VPN Gateway **antes** de deletar o Public IP e a GatewaySubnet, pois existem dependencias.
+
+---
+
 ## Modo Desafio - Bloco 5
 
 - [ ] Adicionar subnet `Core` (10.20.0.0/24) na CoreServicesVnet **(Bloco 4)**
@@ -406,6 +610,13 @@ Teste final que valida todo o RBAC configurado desde o Bloco 1.
 - [ ] Criar subnet `perimeter` + Route Table + custom route (NVA 10.20.1.7)
 - [ ] **Integracao:** Verificar NSG isolado por subnet
 - [ ] **Integracao final:** Login como az104-user1 → gerenciar VM ✓, criar Storage ✗
+- [ ] Criar `GatewaySubnet` (/27) na CoreServicesVnet + Public IP + VPN Gateway (VpnGw1)
+- [ ] Gerar certificados (raiz + cliente) e configurar P2S com Azure certificate
+- [ ] Conectar via P2S e verificar rotas (so CoreServicesVnet)
+- [ ] Habilitar Gateway Transit + Use Remote Gateways no peering
+- [ ] Verificar que cliente P2S **NAO** tem rotas da ManufacturingVnet
+- [ ] Reinstalar cliente P2S → agora tem rotas para ManufacturingVnet ✓
+- [ ] **Cleanup:** Deletar VPN Gateway + Public IP
 
 ---
 
@@ -493,6 +704,40 @@ D) A resolucao funciona apenas se a VM usar um DNS forwarder na VNet A
 **Resposta: B) A resolucao falha porque a VNet B nao tem Virtual Network Link para a zona privada**
 
 Private DNS Zones resolvem nomes **apenas** para VNets que possuem um Virtual Network Link configurado. O VNet Peering nao propaga resolucao DNS automaticamente. Para que VMs na VNet B resolvam nomes da zona privada, voce precisa criar um Virtual Network Link adicional para a VNet B, ou configurar um DNS forwarder customizado.
+
+</details>
+
+### Questao 5.6
+**Voce tem VNet1 com VPN Gateway e um cliente P2S conectado no Device1. Voce configura peering entre VNet1 e VNet2 com Gateway Transit habilitado. O Device1 consegue acessar VNet2 imediatamente?**
+
+A) Sim, Gateway Transit propaga rotas automaticamente para clientes P2S conectados
+B) Nao, e preciso baixar e reinstalar o cliente VPN P2S no Device1
+C) Sim, basta desconectar e reconectar a VPN no Device1
+D) Nao, e preciso gerar um novo certificado de cliente
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: B) Nao, e preciso baixar e reinstalar o cliente VPN P2S no Device1**
+
+O cliente VPN P2S recebe a tabela de rotas no momento do download/instalacao. Mudancas na topologia (novo peering, gateway transit, novas subnets) **nao** sao propagadas automaticamente para clientes ja instalados. E necessario baixar novamente o pacote do cliente VPN no portal e reinstalar para que as novas rotas sejam incluidas. Simplesmente reconectar nao resolve — o cliente precisa ser reinstalado.
+
+</details>
+
+### Questao 5.7
+**Voce precisa criar um VPN Gateway na CoreServicesVnet. Qual subnet e obrigatoria e qual o tamanho minimo recomendado?**
+
+A) VPNSubnet, /28
+B) GatewaySubnet, /29
+C) GatewaySubnet, /27
+D) VirtualGatewaySubnet, /27
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: C) GatewaySubnet, /27**
+
+O nome **GatewaySubnet** e obrigatorio — o Azure nao aceita outro nome para hospedar VPN/ExpressRoute Gateways. O tamanho minimo funcional e /29, mas a Microsoft recomenda **/27** para acomodar futuras configuracoes (coexistencia VPN + ExpressRoute). Nunca associe NSGs a GatewaySubnet.
 
 </details>
 
