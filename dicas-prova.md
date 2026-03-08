@@ -18,10 +18,50 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 - SSPR com 2 metodos requeridos e mais seguro
 - Security Questions **NAO** podem ser o unico metodo
 - SSPR requer Azure AD Free (cloud users) ou P1/P2 (writeback on-premises)
+- **Quem pode usar SSPR:** membros (cloud + sync com writeback) = **sim**; convidados (guests) = **nao**
+- Com password writeback, usuarios **sincronizados** do AD local tambem podem usar SSPR
+
+### Roles Administrativas (privilegio minimo)
+
+| Necessidade | Role correta | NAO usar |
+|-------------|-------------|----------|
+| Convidar usuarios externos | **Guest Inviter** | Global Admin, Security Admin |
+| Exibir recursos (somente leitura) | **Reader** | Contributor |
+| Gerenciar tags sem acesso a recursos | **Tag Contributor** | Contributor |
+| Gerenciar grupos | **Groups Administrator** | Global Admin |
+| Gerenciar VMs | **Virtual Machine Contributor** | Contributor |
+
+- **Guest Inviter** = role especifica para convidar externos (B2B), privilegio minimo
+- **Tag Contributor** = pode gerenciar tags sem acesso aos recursos em si
+- Usuarios convidados: UPN tem formato `user_dominio.com#EXT#@tenant.onmicrosoft.com`
+
+### Licenciamento baseado em grupo
+
+- Licencas sao consumidas por **membros** do grupo, NAO por proprietarios
+- Convidados (guest) tambem consomem licenca se forem membros
+- Proprietario que nao e membro **NAO** consome licenca
+
+### RBAC - Custom Roles e PowerShell
+
+- Custom Role JSON: **Actions** = permitido, **NotActions** = excluido, **AssignableScopes** = onde pode ser atribuida
+- `Microsoft.Compute/*/read` = le TODOS os recursos de compute (VMs, disks, snapshots, etc.)
+- `Get-AzRoleDefinition -Name` busca por **nome**; para buscar por ID use `-Id`
+- **$RoleName deve conter o NOME** (ex: "CustomRole1"), nao o ID GUID
+- `New-AzRoleAssignment` atribui role a um usuario
+
+### Azure Policy
+
+- Informacoes de remediacao ficam na secao **metadata** (campo `RemediationDescription`)
+- **mode** define quais recursos sao avaliados (ex: All, Indexed)
+- **parameters** sao valores configuraveis na atribuicao
+- **policyRule** contem a logica (if/then)
 
 ### Pegadinhas
 - "Membros adicionados automaticamente por departamento" -> **Dynamic user group**
 - "Usuario nao consegue resetar senha via SSPR" -> verificar se **registrou os metodos de autenticacao**
+- "Convidar externos com privilegio minimo" -> **Guest Inviter** (NAO Security Admin)
+- "Marcar VMs por departamento" -> **Tags** (etiquetas)
+- "Criar custom role para permissao de marcacao via portal" -> precisa de role com `Microsoft.Compute/virtualMachines/write`
 
 ---
 
@@ -111,12 +151,31 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 - Dados no container `insights-logs-networksecuritygroupflowevent`
 - "Analisar trafego de rede" → NSG Flow Logs + Traffic Analytics
 
+### DNS
+
+- **Azure DNS Privado** = resolucao de nomes entre VNets (custom FQDN como contoso.com)
+- **Azure DNS Publico** = hospedagem de dominios publicos (acessiveis da internet)
+- **Resolucao fornecida pelo Azure** = apenas dentro da **mesma VNet**, sem nomes customizados
+- "VNets peered + FQDN customizado + minimo esforco" → **Azure DNS Privado** (NAO publico)
+
 ### Network Watcher
 
 - **Effective Security Rules:** ver regras combinadas (subnet + NIC)
-- **IP Flow Verify:** testar se pacote especifico seria permitido/bloqueado
-- **Connection Troubleshoot:** testar conectividade fim-a-fim
+- **IP Flow Verify:** testar se pacote especifico seria permitido/bloqueado — "NSG bloqueando comunicacao, qual NSG?" → **IP Flow Verify**
+- **Connection Troubleshoot:** testar conectividade fim-a-fim (funciona/nao funciona, NAO mostra rotas)
 - **Next Hop:** verificar roteamento (route tables, peering)
+- **Effective Routes:** ver **todas as rotas** aplicadas na NIC (inclui next hop type) — "verificar se peering esta como proximo salto" → **Effective Routes**
+- **Packet Capture:** inspecionar trafego entre VMs (requer **NetworkWatcherExtension** na VM)
+
+**Quando usar cada ferramenta:**
+
+| Preciso saber... | Ferramenta |
+|-----------------|------------|
+| Se pacote e permitido/bloqueado pelo NSG | **IP Flow Verify** |
+| Se VM1 alcanca VM2 | **Connection Troubleshoot** |
+| Qual rota o trafego segue (next hop) | **Effective Routes** ou **Next Hop** |
+| Capturar pacotes para analise | **Packet Capture** |
+| Regras efetivas combinadas | **Effective Security Rules** |
 
 ---
 
@@ -138,6 +197,7 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 
 - "Usuarios perdem sessao" → mudar para **Client IP**
 - "Aplicacao stateless, distribuicao uniforme" → **None**
+- "Distribuicao desigual entre VMs" → **desabilitar persistencia de sessao** (Session persistence = None)
 - None usa 5-tupla, **nao** round-robin puro
 
 ### Public vs Internal
@@ -189,6 +249,32 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 - **B** = burstable, **D** = general purpose, **E** = memory optimized
 - **F** = compute optimized, **N** = GPU
 
+### Disponibilidade de VMs
+
+| Protecao contra | Solucao | SLA |
+|-----------------|---------|-----|
+| Falha de **hardware** (rack/switch) | **Availability Set** (fault/update domains) | 99.95% |
+| Falha de **datacenter** inteiro | **Availability Zone** (zonas 1, 2, 3) | 99.99% |
+| Escala automatica | **VM Scale Set** (auto-scale, nao e HA por si so) | depende da config |
+
+- "Datacenter falhar" → **Availability Zone** (NAO Scale Set, NAO Availability Set)
+- Availability Set protege contra falha de **rack**, nao de datacenter
+- Scale Set = escalabilidade, nao e sinonimo de alta disponibilidade
+
+### Spot VMs
+
+- Custo reduzido, mas Azure pode **remover a qualquer momento**
+- 2 fatores de remocao: (1) **capacidade do Azure** (precisa para outros workloads), (2) **preco excede maximo definido**
+- NAO depende de: CPU da instancia, hora do dia, uso de memoria
+- Boas para: dev/test, batch processing, workloads sem SLA
+- Politica de remocao: **Stop/Deallocate** (padrao) ou **Delete**
+
+### Reimplantar vs Mover
+
+- **Reimplantar (Redeploy)** = move VM para outro host fisico (resolve problemas de hardware/manutencao)
+- Azure desliga a VM, move para novo host, e reinicia
+- IPs dinamicos podem mudar; IPs estaticos sao mantidos
+
 ### Cloud-init / Custom Data vs Custom Script Extension
 
 | Aspecto | Cloud-init (Custom Data) | Custom Script Extension | Run Command |
@@ -220,11 +306,53 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 - Lifecycle = **automacao de custo** (mover entre tiers)
 - Immutability = **compliance e retencao legal** (impedir alteracao/delecao)
 
+### Tipos de Conta e Data Lake Gen2
+
+| Tipo de conta | Suporta Data Lake Gen2? | Observacao |
+|---------------|:-----------------------:|------------|
+| **Standard GPv2** | Sim | Mais comum, suporta todos os servicos |
+| **Premium Block Blobs** | Sim | Alta performance para blobs |
+| Premium File Shares | Nao | Apenas Azure Files |
+| Premium Page Blobs | **Nao** | Apenas page blobs (VHDs) |
+
+- Data Lake Gen2 = **namespace hierarquico** habilitado na conta
+- **ACLs POSIX** requerem **namespace hierarquico** (nao SFTP, nao camada de acesso)
+- SFTP e um protocolo de acesso, nao habilita ACLs POSIX
+- Namespace hierarquico e habilitado **na criacao** (nao pode ser adicionado depois em contas existentes - com excecoes recentes)
+
+### Object Replication - Pre-requisitos
+
+Para configurar Object Replication entre storage1 (origem) → storage2 (destino):
+
+1. **Versionamento habilitado em AMBAS** as contas (origem E destino)
+2. **Change feed habilitado na ORIGEM** (storage1)
+3. Contas devem ser **GPv2 ou Premium Block Blobs**
+
+- "Versionamento desabilitado" → **habilitar versionamento** (nao change feed, nao namespace)
+- Change feed so e necessario na **origem**, nao no destino
+- Restauracao pontual NAO e pre-requisito
+
+### Redundancia - Leitura na regiao secundaria
+
+| Tipo | Multi-regiao | Leitura secundaria |
+|------|:------------:|:------------------:|
+| LRS | Nao | Nao |
+| ZRS | Nao (multi-zona) | Nao |
+| GRS | Sim | **Nao** (so failover) |
+| **RA-GRS** | Sim | **Sim** (leitura continua) |
+| GZRS | Sim | **Nao** |
+| **RA-GZRS** | Sim | **Sim** |
+
+- "Ler dados da regiao secundaria" → precisa do prefixo **RA-** (Read Access)
+
 ### Replicacao e Transferencia
 
 - **GRS/GZRS** = replicacao sincrona gerenciada (redundancia)
 - **Object Replication** = replicacao assincrona configuravel (flexibilidade, qualquer regiao)
-- **AzCopy** = ferramenta recomendada para transferencias em massa
+- **AzCopy copy** = copia arquivos (uso com `--recursive` para diretorios inteiros)
+- **AzCopy sync** = sincroniza (similar, mas compara timestamps)
+- **Get-ChildItem -Recurse | Set-AzStorageBlobContent** = alternativa PowerShell para upload em massa
+- **Set-AzStorageBlobContent** sozinho = upload de **um unico arquivo** (nao recursivo)
 - Storage Explorer usa AzCopy internamente
 
 ### Criptografia
@@ -278,9 +406,79 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 | Container Apps | Serverless com auto-scale, revisions, HTTPS automatico |
 | AKS | Controle total do Kubernetes |
 
+### ACI (Azure Container Instances)
+
+- Armazenamento persistente: **Azure Files** (file share montado como volume)
+- ACI **NAO** suporta montar Blob, Queue ou Table como volume persistente
+- "Container + armazenamento persistente" → **Azure Files** (NUNCA Blob Storage)
+- Suporta Linux e Windows containers
+- Pode rodar em VNet (deploy privado)
+
+### AKS (Azure Kubernetes Service)
+
+**Seguranca do API Server:**
+
+| Opcao | O que faz |
+|-------|-----------|
+| **IP ranges autorizados** | Mantém endpoint público, restringe quem acessa |
+| **Cluster privado** | API server acessível **apenas** pela VNet (sem endpoint público) |
+
+- "Limitar acesso ao API server" → **IP ranges** + **cluster privado** (NAO tags)
+- Tags sao metadados de organizacao, nao controlam acesso de rede
+
+### Container Apps
+
+**Tipos de container:**
+
+| Tipo | Funcao |
+|------|--------|
+| **App** | Container principal do aplicativo |
+| **Sidecar (auxiliar)** | Container auxiliar que roda junto (ex: coletor de logs, proxy) |
+| **Init** | Roda antes do app iniciar, depois encerra |
+
+- "Container que atualiza cache usado pelo app principal" → **Sidecar** (aplicativo auxiliar)
+- "Container privilegiado" NAO e um tipo valido em Container Apps
+
+**Triggers de escalonamento:**
+
+| Trigger | Quando usar |
+|---------|-------------|
+| HTTP | Escalar com base em requisicoes HTTP |
+| CPU/Memoria | Escalar com base em uso de recursos |
+| **Event-driven** | Escalar com base em **eventos externos** (Service Bus, Kafka, etc.) |
+| Custom | Metricas personalizadas |
+
+- "Escalar com base em mensagens do Service Bus" → **Event-driven** (controlado por evento)
+- HTTP trigger **NAO** funciona para filas/Service Bus
+
+### App Service - Logs de Diagnostico
+
+**Niveis de severidade (do mais grave ao menos):**
+1. Error
+2. **Warning** (inclui Warning + Error + Critical)
+3. Information
+4. **Verbose** (inclui TUDO — mais detalhado)
+
+- "Armazenar avisos e niveis superiores" → nivel **Warning** (NAO Verbose)
+- Verbose inclui TUDO (excess de logs); Warning filtra apenas Warning+Error+Critical
+- **Blob** = logs persistentes (mais de 1 semana); **FileSystem** = temporario (ate 12h)
+
 ---
 
 ## Backup e Recuperacao
+
+### MARS vs MABS vs VM Backup
+
+| Agente | O que protege | Onde instala |
+|--------|-------------|-------------|
+| **MARS** | **Arquivos e pastas** | Direto no servidor (Windows) |
+| **MABS** | Workloads completos (SQL, SharePoint, Exchange, VMs Hyper-V) | Servidor dedicado |
+| **VM Backup** | VM inteira (todos os discos) | Sem agente (plataforma Azure) |
+
+- "Backup de **arquivos e pastas**" → **agente MARS** (NAO MABS)
+- "Backup de SQL Server ou SharePoint" → **MABS**
+- "Backup de VM inteira" → **Azure Backup** (sem agente)
+- MARS requer **Recovery Services Vault** + registrar o servidor no vault
 
 ### Recovery Services Vault vs Backup Vault
 
@@ -369,6 +567,23 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 | Guest | Memoria, Processos | Sim (AMA + DCR) |
 
 - "Metrica de memoria nao aparece" → instalar **Azure Monitor Agent** + configurar **Data Collection Rules**
+
+### Azure Monitor - Estados de Alerta
+
+| Estado | Significado | Quem define |
+|--------|------------|-------------|
+| **New** | Alerta disparado, ninguem investigou | Automatico |
+| **Acknowledged** | Admin esta investigando | **Manual** |
+| **Closed** | Admin resolveu/descartou | **Manual** |
+
+- Estado de alerta e **sempre manual** — NAO muda automaticamente quando a condicao some
+- "50 alertas fechados" → um **administrador alterou manualmente** o estado
+- Alertas NAO se fecham sozinhos (nem por idade, nem por resolver a condicao)
+
+### Dashboard compartilhado
+
+- Dados fixados em dashboard compartilhado: maximo **30 dias** de exibicao
+- Dashboards privados: sem limite (alem da retencao do Log Analytics)
 
 ### KQL (Kusto Query Language)
 

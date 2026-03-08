@@ -343,6 +343,101 @@ Azure Disk Encryption (ADE) usa BitLocker (Windows) ou DM-Crypt (Linux) para cri
 
 ---
 
+### Task 6.6: Data Lake Storage Gen2 — Namespace Hierarquico e ACLs POSIX
+
+> Esta task cobre conceitos que cairam no simulado: tipos de conta que suportam ADLS Gen2, namespace hierarquico como pre-requisito para ACLs POSIX, e a diferenca visual entre blob flat vs hierarquico.
+
+**Criar storage account com HNS (Data Lake Gen2):**
+
+1. Pesquise **Storage accounts** > **+ Create**:
+
+   | Setting               | Value                       |
+   | --------------------- | --------------------------- |
+   | Resource group        | `az104-rg6adv`              |
+   | Storage account name  | `contosodatalake` + sufixo  |
+   | Region                | **East US**                 |
+   | Performance           | **Standard**                |
+   | Redundancy            | **LRS**                     |
+
+2. Aba **Advanced**:
+
+   | Setting                          | Value          |
+   | -------------------------------- | -------------- |
+   | **Enable hierarchical namespace** | **Checked** ✅ |
+
+   > **Conceito:** Marcar "Enable hierarchical namespace" transforma a conta em **Azure Data Lake Storage Gen2**. Sem essa opcao, a conta e blob storage flat (sem diretorios reais).
+
+3. **Review + create** > **Create**
+
+**Verificar que Premium Block Blobs tambem suporta HNS:**
+
+4. Inicie a criacao de outra storage account (NAO precisa criar de fato):
+
+   | Setting     | Value                  |
+   | ----------- | ---------------------- |
+   | Performance | **Premium**            |
+   | Account type| **Block blobs**        |
+
+5. Na aba **Advanced**, confirme que a opcao **Enable hierarchical namespace** esta disponivel
+
+6. Agora troque para **Premium > Page blobs** e note que **HNS NAO esta disponivel**
+
+7. Cancele a criacao (nao precisa criar)
+
+   > **REGRA AZ-104:** Apenas 2 tipos de conta suportam Data Lake Gen2 (HNS): **Standard GPv2** e **Premium Block Blobs**. Page Blobs e File Shares NAO suportam.
+
+**Explorar estrutura hierarquica vs flat:**
+
+8. Navegue para **contosodatalake\*** > **Storage browser** > **Blob containers** > **+ Add container**:
+
+   | Setting | Value    |
+   | ------- | -------- |
+   | Name    | `dados`  |
+
+9. Dentro do container `dados`, clique em **+ Add Directory**:
+
+   | Setting | Value        |
+   | ------- | ------------ |
+   | Name    | `vendas`     |
+
+10. Dentro de `vendas`, crie outro diretorio `2026` > dentro de `2026`, faca upload de um arquivo qualquer (.txt)
+
+11. Note a estrutura: `dados/vendas/2026/arquivo.txt` — sao **diretorios reais**, nao prefixos virtuais
+
+12. Compare com a storage account **contosostore\*** (sem HNS): la, "pastas" sao apenas prefixos no nome do blob
+
+   > **Conceito:** Sem HNS, o Azure simula pastas usando `/` no nome do blob (ex: `vendas/2026/arquivo.txt` e um unico blob com nome longo). Com HNS, diretorios sao objetos reais com metadados proprios — isso habilita operacoes atomicas de rename/move em diretorios inteiros.
+
+**Configurar ACLs POSIX:**
+
+13. No container `dados`, selecione o diretorio `vendas` > clique em **Manage ACL**
+
+14. Observe a estrutura POSIX:
+
+   | Entidade | Read (r) | Write (w) | Execute (x) |
+   | -------- | :------: | :-------: | :---------: |
+   | Owner    | ✅       | ✅        | ✅          |
+   | Group    | ✅       | ❌        | ✅          |
+   | Other    | ❌       | ❌        | ❌          |
+
+15. Modifique: conceda **Read + Execute** para **Other** > **Save**
+
+16. Agora volte a storage account **contosostore\*** (sem HNS) > tente acessar **Manage ACL** em um blob
+
+17. **Resultado esperado:** A opcao **NAO existe** — ACLs POSIX so funcionam com HNS habilitado
+
+   > **PEGADINHA AZ-104:** "ACLs compativeis com POSIX" → a resposta e **namespace hierarquico** (HNS). NAO e SFTP (protocolo de acesso), NAO e camada de acesso, NAO e suporte imutavel. SFTP inclusive depende de HNS estar habilitado.
+
+---
+
+### Task 6.7: Cleanup Data Lake
+
+1. Delete a storage account **contosodatalake\*** (so foi usada para demonstracao)
+
+   > **Nota:** Esta storage account nao e usada em outros blocos, pode ser deletada com seguranca.
+
+---
+
 ## Modo Desafio - Bloco 6
 
 - [ ] Gerar SAS tokens (origem: read, destino: write) para ambas as storage accounts
@@ -353,6 +448,11 @@ Azure Disk Encryption (ADE) usa BitLocker (Windows) ou DM-Crypt (Linux) para cri
 - [ ] Configurar CMK na storage account via Managed Identity + Key Vault
 - [ ] Explorar roles RBAC para Azure Files (SMB Share Reader/Contributor/Elevated)
 - [ ] Criar chave `disk-encryption` e habilitar ADE na VM Windows **(Bloco 2)**
+- [ ] Criar storage account GPv2 **com HNS** (Data Lake Gen2) e verificar que Premium Block Blobs tambem suporta
+- [ ] Verificar que Premium Page Blobs **NAO** suporta HNS
+- [ ] Criar diretorios reais (vendas/2026/) e comparar com blob flat (prefixos virtuais)
+- [ ] Configurar ACLs POSIX no diretorio e confirmar que **sem HNS nao ha ACLs POSIX**
+- [ ] Cleanup: deletar contosodatalake\*
 
 ---
 
@@ -440,6 +540,40 @@ D) Reader
 **Resposta: C) Storage File Data SMB Share Contributor**
 
 As roles especificas para Azure Files via SMB sao: Reader (somente leitura), Contributor (leitura + escrita + exclusao) e Elevated Contributor (acima + modificar ACLs NTFS). Storage Account Contributor gerencia a conta, nao os dados. Storage Blob Data Contributor e para blobs, nao files.
+
+</details>
+
+### Questao 6.6
+**Voce precisa criar uma storage account que forneca ACLs (listas de controle de acesso) compativeis com POSIX. Qual opcao voce deve configurar?**
+
+A) Camada de acesso
+B) Namespace hierarquico
+C) SFTP
+D) Suporte imutavel no nivel da versao
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: B) Namespace hierarquico**
+
+ACLs POSIX so existem quando o namespace hierarquico (HNS) esta habilitado, o que transforma a conta em Data Lake Storage Gen2. SFTP e um protocolo de acesso que depende de HNS, mas nao habilita ACLs por si so. Camada de acesso e suporte imutavel nao tem relacao com permissoes POSIX.
+
+</details>
+
+### Questao 6.7
+**Quais dois tipos de conta suportam Azure Data Lake Storage Gen2?**
+
+A) Standard GPv2 + Premium Page Blobs
+B) Standard GPv2 + Premium Block Blobs
+C) Premium Block Blobs + Premium File Shares
+D) Standard GPv1 + Standard GPv2
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: B) Standard GPv2 + Premium Block Blobs**
+
+Data Lake Gen2 requer suporte a Blob Storage com namespace hierarquico (HNS). Apenas Standard GPv2 e Premium Block Blobs suportam HNS. Page Blobs sao usados para discos de VM (I/O aleatorio) e nao suportam HNS. File Shares sao Azure Files (SMB/NFS), servico diferente de Blob.
 
 </details>
 

@@ -451,6 +451,107 @@ O VMSS sera implantado na SharedServicesSubnet da CoreServicesVnet (Semana 1), q
 
 ---
 
+### Task 2.8: Availability Zones vs Availability Sets vs Scale Sets
+
+> Esta task esclarece a confusao mais comum do AZ-104: quando usar Zone, Set ou Scale Set. Voce vai criar recursos e ver as restricoes na pratica.
+
+**Criar VM em Availability Zone 1:**
+
+1. Pesquise **Virtual Machines** > **Create** > **Virtual machine**:
+
+   | Setting              | Value                                         |
+   | -------------------- | --------------------------------------------- |
+   | Resource group       | `az104-rg7`                                   |
+   | Virtual machine name | `az104-vm-zone1`                               |
+   | Region               | **(US) East US**                              |
+   | Availability options | **Availability zone**                         |
+   | Availability zone    | **Zone 1**                                    |
+   | Security type        | **Standard**                                  |
+   | Image                | **Ubuntu Server 22.04 LTS - x64 Gen2**        |
+   | Size                 | **Standard_B1s**                              |
+   | Authentication type  | **Password**                                  |
+   | Username             | `localadmin`                                  |
+   | Password             | *senha complexa*                              |
+
+2. **Networking**: selecione **CoreServicesVnet** > subnet **Core**
+
+3. **Monitoring** > **Disable** Boot diagnostics
+
+4. **Review + create** > **Create**
+
+**Criar VM em Availability Zone 2:**
+
+5. Repita os passos acima com:
+
+   | Setting              | Value              |
+   | -------------------- | ------------------ |
+   | Virtual machine name | `az104-vm-zone2`   |
+   | Availability zone    | **Zone 2**         |
+
+6. **Review + create** > **Create**
+
+**Verificar zonas atribuidas:**
+
+7. Apos o deploy, navegue para **az104-vm-zone1** > **Overview** > verifique **Availability zone: 1**
+
+8. Navegue para **az104-vm-zone2** > **Overview** > verifique **Availability zone: 2**
+
+   > **Conceito:** Availability Zones sao **datacenters fisicamente separados** dentro da mesma regiao. Se o datacenter da Zone 1 falhar, a VM na Zone 2 continua operando. SLA: **99.99%**.
+
+**Criar Availability Set e entender a diferenca:**
+
+9. Pesquise **Availability Sets** > **+ Create**:
+
+   | Setting            | Value                |
+   | ------------------ | -------------------- |
+   | Resource group     | `az104-rg7`          |
+   | Name               | `az104-avset`        |
+   | Region             | **East US**          |
+   | Fault domains      | `2`                  |
+   | Update domains     | `5`                  |
+
+10. **Review + create** > **Create**
+
+**Tentar colocar VM de Zone em Availability Set:**
+
+11. Inicie a criacao de uma nova VM:
+    - Availability options: **Availability set**
+    - Availability set: **az104-avset**
+
+12. Note que **Availability zone** desaparece das opcoes — sao **mutuamente exclusivos**
+
+13. Cancele a criacao
+
+   > **REGRA AZ-104:** Uma VM pode estar em Availability **Zone** OU Availability **Set**, **nunca ambos**. Zone protege contra falha de datacenter. Set protege contra falha de rack/hardware dentro do mesmo datacenter.
+
+**Comparar com Scale Set (ja criado na Task 2.5):**
+
+14. Navegue para **az104-vmss** (criado anteriormente) > **Overview**
+
+15. Note: VMSS e para **escalabilidade automatica** (auto-scale), nao para alta disponibilidade por si so
+
+16. Um VMSS **pode** usar Availability Zones (distribui instancias entre zonas), mas o proposito principal e **escalar**, nao proteger contra falhas
+
+   > **RESUMO PARA A PROVA:**
+
+   | Pergunta na prova | Resposta |
+   | --- | --- |
+   | "Proteger contra falha de **datacenter**" | **Availability Zone** |
+   | "Proteger contra falha de **rack/hardware**" | **Availability Set** |
+   | "**Escalar** automaticamente com demanda" | **VM Scale Set** |
+   | "Proteger contra falha de **regiao** inteira" | **Region Pairs** + Site Recovery |
+
+---
+
+### Task 2.9: Cleanup das VMs de zona
+
+> **Importante:** VMs geram custo. Delete as VMs de teste apos a pratica.
+
+1. Delete **az104-vm-zone1** e **az104-vm-zone2** (e seus discos e NICs associados)
+2. Delete o Availability Set **az104-avset**
+
+---
+
 ## Modo Desafio - Bloco 2
 
 - [ ] Criar `az104-vm-win` (Windows) na subnet Core da **CoreServicesVnet (Semana 1)**
@@ -464,6 +565,11 @@ O VMSS sera implantado na SharedServicesSubnet da CoreServicesVnet (Semana 1), q
 - [ ] **Integracao Semana 1:** Verificar que NSG da SharedServicesSubnet se aplica ao VMSS
 - [ ] Gerenciar instancias do VMSS (status, latest model)
 - [ ] Testar Run Command em ambas as VMs
+- [ ] Criar VMs em **Availability Zone 1** e **Zone 2** — verificar zonas no Overview
+- [ ] Criar **Availability Set** (fault domain 2, update domain 5)
+- [ ] Verificar que Zone e Set sao **mutuamente exclusivos** (um exclui o outro)
+- [ ] Comparar VMSS (escala) vs Zone (HA datacenter) vs Set (HA rack)
+- [ ] Cleanup: deletar VMs de zona + Availability Set
 
 ---
 
@@ -534,6 +640,57 @@ D) F-series (Compute Optimized)
 **Resposta: C) E-series (Memory Optimized)**
 
 E-series e otimizada para cargas de trabalho com alto consumo de memoria (bancos de dados, caches, analytics in-memory). D-series e general purpose, F-series e compute optimized, B-series e para workloads variaveis.
+
+</details>
+
+### Questao 2.5
+**Sua empresa planeja hospedar um aplicativo em 4 VMs Azure. Voce precisa garantir que pelo menos 2 VMs estejam disponiveis se um unico datacenter Azure falhar. Qual opcao voce deve selecionar?**
+
+A) Um conjunto de disponibilidade (Availability Set)
+B) Uma zona de disponibilidade (Availability Zone)
+C) Conjuntos de dimensionamento (VM Scale Set)
+D) Grupo de posicionamento de proximidade
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: B) Uma zona de disponibilidade (Availability Zone)**
+
+Availability Zone protege contra falha de **datacenter inteiro** — cada zona e um datacenter fisicamente separado. Availability Set protege contra falha de rack/hardware dentro do **mesmo** datacenter. Scale Set e para escalabilidade automatica, nao HA. Grupo de proximidade otimiza latencia, nao disponibilidade.
+
+</details>
+
+### Questao 2.6
+**Voce planeja implantar uma VM Azure Spot. Quais dois fatores podem causar a remocao da VM?**
+
+A) Uso medio de CPU da instancia
+B) Necessidades de capacidade do Azure
+C) Preco atual da instancia Spot
+D) Hora do dia
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: B + C) Necessidades de capacidade do Azure + Preco atual da instancia Spot**
+
+Spot VMs sao removidas quando: (1) o Azure precisa da capacidade de volta para workloads pagos, ou (2) o preco da instancia Spot excede o maximo que voce definiu. CPU, memoria e hora do dia NAO sao fatores de eviction. Spot VMs sao indicadas para dev/test e batch, sem SLA.
+
+</details>
+
+### Questao 2.7
+**Uma VM esta em Availability Zone 1. Voce quer adiciona-la a um Availability Set existente. E possivel?**
+
+A) Sim, basta associar nas configuracoes da VM
+B) Nao, Availability Zone e Availability Set sao mutuamente exclusivos
+C) Sim, mas apenas se o Availability Set estiver na mesma zona
+D) Sim, mas requer redesploy da VM
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: B) Nao, Availability Zone e Availability Set sao mutuamente exclusivos**
+
+Uma VM pode estar em Availability Zone OU Availability Set, nunca em ambos. Essa opcao e definida no momento da criacao e nao pode ser alterada depois. Para mudar, e necessario recriar a VM.
 
 </details>
 
