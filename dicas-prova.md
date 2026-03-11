@@ -30,8 +30,11 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 | Gerenciar tags sem acesso a recursos | **Tag Contributor** | Contributor |
 | Gerenciar grupos | **Groups Administrator** | Global Admin |
 | Gerenciar VMs | **Virtual Machine Contributor** | Contributor |
+| Exibir custos + gerenciar orcamentos (sem modificar recursos) | **Cost Management Contributor** | Reader, Colaborador |
 
 - **Guest Inviter** = role especifica para convidar externos (B2B), privilegio minimo
+- **Cost Management Contributor** = ve custos + gerencia budgets, SEM poder modificar recursos
+- **Reader** NAO gerencia orcamentos, apenas visualiza. NAO confundir com Cost Mgmt Contributor
 - **Tag Contributor** = pode gerenciar tags sem acesso aos recursos em si
 - Usuarios convidados: UPN tem formato `user_dominio.com#EXT#@tenant.onmicrosoft.com`
 
@@ -59,9 +62,17 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 ### Pegadinhas
 - "Membros adicionados automaticamente por departamento" -> **Dynamic user group**
 - "Usuario nao consegue resetar senha via SSPR" -> verificar se **registrou os metodos de autenticacao**
-- "Convidar externos com privilegio minimo" -> **Guest Inviter** (NAO Security Admin)
+- "Convidar externos com privilegio minimo" -> **Guest Inviter** (NAO Security Admin, NAO Global Admin)
 - "Marcar VMs por departamento" -> **Tags** (etiquetas)
 - "Criar custom role para permissao de marcacao via portal" -> precisa de role com `Microsoft.Compute/virtualMachines/write`
+- "Equipe financeira ver custos e gerenciar orcamentos" -> **Cost Management Contributor** (NAO Reader)
+
+### Bloqueios (Locks)
+
+- **Delete lock** impede exclusao acidental de recursos
+- Pode aplicar em: **Subscriptions**, **Resource Groups**, **Recursos individuais** (VMs, etc.)
+- **NAO pode** aplicar em: **Management Groups**, dados de storage account
+- Bloqueio no RG protege os recursos dentro, mas permite excluir o RG se estiver vazio
 
 ---
 
@@ -102,6 +113,9 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 
 ### VNet Peering
 
+- Peering **conecta VNets** para comunicacao direta (latencia baixa, banda alta)
+- "VMs em VNets diferentes precisam se comunicar" → **Peering** (NAO DNS server, NAO route table)
+- DNS server so resolve nomes, **NAO conecta** redes
 - Peering e **NAO transitivo**: A↔B e B↔C **nao** significa A↔C
 - Hub-spoke resolve com NVA/Firewall no hub
 - **Allow Gateway Transit** permite compartilhar VPN Gateway entre VNets peered
@@ -117,6 +131,11 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 - **P2S + novo peering/subnet** → **reinstalar cliente VPN P2S** para obter novas rotas (rotas nao atualizam automaticamente)
 
 ### NSG (Network Security Groups)
+
+**O que e NSG:** recurso que filtra trafego por IP, porta e protocolo. Associa-se a **NIC** ou **Sub-rede**.
+- "Restringir trafego entre VMs por porta especifica" → **NSG** (NAO VNet, NAO Firewall)
+- VNet e apenas o container de rede, nao filtra trafego por porta
+- NSG so pode ser associado a sub-redes na **mesma regiao** do NSG
 
 **Ordem de avaliacao:**
 - **Inbound:** subnet NSG primeiro → NIC NSG depois (ambos devem permitir)
@@ -291,6 +310,26 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 - Custom Data em **base64** no ARM/Bicep
 - Cloud-init **NAO** funciona em Windows
 
+### ARM Templates (IaC)
+
+- `New-AzResourceGroupDeployment` = deploy ARM template em **Resource Group** (mais comum)
+- `New-AzSubscriptionDeployment` = deploy no nivel de **Subscription**
+- `New-AzManagementGroupDeployment` = deploy no nivel de **Management Group**
+- `New-AzVM` = cria VM diretamente (sem template)
+- Para passar **array como parametro inline**: usar `--parameters` no comando de deploy
+- NAO usar arquivo separado para arrays inline — usar diretamente no `--parameters`
+- Folha **Implantacoes** no RG mostra nome, status, **data/hora** de cada deploy ARM
+- Folha Diagnostico = metricas; Folha Policy = politicas
+
+### Availability Set - Update Domains (calculo)
+
+- Update Domains (UD) = grupos de VMs reiniciadas juntas em manutencao
+- Azure reinicia **1 UD por vez** durante manutencao planejada
+- **Calculo:** VMs divididas igualmente entre UDs
+- Exemplo: 18 VMs, 10 UDs → primeiros 10 UDs recebem 1 VM cada, 8 UDs restantes recebem +1 = **2 VMs max por UD**
+- Numero maximo de VMs indisponiveis = VMs no maior UD = **ceil(18/10) = 2**
+- NAO e 9 (isso seria fault domain com 2 FDs)
+
 ---
 
 ## Storage
@@ -305,6 +344,19 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 
 - Lifecycle = **automacao de custo** (mover entre tiers)
 - Immutability = **compliance e retencao legal** (impedir alteracao/delecao)
+- Para regras baseadas em **ultimo acesso** (lastAccessTime), habilitar **access tracking** (controle de acesso)
+- Access tracking ≠ versioning. **Versioning** rastreia alteracoes, **access tracking** rastreia leitura
+- Sem access tracking, lifecycle so pode usar **lastModifiedTime**
+
+### Azure Files - Large File Shares
+
+- File Shares padrao: ate **5 TiB**
+- Para ate **100 TiB**: habilitar **EnableLargeFileShare** na conta de storage
+- Cmdlets necessarios:
+  1. `Set-AzStorageAccount -EnableLargeFileShare` (habilita suporte)
+  2. `Update-AzRmStorageShare -QuotaGiB 102400` (atualiza a cota)
+- **NAO precisa** alterar o tipo de redundancia (RA-RAGRS) para aumentar file share
+- **NAO precisa** criar novo file share, pode atualizar o existente
 
 ### Tipos de Conta e Data Lake Gen2
 
