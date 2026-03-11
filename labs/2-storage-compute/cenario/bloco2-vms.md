@@ -3,24 +3,24 @@
 # Bloco 2 - Virtual Machines
 
 **Origem:** Lab 08 - Manage Virtual Machines
-**Resource Groups utilizados:** `az104-rg7`
+**Resource Groups utilizados:** `rg-contoso-compute`
 
 ## Contexto
 
-Com o armazenamento configurado no Bloco 1, voce agora implanta cargas de trabalho de computacao. As VMs serao criadas nas VNets da Semana 1 (CoreServicesVnet e ManufacturingVnet), usando o storage do Bloco 1 para dados. Voce tambem criara um VMSS com auto-scaling para cenarios de alta disponibilidade. Os data disks demonstram integracao com o storage, e a montagem do file share valida a conectividade end-to-end.
+Com o armazenamento configurado no Bloco 1, voce agora implanta cargas de trabalho de computacao. As VMs serao criadas nas VNets da Semana 1 (vnet-contoso-hub-brazilsouth e vnet-contoso-spoke-brazilsouth), usando o storage do Bloco 1 para dados. Voce tambem criara um VMSS com auto-scaling para cenarios de alta disponibilidade. Os data disks demonstram integracao com o storage, e a montagem do file share valida a conectividade end-to-end.
 
 ## Diagrama
 
 ```
 ┌───────────────────────────────────────────────────────────────────┐
-│                          az104-rg7                                │
+│                          rg-contoso-compute                                │
 │                                                                   │
 │  ┌────────────────────────────┐  ┌─────────────────────────────┐  │
-│  │  az104-vm-win              │  │  az104-vm-linux             │  │
+│  │  vm-web-01              │  │  vm-api-01             │  │
 │  │  (Windows Server 2022)     │  │  (Ubuntu 22.04 LTS)         │  │
 │  │                            │  │                             │  │
-│  │  VNet: CoreServicesVnet    │  │  VNet: ManufacturingVnet    │  │
-│  │  Subnet: Core (Semana 1)   │  │  Subnet: Manufacturing      │  │
+│  │  VNet: vnet-contoso-hub-brazilsouth    │  │  VNet: vnet-contoso-spoke-brazilsouth    │  │
+│  │  Subnet: snet-apps (Semana 1)   │  │  Subnet: snet-apps      │  │
 │  │  Size: Standard_D2s_v3     │  │  Size: Standard_D2s_v3      │  │
 │  │                            │  │                             │  │
 │  │  Data Disk: 32 GiB         │  │  Custom Script Ext.         │  │
@@ -29,11 +29,11 @@ Com o armazenamento configurado no Bloco 1, voce agora implanta cargas de trabal
 │  └────────────────────────────┘  └─────────────────────────────┘  │
 │                                                                   │
 │  ┌─────────────────────────────────────────────────────────────┐  │
-│  │  az104-vmss                                                 │  │
+│  │  vmss-contoso-web                                                 │  │
 │  │  (VM Scale Set - Ubuntu 22.04)                              │  │
 │  │                                                             │  │
-│  │  VNet: CoreServicesVnet (Semana 1)                          │  │
-│  │  Subnet: SharedServicesSubnet                               │  │
+│  │  VNet: vnet-contoso-hub-brazilsouth (Semana 1)                          │  │
+│  │  Subnet: snet-shared                               │  │
 │  │  Instances: min 1, max 3 (CPU > 75% scale out)              │  │
 │  │  → Usa rede ja protegida por NSG (Semana 1)                 │  │
 │  └─────────────────────────────────────────────────────────────┘  │
@@ -48,11 +48,11 @@ Com o armazenamento configurado no Bloco 1, voce agora implanta cargas de trabal
 
 ---
 
-### Task 2.1: Criar Windows VM na CoreServicesVnet
+### Task 2.1: Criar Windows VM na vnet-contoso-hub-brazilsouth
 
 > **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab (veja [Pausar entre Sessoes](#pausar-entre-sessoes)).
 
-A VM Windows sera implantada na CoreServicesVnet criada na Semana 1, demonstrando cross-resource-group deployment.
+A VM Windows sera implantada na vnet-contoso-hub-brazilsouth criada na Semana 1, demonstrando cross-resource-group deployment.
 
 1. Pesquise e selecione **Virtual Machines** > **Create** > **Azure Virtual Machine**
 
@@ -61,8 +61,8 @@ A VM Windows sera implantada na CoreServicesVnet criada na Semana 1, demonstrand
    | Setting              | Value                                         |
    | -------------------- | --------------------------------------------- |
    | Subscription         | *sua subscription*                            |
-   | Resource group       | `az104-rg7` (crie se necessario)              |
-   | Virtual machine name | `az104-vm-win`                                |
+   | Resource group       | `rg-contoso-compute` (ja existe do Modulo 1)              |
+   | Virtual machine name | `vm-web-01`                                |
    | Region               | **(US) East US**                              |
    | Availability options | No infrastructure redundancy required         |
    | Security type        | **Standard**                                  |
@@ -79,14 +79,14 @@ A VM Windows sera implantada na CoreServicesVnet criada na Semana 1, demonstrand
 
    | Setting              | Value                                         |
    | -------------------- | --------------------------------------------- |
-   | Virtual network      | **CoreServicesVnet** (de az104-rg4, Semana 1) |
-   | Subnet               | **Core** (10.20.0.0/24)                       |
-   | Public IP            | **(new) az104-vm-win-ip**                     |
+   | Virtual network      | **vnet-contoso-hub-brazilsouth** (de rg-contoso-network, Semana 1) |
+   | Subnet               | **snet-apps** (10.20.0.0/24)                       |
+   | Public IP            | **(new) vm-web-01-ip**                     |
    | NIC NSG              | **Basic**                                     |
    | Public inbound ports | **Allow selected ports**                      |
    | Select inbound ports | **RDP (3389)**                                |
 
-   > **Nota:** Se a VNet da Semana 1 nao existir, crie uma VNet `ComputeVnet` (10.40.0.0/16) com subnet `ComputeSubnet` (10.40.0.0/24) no az104-rg7.
+   > **Nota:** Se a VNet da Semana 1 nao existir, crie uma VNet `ComputeVnet` (10.40.0.0/16) com subnet `ComputeSubnet` (10.40.0.0/24) no rg-contoso-compute.
 
    > **Conexao com Semana 1:** A VM esta sendo implantada na mesma VNet usada para networking (cross-RG). Isso demonstra que VMs e VNets nao precisam estar no mesmo Resource Group.
 
@@ -111,14 +111,14 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
 
 **Adicionar Data Disk:**
 
-1. Na VM **az104-vm-win**, navegue para **Settings** > **Disks**
+1. Na VM **vm-web-01**, navegue para **Settings** > **Disks**
 
 2. Clique em **+ Create and attach a new disk**:
 
    | Setting      | Value                |
    | ------------ | -------------------- |
    | LUN          | `0`                  |
-   | Disk name    | `az104-vm-win-disk1` |
+   | Disk name    | `disk-vm-web-01-data` |
    | Storage type | **Premium SSD**      |
    | Size (GiB)   | `32`                 |
    | Encryption   | Default              |
@@ -152,10 +152,10 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
 
     ```powershell
     # Exemplo de script (use o script gerado no portal):
-    $connectTestResult = Test-NetConnection -ComputerName contosostore<uniqueid>.file.core.windows.net -Port 445
+    $connectTestResult = Test-NetConnection -ComputerName stcontosoprod01.file.core.windows.net -Port 445
     if ($connectTestResult.TcpTestSucceeded) {
-        cmd.exe /C "cmdkey /add:`"contosostore<uniqueid>.file.core.windows.net`" /user:`"localhost\contosostore<uniqueid>`" /pass:`"<storage-account-key>`""
-        New-PSDrive -Name Z -PSProvider FileSystem -Root "\\contosostore<uniqueid>.file.core.windows.net\contoso-files" -Persist
+        cmd.exe /C "cmdkey /add:`"stcontosoprod01.file.core.windows.net`" /user:`"localhost\stcontosoprod01`" /pass:`"<storage-account-key>`""
+        New-PSDrive -Name Z -PSProvider FileSystem -Root "\\stcontosoprod01.file.core.windows.net\contoso-files" -Persist
     }
     ```
 
@@ -171,7 +171,7 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
 
 ---
 
-### Task 2.3: Criar Linux VM na ManufacturingVnet com Custom Script Extension
+### Task 2.3: Criar Linux VM na vnet-contoso-spoke-brazilsouth com Custom Script Extension
 
 > **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab (veja [Pausar entre Sessoes](#pausar-entre-sessoes)).
 
@@ -181,8 +181,8 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
 
    | Setting              | Value                                  |
    | -------------------- | -------------------------------------- |
-   | Resource group       | `az104-rg7`                            |
-   | Virtual machine name | `az104-vm-linux`                       |
+   | Resource group       | `rg-contoso-compute`                            |
+   | Virtual machine name | `vm-api-01`                       |
    | Region               | **(US) East US**                       |
    | Security type        | **Standard**                           |
    | Image                | **Ubuntu Server 22.04 LTS - x64 Gen2** |
@@ -197,24 +197,24 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
 
    | Setting         | Value                                          |
    | --------------- | ---------------------------------------------- |
-   | Virtual network | **ManufacturingVnet** (de az104-rg4, Semana 1) |
-   | Subnet          | **Manufacturing** (10.30.0.0/24)               |
-   | Public IP       | **(new) az104-vm-linux-ip**                    |
+   | Virtual network | **vnet-contoso-spoke-brazilsouth** (de rg-contoso-network, Semana 1) |
+   | Subnet          | **snet-apps** (10.30.0.0/24)               |
+   | Public IP       | **(new) vm-api-01-ip**                    |
 
-   > **Conexao com Semana 1:** A Linux VM fica na ManufacturingVnet. Se o peering da Semana 1 ainda existir, ela pode se comunicar com a Windows VM na CoreServicesVnet.
+   > **Conexao com Semana 1:** A Linux VM fica na vnet-contoso-spoke-brazilsouth. Se o peering da Semana 1 ainda existir, ela pode se comunicar com a Windows VM na vnet-contoso-hub-brazilsouth.
 
 4. Aba **Monitoring**: **Disable** Boot diagnostics
 
 5. Clique em **Review + create** > **Create**
 
-6. Apos o deploy, navegue para **az104-vm-linux** > **Operations** > **Run command** > **RunShellScript**
+6. Apos o deploy, navegue para **vm-api-01** > **Operations** > **Run command** > **RunShellScript**
 
 7. Execute o Custom Script para instalar Nginx:
 
    ```bash
    sudo apt-get update
    sudo apt-get install -y nginx
-   echo "<h1>Hello from az104-vm-linux (ManufacturingVnet)</h1>" | sudo tee /var/www/html/index.html
+   echo "<h1>Hello from vm-api-01 (vnet-contoso-spoke-brazilsouth)</h1>" | sudo tee /var/www/html/index.html
    ```
 
 8. Clique em **Run** e aguarde a saida
@@ -239,7 +239,7 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
    write_files:
      - path: /var/www/html/index.html
        content: |
-         <h1>Hello from cloud-init VM (ManufacturingVnet)</h1>
+         <h1>Hello from cloud-init VM (vnet-contoso-spoke-brazilsouth)</h1>
          <p>Configurado automaticamente no primeiro boot</p>
    runcmd:
      - systemctl enable nginx
@@ -250,14 +250,14 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
 
    ```bash
    az vm create \
-     --resource-group az104-rg7 \
-     --name az104-vm-cloudinit \
+     --resource-group rg-contoso-compute \
+     --name vm-api-01 \
      --image Ubuntu2204 \
      --size Standard_B1s \
      --admin-username localadmin \
      --admin-password '<senha-complexa>' \
-     --vnet-name ManufacturingVnet \
-     --subnet Manufacturing \
+     --vnet-name vnet-contoso-spoke-brazilsouth \
+     --subnet snet-apps \
      --custom-data cloud-init.yaml \
      --public-ip-sku Standard \
      --nsg-rule SSH
@@ -268,7 +268,7 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
 4. Abra a porta 80:
 
    ```bash
-   az vm open-port --resource-group az104-rg7 --name az104-vm-cloudinit --port 80
+   az vm open-port --resource-group rg-contoso-compute --name vm-api-01 --port 80
    ```
 
 5. Acesse o IP publico no navegador — Nginx ja deve estar rodando com a pagina customizada
@@ -277,8 +277,8 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
 
    ```bash
    az vm run-command invoke \
-     --resource-group az104-rg7 \
-     --name az104-vm-cloudinit \
+     --resource-group rg-contoso-compute \
+     --name vm-api-01 \
      --command-id RunShellScript \
      --scripts "cat /var/log/cloud-init-output.log | tail -20"
    ```
@@ -293,14 +293,14 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
 7. Limpe o recurso (se nao for mais usar):
 
    ```bash
-   az vm delete --resource-group az104-rg7 --name az104-vm-cloudinit --yes
+   az vm delete --resource-group rg-contoso-compute --name vm-api-01 --yes
    ```
 
 ---
 
 ### Task 2.4: Comparar tamanhos de VM e Resize
 
-1. Navegue para **az104-vm-win** > **Availability + scale** > **Size**
+1. Navegue para **vm-web-01** > **Availability + scale** > **Size**
 
 2. Explore os tamanhos disponiveis. Observe as familias:
    - **D-series**: proposito geral (balanceado CPU/memoria)
@@ -326,7 +326,7 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
 
 > **Cobranca:** Cada instancia do VMSS gera cobranca. Escale para 0 ao pausar o lab.
 
-O VMSS sera implantado na SharedServicesSubnet da CoreServicesVnet (Semana 1), que ja tem o NSG `myNSGSecure` associado.
+O VMSS sera implantado na snet-shared da vnet-contoso-hub-brazilsouth (Semana 1), que ja tem o NSG `nsg-snet-shared` associado.
 
 1. Pesquise **Virtual machine scale sets** > **+ Create**
 
@@ -334,8 +334,8 @@ O VMSS sera implantado na SharedServicesSubnet da CoreServicesVnet (Semana 1), q
 
    | Setting             | Value                                  |
    | ------------------- | -------------------------------------- |
-   | Resource group      | `az104-rg7`                            |
-   | VMSS name           | `az104-vmss`                           |
+   | Resource group      | `rg-contoso-compute`                            |
+   | VMSS name           | `vmss-contoso-web`                           |
    | Region              | **(US) East US**                       |
    | Availability zone   | **None**                               |
    | Orchestration mode  | **Uniform**                            |
@@ -350,11 +350,11 @@ O VMSS sera implantado na SharedServicesSubnet da CoreServicesVnet (Semana 1), q
 
    | Setting         | Value                                         |
    | --------------- | --------------------------------------------- |
-   | Virtual network | **CoreServicesVnet** (de az104-rg4, Semana 1) |
-   | Subnet          | **SharedServicesSubnet** (10.20.10.0/24)      |
+   | Virtual network | **vnet-contoso-hub-brazilsouth** (de rg-contoso-network, Semana 1) |
+   | Subnet          | **snet-shared** (10.20.10.0/24)      |
    | Load balancer   | **None** (para simplificar)                   |
 
-   > **Conexao com Semana 1:** O VMSS esta na SharedServicesSubnet, que tem o NSG `myNSGSecure` associado (Semana 1, Bloco 4). Isso significa que as regras de inbound/outbound do NSG se aplicam a todas as instancias do VMSS automaticamente.
+   > **Conexao com Semana 1:** O VMSS esta na snet-shared, que tem o NSG `nsg-snet-shared` associado (Semana 1, Bloco 4). Isso significa que as regras de inbound/outbound do NSG se aplicam a todas as instancias do VMSS automaticamente.
 
 4. Aba **Scaling**:
 
@@ -383,7 +383,7 @@ O VMSS sera implantado na SharedServicesSubnet da CoreServicesVnet (Semana 1), q
 
 8. Clique em **Review + create** > **Create**
 
-9. Apos o deploy, navegue para **az104-vmss** > **Instances** > confirme que 1 instancia esta Running
+9. Apos o deploy, navegue para **vmss-contoso-web** > **Instances** > confirme que 1 instancia esta Running
 
    > **Conceito:** VMSS permite criar e gerenciar um grupo de VMs identicas com auto-scaling. As instancias compartilham configuracao, imagem e regras de scaling.
 
@@ -391,7 +391,7 @@ O VMSS sera implantado na SharedServicesSubnet da CoreServicesVnet (Semana 1), q
 
 ### Task 2.6: Gerenciar VMSS — Upgrade Policy e instancias
 
-1. No **az104-vmss**, navegue para **Settings** > **Scaling**
+1. No **vmss-contoso-web**, navegue para **Settings** > **Scaling**
 
 2. Revise as regras de auto-scale configuradas
 
@@ -413,7 +413,7 @@ O VMSS sera implantado na SharedServicesSubnet da CoreServicesVnet (Semana 1), q
 
 ### Task 2.7: Configurar VM Backup e testar Run Command
 
-1. Navegue para **az104-vm-win** > **Operations** > **Backup**
+1. Navegue para **vm-web-01** > **Operations** > **Backup**
 
 2. Revise as opcoes:
 
@@ -425,7 +425,7 @@ O VMSS sera implantado na SharedServicesSubnet da CoreServicesVnet (Semana 1), q
    > **Nota:** Nao e necessario habilitar o backup de fato (gera custo). Apenas revise as opcoes.
 
 3. Agora teste **Run Command** na Windows VM:
-   - Navegue para **az104-vm-win** > **Operations** > **Run command** > **RunPowerShellScript**
+   - Navegue para **vm-web-01** > **Operations** > **Run command** > **RunPowerShellScript**
 
 4. Execute:
 
@@ -437,7 +437,7 @@ O VMSS sera implantado na SharedServicesSubnet da CoreServicesVnet (Semana 1), q
 5. Revise a saida — voce deve ver o disco C: (OS), F: (Data) e Z: (File Share, se ainda montado)
 
 6. Teste Run Command na Linux VM:
-   - Navegue para **az104-vm-linux** > **Operations** > **Run command** > **RunShellScript**
+   - Navegue para **vm-api-01** > **Operations** > **Run command** > **RunShellScript**
 
    ```bash
    df -h
@@ -461,7 +461,7 @@ O VMSS sera implantado na SharedServicesSubnet da CoreServicesVnet (Semana 1), q
 
    | Setting              | Value                                         |
    | -------------------- | --------------------------------------------- |
-   | Resource group       | `az104-rg7`                                   |
+   | Resource group       | `rg-contoso-compute`                                   |
    | Virtual machine name | `az104-vm-zone1`                               |
    | Region               | **(US) East US**                              |
    | Availability options | **Availability zone**                         |
@@ -473,7 +473,7 @@ O VMSS sera implantado na SharedServicesSubnet da CoreServicesVnet (Semana 1), q
    | Username             | `localadmin`                                  |
    | Password             | *senha complexa*                              |
 
-2. **Networking**: selecione **CoreServicesVnet** > subnet **Core**
+2. **Networking**: selecione **vnet-contoso-hub-brazilsouth** > subnet **snet-apps**
 
 3. **Monitoring** > **Disable** Boot diagnostics
 
@@ -504,7 +504,7 @@ O VMSS sera implantado na SharedServicesSubnet da CoreServicesVnet (Semana 1), q
 
    | Setting            | Value                |
    | ------------------ | -------------------- |
-   | Resource group     | `az104-rg7`          |
+   | Resource group     | `rg-contoso-compute`          |
    | Name               | `az104-avset`        |
    | Region             | **East US**          |
    | Fault domains      | `2`                  |
@@ -526,7 +526,7 @@ O VMSS sera implantado na SharedServicesSubnet da CoreServicesVnet (Semana 1), q
 
 **Comparar com Scale Set (ja criado na Task 2.5):**
 
-14. Navegue para **az104-vmss** (criado anteriormente) > **Overview**
+14. Navegue para **vmss-contoso-web** (criado anteriormente) > **Overview**
 
 15. Note: VMSS e para **escalabilidade automatica** (auto-scale), nao para alta disponibilidade por si so
 
@@ -554,15 +554,15 @@ O VMSS sera implantado na SharedServicesSubnet da CoreServicesVnet (Semana 1), q
 
 ## Modo Desafio - Bloco 2
 
-- [ ] Criar `az104-vm-win` (Windows) na subnet Core da **CoreServicesVnet (Semana 1)**
+- [ ] Criar `vm-web-01` (Windows) na subnet snet-apps da **vnet-contoso-hub-brazilsouth (Semana 1)**
 - [ ] Adicionar Data Disk 32 GiB → inicializar como drive F: dentro da VM
 - [ ] **Integracao Bloco 1:** Montar File Share `contoso-files` como drive Z: na VM
 - [ ] Criar arquivo de teste no share via VM → confirmar no portal
-- [ ] Criar `az104-vm-linux` (Ubuntu) na subnet Manufacturing da **ManufacturingVnet (Semana 1)**
+- [ ] Criar `vm-api-01` (Ubuntu) na subnet snet-apps da **vnet-contoso-spoke-brazilsouth (Semana 1)**
 - [ ] Instalar Nginx via Custom Script Extension / Run Command
 - [ ] Comparar tamanhos de VM e executar resize
-- [ ] Criar VMSS `az104-vmss` na **SharedServicesSubnet (Semana 1)** com auto-scale (CPU 75%/25%)
-- [ ] **Integracao Semana 1:** Verificar que NSG da SharedServicesSubnet se aplica ao VMSS
+- [ ] Criar VMSS `vmss-contoso-web` na **snet-shared (Semana 1)** com auto-scale (CPU 75%/25%)
+- [ ] **Integracao Semana 1:** Verificar que NSG da snet-shared se aplica ao VMSS
 - [ ] Gerenciar instancias do VMSS (status, latest model)
 - [ ] Testar Run Command em ambas as VMs
 - [ ] Criar VMs em **Availability Zone 1** e **Zone 2** — verificar zonas no Overview

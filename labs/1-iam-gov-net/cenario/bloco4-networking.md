@@ -3,29 +3,29 @@
 # Bloco 4 - Virtual Networking
 
 **Origem:** Lab 04 - Implement Virtual Networking
-**Resource Groups utilizados:** `az104-rg4`
+**Resource Groups utilizados:** `rg-contoso-network`
 
 ## Contexto
 
-Com IaC dominado e Cloud Shell configurado (Bloco 3), voce constroi a infraestrutura de rede. As VNets criadas aqui serao **usadas no Bloco 5** para implantar VMs. O deploy da ManufacturingVnet via ARM template reutiliza os skills do Bloco 3. O nslookup usa o Cloud Shell ja configurado.
+Com IaC dominado e Cloud Shell configurado (Bloco 3), voce constroi a infraestrutura de rede. As VNets criadas aqui serao **usadas no Bloco 5** para implantar VMs. O deploy da vnet-contoso-spoke-brazilsouth via ARM template reutiliza os skills do Bloco 3. O nslookup usa o Cloud Shell ja configurado.
 
 ## Diagrama
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
-│                          az104-rg4                                 │
+│                          rg-contoso-network                                 │
 │                                                                    │
 │  ┌──────────────────────────────┐  ┌────────────────────────────┐  │
-│  │  CoreServicesVnet            │  │  ManufacturingVnet         │  │
+│  │  vnet-contoso-hub-brazilsouth            │  │  vnet-contoso-spoke-brazilsouth         │  │
 │  │  10.20.0.0/16                │  │  10.30.0.0/16              │  │
 │  │                              │  │  (deploy via ARM ← Bloco 3)│  │
 │  │  ┌────────────────────────┐  │  │                            │  │
-│  │  │SharedServicesSubnet    │  │  │  ┌─────────────────────┐   │  │
+│  │  │snet-shared    │  │  │  ┌─────────────────────┐   │  │
 │  │  │ 10.20.10.0/24          │  │  │  │ SensorSubnet1       │   │  │
-│  │  │ ← NSG: myNSGSecure     │  │  │  │ 10.30.20.0/24       │   │  │
+│  │  │ ← NSG: nsg-snet-shared     │  │  │  │ 10.30.20.0/24       │   │  │
 │  │  └────────────────────────┘  │  │  └─────────────────────┘   │  │
 │  │  ┌────────────────────────┐  │  │  ┌─────────────────────┐   │  │
-│  │  │ DatabaseSubnet         │  │  │  │ SensorSubnet2       │   │  │
+│  │  │ snet-data         │  │  │  │ SensorSubnet2       │   │  │
 │  │  │ 10.20.20.0/24          │  │  │  │ 10.30.21.0/24       │   │  │
 │  │  └────────────────────────┘  │  │  └─────────────────────┘   │  │
 │  └──────────────────────────────┘  └────────────────────────────┘  │
@@ -36,8 +36,8 @@ Com IaC dominado e Cloud Shell configurado (Bloco 3), voce constroi a infraestru
 │  ┌──────────────┐  ┌──────────────────────────────────────────┐    │
 │  │ ASG: asg-web │  │ DNS Zones:                               │    │
 │  └──────────────┘  │ • Public:  contoso.com (A: www)          │    │
-│                    │ • Private: private.contoso.com           │    │
-│                    │   └─ Link: ManufacturingVnet             │    │
+│                    │ • Private: contoso.internal           │    │
+│                    │   └─ Link: vnet-contoso-spoke-brazilsouth             │    │
 │                    │   → No Bloco 5: record com IP real da VM │    │
 │                    └──────────────────────────────────────────┘    │
 └────────────────────────────────────────────────────────────────────┘
@@ -45,7 +45,7 @@ Com IaC dominado e Cloud Shell configurado (Bloco 3), voce constroi a infraestru
 
 ---
 
-### Task 4.1: Criar VNet CoreServicesVnet via portal
+### Task 4.1: Criar VNet vnet-contoso-hub-brazilsouth via portal
 
 1. Pesquise e selecione **Virtual Networks** > **Create**
 
@@ -53,8 +53,8 @@ Com IaC dominado e Cloud Shell configurado (Bloco 3), voce constroi a infraestru
 
    | Setting        | Value                            |
    | -------------- | -------------------------------- |
-   | Resource Group | `az104-rg4` (crie se necessario) |
-   | Name           | `CoreServicesVnet`               |
+   | Resource Group | `rg-contoso-network` (crie se necessario) |
+   | Name           | `vnet-contoso-hub-brazilsouth`               |
    | Region         | **(US) East US**                 |
 
 3. Aba **IP Addresses**: IPv4 address space = `10.20.0.0/16`
@@ -65,10 +65,10 @@ Com IaC dominado e Cloud Shell configurado (Bloco 3), voce constroi a infraestru
 
    | Subnet                   | Setting          | Value                  |
    | ------------------------ | ---------------- | ---------------------- |
-   | **SharedServicesSubnet** | Subnet name      | `SharedServicesSubnet` |
+   | **snet-shared** | Subnet name      | `snet-shared` |
    |                          | Starting address | `10.20.10.0`           |
    |                          | Size             | `/24`                  |
-   | **DatabaseSubnet**       | Subnet name      | `DatabaseSubnet`       |
+   | **snet-data**       | Subnet name      | `snet-data`       |
    |                          | Starting address | `10.20.20.0`           |
    |                          | Size             | `/24`                  |
 
@@ -80,15 +80,15 @@ Com IaC dominado e Cloud Shell configurado (Bloco 3), voce constroi a infraestru
 
 8. **Automation** > **Export template** > **Download** template e parameters
 
-   > **Conexao com Bloco 5:** Esta VNet sera usada para implantar a CoreServicesVM. Voce adicionara uma subnet adicional para VMs no Bloco 5.
+   > **Conexao com Bloco 5:** Esta VNet sera usada para implantar a vm-web-01. Voce adicionara uma subnet adicional para VMs no Bloco 5.
 
 ### Task 4.1b: Exercicio de calculo de IPs disponiveis
 
 Voce aprende a calcular quantos IPs estao disponiveis em cada tamanho de subnet no Azure.
 
-1. Navegue para **CoreServicesVnet** > **Subnets**
+1. Navegue para **vnet-contoso-hub-brazilsouth** > **Subnets**
 
-2. Observe a coluna **Available IPs** para **SharedServicesSubnet** (/24)
+2. Observe a coluna **Available IPs** para **snet-shared** (/24)
 
 3. Note que o valor e **251** e nao 256 — o Azure reserva **5 IPs** em cada subnet:
 
@@ -115,31 +115,31 @@ Voce aprende a calcular quantos IPs estao disponiveis em cada tamanho de subnet 
 
 ---
 
-### Task 4.2: Criar VNet ManufacturingVnet via ARM template
+### Task 4.2: Criar VNet vnet-contoso-spoke-brazilsouth via ARM template
 
 Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNet.
 
-> **Voce pode:** (A) editar o template exportado da CoreServicesVnet, ou (B) usar o template pronto abaixo.
+> **Voce pode:** (A) editar o template exportado da vnet-contoso-hub-brazilsouth, ou (B) usar o template pronto abaixo.
 
 **Se escolher o caminho A** — edite fazendo estas substituicoes:
-- `CoreServicesVnet` → `ManufacturingVnet`
+- `vnet-contoso-hub-brazilsouth` → `vnet-contoso-spoke-brazilsouth`
 - `10.20.0.0` → `10.30.0.0`
-- `SharedServicesSubnet` → `SensorSubnet1`
+- `snet-shared` → `SensorSubnet1`
 - `10.20.10.0/24` → `10.30.20.0/24`
-- `DatabaseSubnet` → `SensorSubnet2`
+- `snet-data` → `SensorSubnet2`
 - `10.20.20.0/24` → `10.30.21.0/24`
 
 **Se escolher o caminho B** — use os templates prontos:
 
-**`template.json` (ManufacturingVnet):**
+**`template.json` (vnet-contoso-spoke-brazilsouth):**
 
 ```json
 {
     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
-        "virtualNetworks_ManufacturingVnet_name": {
-            "defaultValue": "ManufacturingVnet",
+        "virtualNetworks_vnet-contoso-spoke-brazilsouth_name": {
+            "defaultValue": "vnet-contoso-spoke-brazilsouth",
             "type": "String"
         }
     },
@@ -148,7 +148,7 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
         {
             "type": "Microsoft.Network/virtualNetworks",
             "apiVersion": "2023-05-01",
-            "name": "[parameters('virtualNetworks_ManufacturingVnet_name')]",
+            "name": "[parameters('virtualNetworks_vnet-contoso-spoke-brazilsouth_name')]",
             "location": "eastus",
             "properties": {
                 "addressSpace": {
@@ -163,7 +163,7 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
                 "subnets": [
                     {
                         "name": "SensorSubnet1",
-                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworks_ManufacturingVnet_name'), 'SensorSubnet1')]",
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworks_vnet-contoso-spoke-brazilsouth_name'), 'SensorSubnet1')]",
                         "properties": {
                             "addressPrefixes": [
                                 "10.30.20.0/24"
@@ -177,7 +177,7 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
                     },
                     {
                         "name": "SensorSubnet2",
-                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworks_ManufacturingVnet_name'), 'SensorSubnet2')]",
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworks_vnet-contoso-spoke-brazilsouth_name'), 'SensorSubnet2')]",
                         "properties": {
                             "addressPrefixes": [
                                 "10.30.21.0/24"
@@ -197,9 +197,9 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
         {
             "type": "Microsoft.Network/virtualNetworks/subnets",
             "apiVersion": "2023-05-01",
-            "name": "[concat(parameters('virtualNetworks_ManufacturingVnet_name'), '/SensorSubnet1')]",
+            "name": "[concat(parameters('virtualNetworks_vnet-contoso-spoke-brazilsouth_name'), '/SensorSubnet1')]",
             "dependsOn": [
-                "[resourceId('Microsoft.Network/virtualNetworks', parameters('virtualNetworks_ManufacturingVnet_name'))]"
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('virtualNetworks_vnet-contoso-spoke-brazilsouth_name'))]"
             ],
             "properties": {
                 "addressPrefixes": [
@@ -214,9 +214,9 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
         {
             "type": "Microsoft.Network/virtualNetworks/subnets",
             "apiVersion": "2023-05-01",
-            "name": "[concat(parameters('virtualNetworks_ManufacturingVnet_name'), '/SensorSubnet2')]",
+            "name": "[concat(parameters('virtualNetworks_vnet-contoso-spoke-brazilsouth_name'), '/SensorSubnet2')]",
             "dependsOn": [
-                "[resourceId('Microsoft.Network/virtualNetworks', parameters('virtualNetworks_ManufacturingVnet_name'))]"
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('virtualNetworks_vnet-contoso-spoke-brazilsouth_name'))]"
             ],
             "properties": {
                 "addressPrefixes": [
@@ -239,8 +239,8 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
-        "virtualNetworks_ManufacturingVnet_name": {
-            "value": "ManufacturingVnet"
+        "virtualNetworks_vnet-contoso-spoke-brazilsouth_name": {
+            "value": "vnet-contoso-spoke-brazilsouth"
         }
     }
 }
@@ -252,11 +252,11 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
 
 2. **Edit parameters** > **Load file** > parameters > **Save**
 
-3. Resource group: **az104-rg4**
+3. Resource group: **rg-contoso-network**
 
 4. **Review + create** > **Create**
 
-5. Confirme que a ManufacturingVnet e subnets foram criadas
+5. Confirme que a vnet-contoso-spoke-brazilsouth e subnets foram criadas
 
    > **Conexao com Bloco 3:** Voce usou as mesmas skills de ARM template aprendidas no Bloco 3, mas agora para criar infraestrutura de rede.
 
@@ -270,7 +270,7 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
 
    | Setting        | Value         |
    | -------------- | ------------- |
-   | Resource group | **az104-rg4** |
+   | Resource group | **rg-contoso-network** |
    | Name           | `asg-web`     |
    | Region         | **East US**   |
 
@@ -282,8 +282,8 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
 
    | Setting        | Value         |
    | -------------- | ------------- |
-   | Resource group | **az104-rg4** |
-   | Name           | `myNSGSecure` |
+   | Resource group | **rg-contoso-network** |
+   | Name           | `nsg-snet-shared` |
    | Region         | **East US**   |
 
 4. **Review + create** > **Create** > **Go to resource**
@@ -292,12 +292,12 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
 
 ### Task 4.4: Associar NSG a subnet + regras inbound/outbound
 
-1. No NSG **myNSGSecure**, em **Settings** > **Subnets** > **Associate**:
+1. No NSG **nsg-snet-shared**, em **Settings** > **Subnets** > **Associate**:
 
    | Setting         | Value                            |
    | --------------- | -------------------------------- |
-   | Virtual network | **CoreServicesVnet (az104-rg4)** |
-   | Subnet          | **SharedServicesSubnet**         |
+   | Virtual network | **vnet-contoso-hub-brazilsouth (rg-contoso-network)** |
+   | Subnet          | **snet-shared**         |
 
 2. Clique em **OK**
 
@@ -341,7 +341,7 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
 
    > **Conceito:** NSG rules sao processadas por **priority** (menor = maior prioridade). A DenyInternetOutbound (4096) tem prioridade maior que AllowInternetOutBound (65001).
 
-   > **Conexao com Bloco 5:** Este NSG esta associado apenas a SharedServicesSubnet. As VMs criadas no Bloco 5 ficarao em subnets diferentes (Core, Manufacturing), entao NAO serao afetadas por este NSG — demonstrando que NSGs sao associados por subnet, nao por VNet.
+   > **Conexao com Bloco 5:** Este NSG esta associado apenas a snet-shared. As VMs criadas no Bloco 5 ficarao em subnets diferentes (snet-apps, snet-workloads), entao NAO serao afetadas por este NSG — demonstrando que NSGs sao associados por subnet, nao por VNet.
 
 ---
 
@@ -351,7 +351,7 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
 
    | Setting        | Value                                          |
    | -------------- | ---------------------------------------------- |
-   | Resource group | **az104-rg4**                                  |
+   | Resource group | **rg-contoso-network**                                  |
    | Name           | `contoso.com` (ajuste se ja estiver reservado) |
    | Region         | **Global** (DNS zones sao recursos globais)    |
 
@@ -388,8 +388,8 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
 
    | Setting        | Value                 |
    | -------------- | --------------------- |
-   | Resource group | **az104-rg4**         |
-   | Name           | `private.contoso.com` |
+   | Resource group | **rg-contoso-network**         |
+   | Name           | `contoso.internal` |
    | Region         | **Global**            |
 
 2. **Review + create** > **Create** > **Go to resource**
@@ -401,7 +401,7 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
    | Setting         | Value                |
    | --------------- | -------------------- |
    | Link name       | `manufacturing-link` |
-   | Virtual network | `ManufacturingVnet`  |
+   | Virtual network | `vnet-contoso-spoke-brazilsouth`  |
 
 5. Clique em **Create** e aguarde
 
@@ -414,26 +414,26 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
    | TTL        | `1`        |
    | IP address | `10.1.1.4` |
 
-   > **Conexao com Bloco 5:** No Bloco 5, voce adicionara um registro com o IP **real** da CoreServicesVM e testara a resolucao de nome a partir da ManufacturingVM. Voce tambem adicionara um link para CoreServicesVnet.
+   > **Conexao com Bloco 5:** No Bloco 5, voce adicionara um registro com o IP **real** da vm-web-01 e testara a resolucao de nome a partir da vm-app-01. Voce tambem adicionara um link para vnet-contoso-hub-brazilsouth.
 
 ---
 
 ## Modo Desafio - Bloco 4
 
-- [ ] Criar VNet `CoreServicesVnet` (10.20.0.0/16) com SharedServicesSubnet e DatabaseSubnet
-- [ ] Verificar IPs disponiveis na SharedServicesSubnet e calcular para /24, /25, /26, /27, /28, /29
-- [ ] Exportar template → criar `ManufacturingVnet` (10.30.0.0/16) via ARM (**skills do Bloco 3**)
-- [ ] Criar ASG `asg-web` e NSG `myNSGSecure`
-- [ ] Associar NSG a SharedServicesSubnet + regras inbound/outbound
+- [ ] Criar VNet `vnet-contoso-hub-brazilsouth` (10.20.0.0/16) com snet-shared e snet-data
+- [ ] Verificar IPs disponiveis na snet-shared e calcular para /24, /25, /26, /27, /28, /29
+- [ ] Exportar template → criar `vnet-contoso-spoke-brazilsouth` (10.30.0.0/16) via ARM (**skills do Bloco 3**)
+- [ ] Criar ASG `asg-web` e NSG `nsg-snet-shared`
+- [ ] Associar NSG a snet-shared + regras inbound/outbound
 - [ ] Criar DNS publica `contoso.com` + nslookup via **Cloud Shell (Bloco 3)**
-- [ ] Criar DNS privada `private.contoso.com` + link para ManufacturingVnet
+- [ ] Criar DNS privada `contoso.internal` + link para vnet-contoso-spoke-brazilsouth
 
 ---
 
 ## Questoes de Prova - Bloco 4
 
 ### Questao 4.1
-**Um NSG esta associado a SharedServicesSubnet. Voce cria uma VM em DatabaseSubnet (mesma VNet). A VM e afetada pelas regras do NSG?**
+**Um NSG esta associado a snet-shared. Voce cria uma VM em snet-data (mesma VNet). A VM e afetada pelas regras do NSG?**
 
 A) Sim, o NSG se aplica a toda a VNet
 B) Nao, o NSG se aplica apenas a subnet associada
@@ -445,7 +445,7 @@ D) Depende das regras de priority
 
 **Resposta: B) Nao, o NSG se aplica apenas a subnet associada**
 
-NSGs sao associados a **subnets** ou **NICs**, nao a VNets inteiras. Uma VM em DatabaseSubnet nao e afetada por um NSG associado a SharedServicesSubnet, mesmo que estejam na mesma VNet.
+NSGs sao associados a **subnets** ou **NICs**, nao a VNets inteiras. Uma VM em snet-data nao e afetada por um NSG associado a snet-shared, mesmo que estejam na mesma VNet.
 
 </details>
 

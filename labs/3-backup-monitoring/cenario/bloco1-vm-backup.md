@@ -3,38 +3,38 @@
 # Bloco 1 - VM Backup
 
 **Origem:** Lab 10 - Backup Virtual Machines
-**Resource Groups utilizados:** `az104-rg-backup` (Recovery Services Vault) + `az104-rg7` (VMs da Semana 2)
+**Resource Groups utilizados:** `rg-contoso-management` (Recovery Services Vault) + `rg-contoso-compute` (VMs da Semana 2)
 
 ## Contexto
 
-Na Semana 2, voce criou VMs Windows (`az104-vm-win`) e Linux (`az104-vm-linux`) no resource group `az104-rg7`. Agora voce precisa proteger essas VMs com backup. O Recovery Services Vault criado aqui sera reutilizado no **Bloco 2** (backup de file shares) e no **Bloco 3** (Site Recovery).
+Na Semana 2, voce criou VMs Windows (`vm-web-01`) e Linux (`vm-api-01`) no resource group `rg-contoso-compute`. Agora voce precisa proteger essas VMs com backup. O Recovery Services Vault criado aqui sera reutilizado no **Bloco 2** (backup de file shares) e no **Bloco 3** (Site Recovery).
 
 ## Diagrama
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
-│                    az104-rg-backup                                 │
+│                    rg-contoso-management                                 │
 │                                                                    │
 │  ┌──────────────────────────────────────────────────────────────┐  │
-│  │          Recovery Services Vault: az104-rsv                  │  │
+│  │          Recovery Services Vault: rsv-contoso-backup                  │  │
 │  │                                                              │  │
 │  │  Backup Policies:                                            │  │
 │  │  ├─ DefaultPolicy (built-in, daily)                          │  │
-│  │  └─ az104-backup-policy (custom, 12h frequency)              │  │
+│  │  └─ rsvpol-contoso-12h (custom, 12h frequency)              │  │
 │  │                                                              │  │
 │  │  Protected Items:                                            │  │
-│  │  ├─ az104-vm-win  (Semana 2, az104-rg7) ◄── Custom policy    │  │
-│  │  └─ az104-vm-linux (Semana 2, az104-rg7) ◄── Default policy  │  │
+│  │  ├─ vm-web-01  (Semana 2, rg-contoso-compute) ◄── Custom policy    │  │
+│  │  └─ vm-api-01 (Semana 2, rg-contoso-compute) ◄── Default policy  │  │
 │  │                                                              │  │
 │  │  → Reutilizado no Bloco 2 (File Share backup)                │  │
 │  │  → Reutilizado no Bloco 3 (Site Recovery)                    │  │
 │  └──────────────────────────────────────────────────────────────┘  │
 │                                                                    │
 │    ┌──────────────────────────────────────────────────────────┐    │
-│    │  az104-rg7 (Semana 2 — VMs)                              │    │
+│    │  rg-contoso-compute (Semana 2 — VMs)                              │    │
 │    │                                                          │    │
-│    │  ├─ az104-vm-win  (Windows Server) ─── backup ativo ✓    │    │
-│    │  └─ az104-vm-linux (Ubuntu) ────────── backup ativo ✓    │    │
+│    │  ├─ vm-web-01  (Windows Server) ─── backup ativo ✓    │    │
+│    │  └─ vm-api-01 (Ubuntu) ────────── backup ativo ✓    │    │
 │    └──────────────────────────────────────────────────────────┘    │
 └────────────────────────────────────────────────────────────────────┘
 ```
@@ -56,8 +56,8 @@ O vault centraliza backups de VMs, file shares e configuracoes de Site Recovery.
    | Setting        | Value                                  |
    | -------------- | -------------------------------------- |
    | Subscription   | *sua subscription*                     |
-   | Resource group | `az104-rg-backup` (crie se necessario) |
-   | Vault name     | `az104-rsv`                            |
+   | Resource group | `rg-contoso-management` (crie se necessario) |
+   | Vault name     | `rsv-contoso-backup`                            |
    | Region         | **East US**                            |
 
    > **Conceito:** O Recovery Services Vault deve estar na **mesma regiao** dos recursos que protege (para backup). Para Site Recovery (Bloco 3), o vault de DR ficara na regiao secundaria.
@@ -76,7 +76,7 @@ O vault centraliza backups de VMs, file shares e configuracoes de Site Recovery.
 
 A DefaultPolicy faz backup diario com retencao de 30 dias. Voce cria uma policy customizada com frequencia de 12 horas para VMs criticas.
 
-1. No vault **az104-rsv**, va para **Manage** > **Backup policies**
+1. No vault **rsv-contoso-backup**, va para **Manage** > **Backup policies**
 
 2. Revise a **DefaultPolicy** — note: frequencia diaria, retencao de 30 dias
 
@@ -86,7 +86,7 @@ A DefaultPolicy faz backup diario com retencao de 30 dias. Voce cria uma policy 
 
    | Setting              | Value                                            |
    | -------------------- | ------------------------------------------------ |
-   | Policy name          | `az104-backup-policy`                            |
+   | Policy name          | `rsvpol-contoso-12h`                            |
    | Frequency            | **Every 12 hours** (Hourly)                      |
    | Time                 | `6:00 AM`                                        |
    | Timezone             | **(UTC-03:00) Brasilia**                         |
@@ -99,21 +99,21 @@ A DefaultPolicy faz backup diario com retencao de 30 dias. Voce cria uma policy 
 
 5. Clique em **Create**
 
-6. Verifique que **az104-backup-policy** aparece na lista junto com **DefaultPolicy**
+6. Verifique que **rsvpol-contoso-12h** aparece na lista junto com **DefaultPolicy**
 
    > **Dica AZ-104:** Na prova, atente para os limites de retencao: daily (9999 dias), weekly (5163 semanas), monthly (1188 meses), yearly (99 anos).
 
 ---
 
-### Task 1.3: Habilitar backup para az104-vm-win (custom policy)
+### Task 1.3: Habilitar backup para vm-web-01 (custom policy)
 
 Voce protege a VM Windows da Semana 2 usando a policy customizada.
 
 > **Cobranca:** Habilitar backup gera cobranca por instancia protegida e armazenamento de snapshots.
 
-> **Pre-requisito:** A VM `az104-vm-win` deve existir no `az104-rg7` (criada na Semana 2). Se nao existir, crie uma VM Windows Server basica nesse RG antes de continuar.
+> **Pre-requisito:** A VM `vm-web-01` deve existir no `rg-contoso-compute` (criada na Semana 2). Se nao existir, crie uma VM Windows Server basica nesse RG antes de continuar.
 
-1. No vault **az104-rsv**, va para **Getting started** > **Backup**
+1. No vault **rsv-contoso-backup**, va para **Getting started** > **Backup**
 
 2. Configure:
 
@@ -124,11 +124,11 @@ Voce protege a VM Windows da Semana 2 usando a policy customizada.
 
 3. Clique em **Backup**
 
-4. Na aba **Backup policy**, selecione **az104-backup-policy** (a custom que voce criou)
+4. Na aba **Backup policy**, selecione **rsvpol-contoso-12h** (a custom que voce criou)
 
 5. Na aba **Virtual Machines**, clique em **Add**
 
-6. Selecione **az104-vm-win** (do az104-rg7, Semana 2) > **OK**
+6. Selecione **vm-web-01** (do rg-contoso-compute, Semana 2) > **OK**
 
    > **Conexao com Semana 2:** Voce esta protegendo a mesma VM Windows que foi criada e configurada na Semana 2. O backup captura o estado completo da VM, incluindo OS disk e data disks.
 
@@ -140,9 +140,9 @@ Voce protege a VM Windows da Semana 2 usando a policy customizada.
 
 ---
 
-### Task 1.4: Habilitar backup para az104-vm-linux (DefaultPolicy)
+### Task 1.4: Habilitar backup para vm-api-01 (DefaultPolicy)
 
-1. Ainda no vault **az104-rsv** > **Getting started** > **Backup**
+1. Ainda no vault **rsv-contoso-backup** > **Getting started** > **Backup**
 
 2. Configure:
 
@@ -157,7 +157,7 @@ Voce protege a VM Windows da Semana 2 usando a policy customizada.
 
 5. Na aba **Virtual Machines**, clique em **Add**
 
-6. Selecione **az104-vm-linux** (do az104-rg7, Semana 2) > **OK**
+6. Selecione **vm-api-01** (do rg-contoso-compute, Semana 2) > **OK**
 
    > **Conexao com Semana 2:** A VM Linux tambem precisa de protecao. Usando a DefaultPolicy (diaria) para demonstrar que diferentes VMs podem ter policies diferentes conforme sua criticidade.
 
@@ -165,13 +165,13 @@ Voce protege a VM Windows da Semana 2 usando a policy customizada.
 
 ---
 
-### Task 1.5: Executar backup on-demand da az104-vm-win
+### Task 1.5: Executar backup on-demand da vm-web-01
 
-1. No vault **az104-rsv**, va para **Protected items** > **Backup items**
+1. No vault **rsv-contoso-backup**, va para **Protected items** > **Backup items**
 
 2. Clique em **Azure Virtual Machine**
 
-3. Selecione **az104-vm-win** > clique em **Backup now**
+3. Selecione **vm-web-01** > clique em **Backup now**
 
 4. Configure:
 
@@ -193,16 +193,16 @@ Voce protege a VM Windows da Semana 2 usando a policy customizada.
 
 ### Task 1.6: Verificar backup items e restore points
 
-1. No vault **az104-rsv** > **Protected items** > **Backup items** > **Azure Virtual Machine**
+1. No vault **rsv-contoso-backup** > **Protected items** > **Backup items** > **Azure Virtual Machine**
 
 2. Verifique que ambas as VMs aparecem:
 
    | VM             | Policy              | Last Backup Status |
    | -------------- | ------------------- | ------------------ |
-   | az104-vm-win   | az104-backup-policy | Completed          |
-   | az104-vm-linux | DefaultPolicy       | Warning (initial)  |
+   | vm-web-01   | rsvpol-contoso-12h | Completed          |
+   | vm-api-01 | DefaultPolicy       | Warning (initial)  |
 
-3. Selecione **az104-vm-win** > clique em **View all restore points**
+3. Selecione **vm-web-01** > clique em **View all restore points**
 
 4. Note os restore points disponiveis — deve haver pelo menos 1 (do backup on-demand)
 
@@ -220,7 +220,7 @@ Voce protege a VM Windows da Semana 2 usando a policy customizada.
 
 Voce revisa as configuracoes de replicacao de storage do vault e entende como habilitar Cross Region Restore.
 
-1. Navegue para **az104-rsv** > **Properties**
+1. Navegue para **rsv-contoso-backup** > **Properties**
 
 2. Em **Backup Configuration**, clique em **Update**
 
@@ -250,9 +250,9 @@ Voce revisa as configuracoes de replicacao de storage do vault e entende como ha
 
 Voce pratica o processo de restore sem criar recursos permanentes.
 
-1. No vault **az104-rsv** > **Protected items** > **Backup items** > **Azure Virtual Machine**
+1. No vault **rsv-contoso-backup** > **Protected items** > **Backup items** > **Azure Virtual Machine**
 
-2. Selecione **az104-vm-win** > **Restore VM**
+2. Selecione **vm-web-01** > **Restore VM**
 
 3. Selecione o restore point mais recente
 
@@ -263,7 +263,7 @@ Voce pratica o processo de restore sem criar recursos permanentes.
    | Setting          | Value                                                  |
    | ---------------- | ------------------------------------------------------ |
    | Staging Location | *selecione um storage account existente (da Semana 2)* |
-   | Resource Group   | `az104-rg-backup`                                      |
+   | Resource Group   | `rg-contoso-management`                                      |
 
    > **Conexao com Semana 2:** Voce pode usar o storage account criado na Semana 2 como staging location. O restore process usa esse storage para armazenar temporariamente os discos restaurados.
 
@@ -275,11 +275,11 @@ Voce pratica o processo de restore sem criar recursos permanentes.
 
 ## Modo Desafio - Bloco 1
 
-- [ ] Criar Recovery Services Vault `az104-rsv` em `az104-rg-backup` (East US)
-- [ ] Criar custom policy `az104-backup-policy` (12h frequency, 180 days retention)
-- [ ] Habilitar backup de `az104-vm-win` **(Semana 2)** com custom policy
-- [ ] Habilitar backup de `az104-vm-linux` **(Semana 2)** com DefaultPolicy
-- [ ] Executar backup on-demand da `az104-vm-win` → aguardar completion
+- [ ] Criar Recovery Services Vault `rsv-contoso-backup` em `rg-contoso-management` (East US)
+- [ ] Criar custom policy `rsvpol-contoso-12h` (12h frequency, 180 days retention)
+- [ ] Habilitar backup de `vm-web-01` **(Semana 2)** com custom policy
+- [ ] Habilitar backup de `vm-api-01` **(Semana 2)** com DefaultPolicy
+- [ ] Executar backup on-demand da `vm-web-01` → aguardar completion
 - [ ] Verificar restore points e opcoes de restore
 - [ ] Explorar replicacao do vault (LRS/GRS/ZRS) e entender Cross Region Restore
 - [ ] Simular restore de disco (dry run, sem executar)

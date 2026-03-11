@@ -100,25 +100,25 @@ Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos
 
 ```bash
 # CLI — VMs (da Semana 2)
-az vm deallocate -g az104-rg7 -n az104-vm-win --no-wait
-az vm deallocate -g az104-rg7 -n az104-vm-linux --no-wait
+az vm deallocate -g rg-contoso-compute -n vm-web-01 --no-wait
+az vm deallocate -g rg-contoso-compute -n vm-api-01 --no-wait
 
 # CLI — Desabilitar alertas (evita avaliacoes desnecessarias)
-az monitor metrics alert update -g az104-rg-monitor -n az104-vm-win-cpu-alert --enabled false
+az monitor metrics alert update -g rg-contoso-management -n alert-vm-web-01-cpu --enabled false
 ```
 
 ```powershell
 # PowerShell — VMs
-Stop-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-win -Force
-Stop-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-linux -Force
+Stop-AzVM -ResourceGroupName rg-contoso-compute -Name vm-web-01 -Force
+Stop-AzVM -ResourceGroupName rg-contoso-compute -Name vm-api-01 -Force
 ```
 
 ## Retomar (quando voltar ao lab)
 
 ```bash
-az vm start -g az104-rg7 -n az104-vm-win --no-wait
-az vm start -g az104-rg7 -n az104-vm-linux --no-wait
-az monitor metrics alert update -g az104-rg-monitor -n az104-vm-win-cpu-alert --enabled true
+az vm start -g rg-contoso-compute -n vm-web-01 --no-wait
+az vm start -g rg-contoso-compute -n vm-api-01 --no-wait
+az monitor metrics alert update -g rg-contoso-management -n alert-vm-web-01-cpu --enabled true
 ```
 
 > **Nota:** Desalocar VMs para cobranca de compute, mas discos continuam cobrando. Site Recovery cobra continuamente por VM replicada — desabilite a replicacao via Portal se nao for continuar no mesmo dia. Recovery Services Vault cobra por instancia protegida — desabilite a protecao se necessario.
@@ -139,28 +139,26 @@ az monitor metrics alert update -g az104-rg-monitor -n az104-vm-win-cpu-alert --
 ## Via Azure Portal
 
 1. **Desabilitar replicacao (Site Recovery):**
-   - `az104-rsv-dr` > Replicated items > az104-vm-win > **Disable replication** > confirme
+   - `rsv-contoso-dr-westus` > Replicated items > vm-web-01 > **Disable replication** > confirme
    - Aguarde o job completar
 
 2. **Parar backup e deletar dados:**
-   - `az104-rsv` > Backup items > Azure Virtual Machine > selecione cada VM > **Stop backup** > **Delete backup data** > confirme
-   - `az104-rsv` > Backup items > Azure File Share > selecione az104-share > **Stop backup** > **Delete backup data** > confirme
+   - `rsv-contoso-backup` > Backup items > Azure Virtual Machine > selecione cada VM > **Stop backup** > **Delete backup data** > confirme
+   - `rsv-contoso-backup` > Backup items > Azure File Share > selecione contoso-share > **Stop backup** > **Delete backup data** > confirme
 
 3. **Deletar vaults** (so funciona apos remover todos os items):
-   - `az104-rsv-dr` > **Delete** (vault de DR)
-   - `az104-rsv` > **Delete** (vault de backup)
+   - `rsv-contoso-dr-westus` > **Delete** (vault de DR)
+   - `rsv-contoso-backup` > **Delete** (vault de backup)
 
-4. **Deletar Resource Groups:**
-   - `az104-rg-dr` (Site Recovery)
-   - `az104-rg-backup` (vault de backup)
-   - `az104-rg-monitor` (Log Analytics, alerts, action groups)
+4. **Deletar Resource Group de management:**
+   - `rg-contoso-management` (vault de backup, vault de DR, Log Analytics, alerts, action groups)
 
 5. **Reverter configuracoes nos recursos das semanas anteriores:**
-   - Storage account (az104-rg6): desabilitar soft delete e versioning se desejar
-   - VMs (az104-rg7): desinstalar Azure Monitor Agent se desejar
+   - Storage account (rg-contoso-storage): desabilitar soft delete e versioning se desejar
+   - VMs (rg-contoso-compute): desinstalar Azure Monitor Agent se desejar
 
 6. **Deletar auto-created resource groups** (Site Recovery):
-   - `az104-rg7-asr` (se foi criado pelo ASR)
+   - `rg-contoso-compute-asr` (se foi criado pelo ASR)
 
 ## Via CLI
 
@@ -171,11 +169,9 @@ az monitor metrics alert update -g az104-rg-monitor -n az104-vm-win-cpu-alert --
 # CLEANUP - Descoberta dinamica de nomes internos
 # ============================================================
 
-VAULT_NAME="az104-rsv"
-VAULT_DR="az104-rsv-dr"
-RG_BACKUP="az104-rg-backup"
-RG_DR="az104-rg-dr"
-RG_MONITOR="az104-rg-monitor"
+VAULT_NAME="rsv-contoso-backup"
+VAULT_DR="rsv-contoso-dr-westus"
+RG_MGMT="rg-contoso-management"
 
 # 1. Desabilitar replicacao (Site Recovery)
 #    NOTA: ASR cleanup via CLI e complexo. Recomenda-se usar o Portal:
@@ -188,12 +184,12 @@ read -p "Pressione Enter apos desabilitar a replicacao no Portal..."
 # 2. Desabilitar backup de VMs (descoberta dinamica dos nomes internos)
 echo "Desabilitando backup de VMs..."
 for CONTAINER in $(az backup container list \
-  --vault-name "$VAULT_NAME" -g "$RG_BACKUP" \
+  --vault-name "$VAULT_NAME" -g "$RG_MGMT" \
   --backup-management-type AzureIaasVM \
   --query "[].name" -o tsv 2>/dev/null); do
 
   for ITEM in $(az backup item list \
-    --vault-name "$VAULT_NAME" -g "$RG_BACKUP" \
+    --vault-name "$VAULT_NAME" -g "$RG_MGMT" \
     --container-name "$CONTAINER" \
     --backup-management-type AzureIaasVM \
     --query "[].name" -o tsv 2>/dev/null); do
@@ -203,7 +199,7 @@ for CONTAINER in $(az backup container list \
       --container-name "$CONTAINER" \
       --item-name "$ITEM" \
       --vault-name "$VAULT_NAME" \
-      -g "$RG_BACKUP" \
+      -g "$RG_MGMT" \
       --backup-management-type AzureIaasVM \
       --delete-backup-data true --yes 2>/dev/null
   done
@@ -212,12 +208,12 @@ done
 # 3. Desabilitar backup de File Shares (descoberta dinamica)
 echo "Desabilitando backup de File Shares..."
 for CONTAINER in $(az backup container list \
-  --vault-name "$VAULT_NAME" -g "$RG_BACKUP" \
+  --vault-name "$VAULT_NAME" -g "$RG_MGMT" \
   --backup-management-type AzureStorage \
   --query "[].name" -o tsv 2>/dev/null); do
 
   for ITEM in $(az backup item list \
-    --vault-name "$VAULT_NAME" -g "$RG_BACKUP" \
+    --vault-name "$VAULT_NAME" -g "$RG_MGMT" \
     --container-name "$CONTAINER" \
     --backup-management-type AzureStorage \
     --query "[].name" -o tsv 2>/dev/null); do
@@ -227,7 +223,7 @@ for CONTAINER in $(az backup container list \
       --container-name "$CONTAINER" \
       --item-name "$ITEM" \
       --vault-name "$VAULT_NAME" \
-      -g "$RG_BACKUP" \
+      -g "$RG_MGMT" \
       --backup-management-type AzureStorage \
       --delete-backup-data true --yes 2>/dev/null
   done
@@ -235,17 +231,15 @@ done
 
 # 4. Deletar vaults (so funciona apos desabilitar todas as protecoes)
 echo "Deletando vaults..."
-az backup vault delete -g "$RG_BACKUP" --name "$VAULT_NAME" --yes 2>/dev/null
-az backup vault delete -g "$RG_DR" --name "$VAULT_DR" --yes 2>/dev/null
+az backup vault delete -g "$RG_MGMT" --name "$VAULT_NAME" --yes 2>/dev/null
+az backup vault delete -g "$RG_MGMT" --name "$VAULT_DR" --yes 2>/dev/null
 
-# 5. Deletar Resource Groups
-echo "Deletando Resource Groups..."
-az group delete --name "$RG_DR" --yes --no-wait
-az group delete --name "$RG_BACKUP" --yes --no-wait
-az group delete --name "$RG_MONITOR" --yes --no-wait
+# 5. Deletar Resource Group de management
+echo "Deletando Resource Group..."
+az group delete --name "$RG_MGMT" --yes --no-wait
 
 # 6. Deletar RGs auto-created pelo ASR (se existirem)
-az group delete --name az104-rg7-asr --yes --no-wait 2>/dev/null
+az group delete --name rg-contoso-compute-asr --yes --no-wait 2>/dev/null
 
 echo "Cleanup concluido. RGs sendo deletados em background."
 ```
@@ -256,7 +250,7 @@ echo "Cleanup concluido. RGs sendo deletados em background."
 # 1. Desabilitar replicacao (recomenda-se portal para este passo)
 
 # 2. Parar backup
-$vault = Get-AzRecoveryServicesVault -ResourceGroupName az104-rg-backup -Name az104-rsv
+$vault = Get-AzRecoveryServicesVault -ResourceGroupName rg-contoso-management -Name rsv-contoso-backup
 Set-AzRecoveryServicesVaultContext -Vault $vault
 $backupItems = Get-AzRecoveryServicesBackupItem -BackupManagementType AzureVM -WorkloadType AzureVM
 foreach ($item in $backupItems) {
@@ -266,20 +260,18 @@ foreach ($item in $backupItems) {
 # 3. Deletar vaults
 Remove-AzRecoveryServicesVault -Vault $vault
 
-# 4. Deletar Resource Groups
-Remove-AzResourceGroup -Name az104-rg-dr -Force -AsJob
-Remove-AzResourceGroup -Name az104-rg-backup -Force -AsJob
-Remove-AzResourceGroup -Name az104-rg-monitor -Force -AsJob
+# 4. Deletar Resource Group de management
+Remove-AzResourceGroup -Name rg-contoso-management -Force -AsJob
 
 # 5. Deletar RGs auto-created
-Remove-AzResourceGroup -Name az104-rg7-asr -Force -AsJob -ErrorAction SilentlyContinue
+Remove-AzResourceGroup -Name rg-contoso-compute-asr -Force -AsJob -ErrorAction SilentlyContinue
 
 # 6. Remover diagnostic settings
 $subscriptionId = (Get-AzContext).Subscription.Id
-Remove-AzDiagnosticSetting -Name az104-activity-to-law -ResourceId "/subscriptions/$subscriptionId"
+Remove-AzDiagnosticSetting -Name diag-activity-to-law -ResourceId "/subscriptions/$subscriptionId"
 ```
 
-> **Nota:** Nao delete os resource groups das semanas anteriores (`az104-rg4` a `az104-rg7`) a menos que nao precise mais dos recursos. O cleanup desta semana remove apenas o que foi criado na Semana 3.
+> **Nota:** Nao delete os resource groups das semanas anteriores (`rg-contoso-network` a `rg-contoso-compute`) a menos que nao precise mais dos recursos. O cleanup desta semana remove apenas o que foi criado na Semana 3.
 
 ---
 

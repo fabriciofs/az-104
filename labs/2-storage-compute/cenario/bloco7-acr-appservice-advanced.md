@@ -3,7 +3,7 @@
 # Bloco 7 - ACR e App Service Avancado
 
 **Origem:** Lab 09b - Implement Azure Container Instances (ACR) + Lab 09a - App Service (topicos avancados)
-**Resource Groups utilizados:** `az104-rg8` (App Service do Bloco 3) + `az104-rg7acr` (Container Registry, ACI)
+**Resource Groups utilizados:** `rg-contoso-compute` (App Service do Bloco 3) + `rg-contoso-compute` (Container Registry, ACI)
 
 ## Contexto
 
@@ -13,12 +13,12 @@ A Contoso Corp precisa de um registro privado de containers para armazenar e dis
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
-│                     az104-rg7acr                                         │
+│                     rg-contoso-compute                                         │
 │                                                                          │
 │  ┌──────────────────────────────┐  ┌──────────────────────────────────┐  │
-│  │ Azure Container Registry     │  │ ACI: az104-acr-aci               │  │
-│  │ az104acr<uniqueid>           │  │                                  │  │
-│  │ SKU: Basic                   │  │ Image: az104acr*.azurecr.io/     │  │
+│  │ Azure Container Registry     │  │ ACI: ci-contoso-acr               │  │
+│  │ acrcontosoprod<uniqueid>           │  │                                  │  │
+│  │ SKU: Basic                   │  │ Image: acrcontosoprod*.azurecr.io/     │  │
 │  │                              │  │   sample-app:v1                  │  │
 │  │ Images:                      │  │                                  │  │
 │  │ • sample-app:v1              │  │ ← Pull from ACR (admin creds)    │  │
@@ -26,13 +26,13 @@ A Contoso Corp precisa de um registro privado de containers para armazenar e dis
 │  └──────────────────────────────┘  └──────────────────────────────────┘  │
 │                                                                          │
 │  ┌──────────────────────────────────────────────────────────────────┐    │
-│  │ az104-rg8 (App Service do Bloco 3)                               │    │
+│  │ rg-contoso-compute (App Service do Bloco 3)                               │    │
 │  │                                                                  │    │
-│  │  App Service: az104-webapp-*                                     │    │
+│  │  App Service: app-contoso-web                                     │    │
 │  │  ├─ Custom DNS: walkthrough (CNAME + verificacao)                │    │
 │  │  ├─ TLS/SSL: walkthrough (certificado)                           │    │
-│  │  ├─ Backup: para Storage Account (contosostore*)                 │    │
-│  │  └─ VNet Integration: CoreServicesVnet (Semana 1)                │    │
+│  │  ├─ Backup: para Storage Account (stcontosoprod01)                 │    │
+│  │  └─ VNet Integration: vnet-contoso-hub-brazilsouth (Semana 1)                │    │
 │  └──────────────────────────────────────────────────────────────────┘    │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
@@ -45,15 +45,15 @@ A Contoso Corp precisa de um registro privado de containers para armazenar e dis
 
    | Setting        | Value                                    |
    | -------------- | ---------------------------------------- |
-   | Resource group | `az104-rg7acr` (crie se necessario)      |
-   | Registry name  | `az104acr<uniqueid>` (globalmente unico) |
+   | Resource group | `rg-contoso-compute` (crie se necessario)      |
+   | Registry name  | `acrcontosoprod<uniqueid>` (globalmente unico) |
    | Region         | **(US) East US**                         |
    | SKU            | **Basic**                                |
 
 2. **Review + create** > **Create** > **Go to resource**
 
 3. No **Overview**, note:
-   - **Login server**: `az104acr<uniqueid>.azurecr.io`
+   - **Login server**: `acrcontosoprod<uniqueid>.azurecr.io`
    - **SKU**: Basic (suporta ate 10 GiB de storage)
 
 4. Navegue para **Settings** > **Access keys**:
@@ -86,7 +86,7 @@ O `az acr build` permite construir imagens diretamente no ACR, sem precisar de D
 
    ```bash
    az acr build \
-     --registry az104acr<uniqueid> \
+     --registry acrcontosoprod<uniqueid> \
      --image sample-app:v1 \
      --file Dockerfile .
    ```
@@ -96,13 +96,13 @@ O `az acr build` permite construir imagens diretamente no ACR, sem precisar de D
 5. Liste as imagens no ACR:
 
    ```bash
-   az acr repository list --name az104acr<uniqueid> -o table
+   az acr repository list --name acrcontosoprod<uniqueid> -o table
    ```
 
 6. Veja os tags da imagem:
 
    ```bash
-   az acr repository show-tags --name az104acr<uniqueid> --repository sample-app -o table
+   az acr repository show-tags --name acrcontosoprod<uniqueid> --repository sample-app -o table
    ```
 
 7. No portal, navegue para o ACR > **Repositories** > **sample-app** > confirme que `v1` esta listado
@@ -117,11 +117,11 @@ O `az acr build` permite construir imagens diretamente no ACR, sem precisar de D
 
    | Setting        | Value                        |
    | -------------- | ---------------------------- |
-   | Resource group | `az104-rg7acr`               |
-   | Container name | `az104-acr-aci`              |
+   | Resource group | `rg-contoso-compute`               |
+   | Container name | `ci-contoso-acr`              |
    | Region         | **(US) East US**             |
    | Image source   | **Azure Container Registry** |
-   | Registry       | `az104acr<uniqueid>`         |
+   | Registry       | `acrcontosoprod<uniqueid>`         |
    | Image          | `sample-app`                 |
    | Image tag      | `v1`                         |
    | OS type        | **Linux**                    |
@@ -149,7 +149,7 @@ O `az acr build` permite construir imagens diretamente no ACR, sem precisar de D
 
 > **Nota:** Esta task documenta o processo completo de mapeamento DNS. Em ambiente de lab sem dominio comprado, voce seguira os passos no portal ate o ponto de verificacao, entendendo cada etapa.
 
-1. Navegue para o App Service **az104-webapp-\*** (do Bloco 3, em az104-rg8)
+1. Navegue para o App Service **app-contoso-web** (do Bloco 3, em rg-contoso-compute)
 
 2. **Settings** > **Custom domains** > **+ Add custom domain**
 
@@ -159,7 +159,7 @@ O `az acr build` permite construir imagens diretamente no ACR, sem precisar de D
 
    | Record Type | Host        | Points to                          |
    | ----------- | ----------- | ---------------------------------- |
-   | CNAME       | `www`       | `az104-webapp-*.azurewebsites.net` |
+   | CNAME       | `www`       | `app-contoso-web.azurewebsites.net` |
    | TXT         | `asuid.www` | *Domain verification ID do portal* |
 
    **Passo 2 — Verificacao no portal:**
@@ -213,7 +213,7 @@ O `az acr build` permite construir imagens diretamente no ACR, sem precisar de D
 
 5. Clique em **Save**
 
-6. Abra o navegador e acesse `http://az104-webapp-*.azurewebsites.net` (HTTP, sem S)
+6. Abra o navegador e acesse `http://app-contoso-web.azurewebsites.net` (HTTP, sem S)
 
 7. Observe o redirecionamento automatico para HTTPS (a URL muda no navegador)
 
@@ -235,7 +235,7 @@ O `az acr build` permite construir imagens diretamente no ACR, sem precisar de D
 
    | Setting        | Value                                         |
    | -------------- | --------------------------------------------- |
-   | Backup storage | **Storage Account**: contosostore\* (Bloco 1) |
+   | Backup storage | **Storage Account**: stcontosoprod01 (Bloco 1) |
    | Container      | Selecione ou crie `webapp-backups`            |
 
 3. Configure o **schedule**:
@@ -256,7 +256,7 @@ O `az acr build` permite construir imagens diretamente no ACR, sem precisar de D
 
 7. Aguarde o backup completar > verifique o status na lista de backups
 
-8. Navegue para **contosostore\*** > **Containers** > `webapp-backups` e confirme que o arquivo de backup (.zip) esta la
+8. Navegue para **stcontosoprod01** > **Containers** > `webapp-backups` e confirme que o arquivo de backup (.zip) esta la
 
    > **Conceito:** App Service Backup cria um snapshot completo da aplicacao (codigo, configuracao, conteudo). Os backups sao armazenados em uma Storage Account como arquivos .zip. O limite e 10 GB por app. Para bancos de dados, o backup inclui connection strings configuradas.
 
@@ -276,10 +276,10 @@ VNet Integration permite que o App Service acesse recursos privados na VNet (out
 
    | Setting         | Value                                         |
    | --------------- | --------------------------------------------- |
-   | Virtual network | **CoreServicesVnet** (do az104-rg4, Semana 1) |
+   | Virtual network | **vnet-contoso-hub-brazilsouth** (do rg-contoso-network, Semana 1) |
    | Subnet          | Selecione ou crie uma subnet dedicada         |
 
-   > **Nota:** Se nenhuma subnet livre estiver disponivel, crie uma nova: `WebAppSubnet` (10.20.50.0/24) na CoreServicesVnet.
+   > **Nota:** Se nenhuma subnet livre estiver disponivel, crie uma nova: `WebAppSubnet` (10.20.50.0/24) na vnet-contoso-hub-brazilsouth.
 
 3. Clique em **OK**
 
@@ -292,7 +292,7 @@ VNet Integration permite que o App Service acesse recursos privados na VNet (out
 
    > **Conceito:** VNet Integration (regional) permite que o App Service envie trafego outbound pela VNet. Isso nao expoe o App Service na VNet (para inbound, use Private Endpoints). A subnet delegada ao App Service nao pode ter outros recursos. Requer Standard ou Premium plan.
 
-   > **Conexao com Semana 1:** O App Service agora pode acessar o Storage Account via Private Endpoint (configurado no Bloco 1 da Semana 2) pela CoreServicesVnet, garantindo que o trafego nunca saia da rede Microsoft.
+   > **Conexao com Semana 1:** O App Service agora pode acessar o Storage Account via Private Endpoint (configurado no Bloco 1 da Semana 2) pela vnet-contoso-hub-brazilsouth, garantindo que o trafego nunca saia da rede Microsoft.
 
    > **Dica AZ-104:** Na prova: VNet Integration = outbound (App Service acessa VNet). Private Endpoint = inbound (VNet acessa App Service). Requer subnet dedicada (/28 minimo). Funciona com peering e ExpressRoute.
 
@@ -300,7 +300,7 @@ VNet Integration permite que o App Service acesse recursos privados na VNet (out
 
 ## Modo Desafio - Bloco 7
 
-- [ ] Criar ACR `az104acr<id>` (Basic) com admin user habilitado
+- [ ] Criar ACR `acrcontosoprod<id>` (Basic) com admin user habilitado
 - [ ] Criar Dockerfile e executar `az acr build` para gerar imagem `sample-app:v1`
 - [ ] Criar ACI puxando imagem privada do ACR
 - [ ] Explorar configuracao de Custom Domain no App Service **(Bloco 3)** — CNAME + TXT verification
@@ -309,7 +309,7 @@ VNet Integration permite que o App Service acesse recursos privados na VNet (out
 - [ ] Explorar opcoes de certificado: Managed, Key Vault, Upload
 - [ ] Configurar backup do App Service para storage account **(Bloco 1)** com schedule diario
 - [ ] Executar backup manual e verificar .zip no container
-- [ ] Configurar VNet Integration no App Service com CoreServicesVnet **(Semana 1)**
+- [ ] Configurar VNet Integration no App Service com vnet-contoso-hub-brazilsouth **(Semana 1)**
 
 ---
 

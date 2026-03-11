@@ -27,7 +27,7 @@ Ao final, voce tera **um ambiente corporativo completo** onde armazenamento, com
 ```
 iam-gov-net (Semana 1)
   │
-  ├─ VNets (CoreServicesVnet, ManufacturingVnet) ─────────┐
+  ├─ VNets (vnet-contoso-hub-brazilsouth, vnet-contoso-spoke-brazilsouth) ─────────┐
   ├─ NSGs, DNS zones ─────────────────────────────────────┤
   ├─ RBAC, Policies ──────────────────────────────────────┤
   └─ Users, Groups ───────────────────────────────────────┤
@@ -35,7 +35,7 @@ iam-gov-net (Semana 1)
                                                           ▼
 Bloco 1 (Storage)
   │
-  ├─ Storage Account (contosostore*) ──────┐
+  ├─ Storage Account (stcontosoprod01) ──────┐
   ├─ Blob Container ───────────────────────┤
   ├─ File Share (contoso-files) ───────────┤
   ├─ Private Endpoint (na VNet) ───────────┤
@@ -109,35 +109,35 @@ Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos
 
 ```bash
 # CLI — VMs
-az vm deallocate -g az104-rg7 -n az104-vm-win --no-wait
-az vm deallocate -g az104-rg7 -n az104-vm-linux --no-wait
+az vm deallocate -g rg-contoso-compute -n vm-web-01 --no-wait
+az vm deallocate -g rg-contoso-compute -n vm-api-01 --no-wait
 
 # CLI — VMSS (escalar para 0)
-az vmss scale -g az104-rg7 -n az104-vmss --new-capacity 0
+az vmss scale -g rg-contoso-compute -n vmss-contoso-web --new-capacity 0
 
 # CLI — ACI
-az container stop -g az104-rg9 -n az104-container-1
-az container stop -g az104-rg9 -n az104-container-2
+az container stop -g rg-contoso-compute -n ci-contoso-worker
+az container stop -g rg-contoso-compute -n ci-contoso-worker-2
 ```
 
 ```powershell
 # PowerShell — VMs
-Stop-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-win -Force
-Stop-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-linux -Force
+Stop-AzVM -ResourceGroupName rg-contoso-compute -Name vm-web-01 -Force
+Stop-AzVM -ResourceGroupName rg-contoso-compute -Name vm-api-01 -Force
 
 # PowerShell — ACI
-Stop-AzContainerGroup -ResourceGroupName az104-rg9 -Name az104-container-1
-Stop-AzContainerGroup -ResourceGroupName az104-rg9 -Name az104-container-2
+Stop-AzContainerGroup -ResourceGroupName rg-contoso-compute -Name ci-contoso-worker
+Stop-AzContainerGroup -ResourceGroupName rg-contoso-compute -Name ci-contoso-worker-2
 ```
 
 ## Retomar (quando voltar ao lab)
 
 ```bash
-az vm start -g az104-rg7 -n az104-vm-win --no-wait
-az vm start -g az104-rg7 -n az104-vm-linux --no-wait
-az vmss scale -g az104-rg7 -n az104-vmss --new-capacity 1
-az container start -g az104-rg9 -n az104-container-1
-az container start -g az104-rg9 -n az104-container-2
+az vm start -g rg-contoso-compute -n vm-web-01 --no-wait
+az vm start -g rg-contoso-compute -n vm-api-01 --no-wait
+az vmss scale -g rg-contoso-compute -n vmss-contoso-web --new-capacity 1
+az container start -g rg-contoso-compute -n ci-contoso-worker
+az container start -g rg-contoso-compute -n ci-contoso-worker-2
 ```
 
 > **Nota:** Desalocar VMs para cobranca de compute, mas discos e IPs publicos continuam cobrando. O App Service Plan (Standard S1) cobra enquanto existir — para parar, delete o plano ou rebaixe para Free F1. Container Apps com scale-to-zero nao geram custo quando ociosas.
@@ -151,47 +151,38 @@ az container start -g az104-rg9 -n az104-container-2
 ## Via Azure Portal
 
 1. **Deletar Resource Groups** (prioridade por custo):
-   - `az104-rg7` (VMs e VMSS — PRIORIDADE por custo)
-   - `az104-rg10` (Container Apps Environment)
-   - `az104-rg8` (App Service Plan e Web App)
-   - `az104-rg9` (Container Instances)
-   - `az104-rg6` (Storage Account, Private Endpoint)
+   - `rg-contoso-compute` (VMs, VMSS, App Service, ACI, Container Apps — PRIORIDADE por custo)
+   - `rg-contoso-storage` (Storage Account, Private Endpoint)
 
 2. **Verificar Private DNS Zones:**
    - Se a zona `privatelink.blob.core.windows.net` foi criada automaticamente no Bloco 1, verifique se ela foi removida com o RG
 
 3. **Verificar recursos orfaos:**
-   - Pesquise **All resources** e filtre por `az104` para garantir que nao restam recursos
+   - Pesquise **All resources** e filtre por `contoso` para garantir que nao restam recursos
 
 ## Via CLI
 
 ```bash
-# 1. Deletar RGs (VMs e compute primeiro por custo)
-az group delete --name az104-rg7 --yes --no-wait
-az group delete --name az104-rg10 --yes --no-wait
-az group delete --name az104-rg8 --yes --no-wait
-az group delete --name az104-rg9 --yes --no-wait
-az group delete --name az104-rg6 --yes --no-wait
+# 1. Deletar RGs
+az group delete --name rg-contoso-compute --yes --no-wait
+az group delete --name rg-contoso-storage --yes --no-wait
 
 # 2. Verificar se todos os recursos foram removidos
-az resource list --query "[?contains(name, 'az104')]" -o table
+az resource list --query "[?contains(name, 'contoso')]" -o table
 ```
 
 ## Via PowerShell
 
 ```powershell
 # 1. Deletar RGs
-Remove-AzResourceGroup -Name az104-rg7 -Force -AsJob
-Remove-AzResourceGroup -Name az104-rg10 -Force -AsJob
-Remove-AzResourceGroup -Name az104-rg8 -Force -AsJob
-Remove-AzResourceGroup -Name az104-rg9 -Force -AsJob
-Remove-AzResourceGroup -Name az104-rg6 -Force -AsJob
+Remove-AzResourceGroup -Name rg-contoso-compute -Force -AsJob
+Remove-AzResourceGroup -Name rg-contoso-storage -Force -AsJob
 
 # 2. Verificar recursos remanescentes
-Get-AzResource | Where-Object { $_.Name -like "*az104*" } | Format-Table Name, ResourceGroupName, ResourceType
+Get-AzResource | Where-Object { $_.Name -like "*contoso*" } | Format-Table Name, ResourceGroupName, ResourceType
 ```
 
-> **Nota:** A exclusao dos RGs pode levar varios minutos. Verifique em **Notifications** (sino) no portal ou use `az group list --query "[?contains(name, 'az104')]" -o table`.
+> **Nota:** A exclusao dos RGs pode levar varios minutos. Verifique em **Notifications** (sino) no portal ou use `az group list --query "[?contains(name, 'contoso')]" -o table`.
 
 ---
 

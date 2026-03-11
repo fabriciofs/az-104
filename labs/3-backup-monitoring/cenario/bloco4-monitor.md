@@ -3,7 +3,7 @@
 # Bloco 4 - Monitor & Alerts
 
 **Origem:** Lab 11 - Implement Monitoring
-**Resource Groups utilizados:** `az104-rg-monitor` (Action Groups, Alert Rules) + `az104-rg7` (VMs da Semana 2)
+**Resource Groups utilizados:** `rg-contoso-management` (Action Groups, Alert Rules) + `rg-contoso-compute` (VMs da Semana 2)
 
 ## Contexto
 
@@ -16,22 +16,22 @@ Com backup e DR configurados (Blocos 1-3), voce agora implementa monitoramento p
 │                    Azure Monitor                                   │
 │                                                                    │
 │  ┌──────────────────────────────────────────────────────────────┐  │
-│  │  Action Groups (az104-rg-monitor)                            │  │
+│  │  Action Groups (rg-contoso-management)                            │  │
 │  │                                                              │  │
-│  │  └─ az104-ag1: Email + SMS                                   │  │
+│  │  └─ ag-contoso-ops: Email + SMS                                   │  │
 │  └──────────────────────────────────────────────────────────────┘  │
 │                                                                    │
 │  ┌──────────────────────────────────────────────────────────────┐  │
 │  │  Alert Rules                                                 │  │
 │  │                                                              │  │
-│  │  ├─ CPU Alert: az104-vm-win CPU > 80%                        │  │
-│  │  │  (VM da Semana 2) → az104-ag1                             │  │
+│  │  ├─ CPU Alert: vm-web-01 CPU > 80%                        │  │
+│  │  │  (VM da Semana 2) → ag-contoso-ops                             │  │
 │  │  │                                                           │  │
 │  │  ├─ VM Deleted Alert: Activity Log delete VM                 │  │
-│  │  │  (qualquer VM) → az104-ag1                                │  │
+│  │  │  (qualquer VM) → ag-contoso-ops                                │  │
 │  │  │                                                           │  │
 │  │  └─ Backup Failed Alert: Recovery Services vault             │  │
-│  │     (vault do Bloco 1) → az104-ag1                           │  │
+│  │     (vault do Bloco 1) → ag-contoso-ops                           │  │
 │  └──────────────────────────────────────────────────────────────┘  │
 │                                                                    │
 │  ┌──────────────────────────────────────────────────────────────┐  │
@@ -52,7 +52,7 @@ Com backup e DR configurados (Blocos 1-3), voce agora implementa monitoramento p
 
 Voce explora as metricas da VM criada na Semana 2 para entender o baseline de performance.
 
-1. Navegue para **az104-vm-win** (em az104-rg7, Semana 2)
+1. Navegue para **vm-web-01** (em rg-contoso-compute, Semana 2)
 
 2. No blade **Monitoring** > **Metrics**
 
@@ -60,7 +60,7 @@ Voce explora as metricas da VM criada na Semana 2 para entender o baseline de pe
 
    | Setting          | Value                    |
    | ---------------- | ------------------------ |
-   | Scope            | **az104-vm-win**         |
+   | Scope            | **vm-web-01**         |
    | Metric Namespace | **Virtual Machine Host** |
    | Metric           | **Percentage CPU**       |
    | Aggregation      | **Avg**                  |
@@ -100,9 +100,9 @@ Voce explora as metricas da VM criada na Semana 2 para entender o baseline de pe
    | Setting           | Value                                   |
    | ----------------- | --------------------------------------- |
    | Subscription      | *sua subscription*                      |
-   | Resource group    | `az104-rg-monitor` (crie se necessario) |
-   | Action group name | `az104-ag1`                             |
-   | Display name      | `az104-ag1`                             |
+   | Resource group    | `rg-contoso-management` (mesmo RG dos Blocos 1-3) |
+   | Action group name | `ag-contoso-ops`                             |
+   | Display name      | `ag-contoso-ops`                             |
 
 3. Aba **Notifications**:
 
@@ -138,7 +138,7 @@ Este alerta monitora a CPU da VM da Semana 2 e notifica via Action Group.
    | Setting                 | Value                        |
    | ----------------------- | ---------------------------- |
    | Filter by resource type | **Virtual machines**         |
-   | Resource                | **az104-vm-win** (az104-rg7) |
+   | Resource                | **vm-web-01** (rg-contoso-compute) |
 
 3. Clique em **Apply**
 
@@ -159,17 +159,17 @@ Este alerta monitora a CPU da VM da Semana 2 e notifica via Action Group.
 
 6. Clique em **Next: Actions**
 
-7. Selecione **Select action groups** > **az104-ag1** > **Select**
+7. Selecione **Select action groups** > **ag-contoso-ops** > **Select**
 
 8. Aba **Details**:
 
    | Setting                | Value                                        |
    | ---------------------- | -------------------------------------------- |
    | Subscription           | *sua subscription*                           |
-   | Resource group         | `az104-rg-monitor`                           |
+   | Resource group         | `rg-contoso-management`                           |
    | Severity               | **2 - Warning**                              |
-   | Alert rule name        | `az104-vm-win-cpu-alert`                     |
-   | Alert rule description | `Alert when CPU exceeds 80% on az104-vm-win` |
+   | Alert rule name        | `alert-vm-web-01-cpu`                     |
+   | Alert rule description | `Alert when CPU exceeds 80% on vm-web-01` |
    | Enable upon creation   | **Checked**                                  |
 
 9. Clique em **Review + create** > **Create**
@@ -189,7 +189,7 @@ Voce cria um segundo alerta de CPU usando Dynamic Threshold para comparar com o 
    | Setting                 | Value                        |
    | ----------------------- | ---------------------------- |
    | Filter by resource type | **Virtual machines**         |
-   | Resource                | **az104-vm-win** (az104-rg7) |
+   | Resource                | **vm-web-01** (rg-contoso-compute) |
 
 3. Clique em **Apply**
 
@@ -206,17 +206,17 @@ Voce cria um segundo alerta de CPU usando Dynamic Threshold para comparar com o 
 
 6. Observe o grafico de preview — o Azure mostra a banda de threshold calculada com base no historico da VM
 
-7. Clique em **Next: Actions** > selecione **az104-ag1**
+7. Clique em **Next: Actions** > selecione **ag-contoso-ops**
 
 8. Aba **Details**:
 
    | Setting                | Value                                                |
    | ---------------------- | ---------------------------------------------------- |
    | Subscription           | *sua subscription*                                   |
-   | Resource group         | `az104-rg-monitor`                                   |
+   | Resource group         | `rg-contoso-management`                                   |
    | Severity               | **2 - Warning**                                      |
-   | Alert rule name        | `az104-vm-win-cpu-dynamic`                           |
-   | Alert rule description | `Dynamic threshold alert for CPU on az104-vm-win`    |
+   | Alert rule name        | `alert-vm-web-01-cpu-dynamic`                           |
+   | Alert rule description | `Dynamic threshold alert for CPU on vm-web-01`    |
    | Enable upon creation   | **Checked**                                          |
 
 9. Clique em **Review + create** > **Create**
@@ -250,16 +250,16 @@ Este alerta dispara quando qualquer VM e deletada — protegendo recursos de tod
    | Status             | **All**                    |
    | Event initiated by | *(deixe em branco)*        |
 
-7. Clique em **Next: Actions** > selecione **az104-ag1**
+7. Clique em **Next: Actions** > selecione **ag-contoso-ops**
 
 8. Aba **Details**:
 
    | Setting         | Value                          |
    | --------------- | ------------------------------ |
    | Severity        | **1 - Error**                  |
-   | Alert rule name | `az104-vm-deleted-alert`       |
+   | Alert rule name | `alert-vm-delete`       |
    | Description     | `Alert when any VM is deleted` |
-   | Resource group  | `az104-rg-monitor`             |
+   | Resource group  | `rg-contoso-management`             |
 
 9. Clique em **Review + create** > **Create**
 
@@ -273,7 +273,7 @@ Este alerta dispara quando qualquer VM e deletada — protegendo recursos de tod
 
 Voce gera carga na VM para testar o alerta de CPU.
 
-1. Navegue para **az104-vm-win** > **Operations** > **Run command** > **RunPowerShellScript**
+1. Navegue para **vm-web-01** > **Operations** > **Run command** > **RunPowerShellScript**
 
 2. Execute o seguinte script para gerar carga de CPU:
 
@@ -317,7 +317,7 @@ Voce gera carga na VM para testar o alerta de CPU.
 
 3. Em **Alerts**, revise os alertas disparados e resolvidos
 
-4. Em **Activity Log**, filtre por **Resource group = az104-rg7** para ver operacoes nas VMs da Semana 2
+4. Em **Activity Log**, filtre por **Resource group = rg-contoso-compute** para ver operacoes nas VMs da Semana 2
 
    > **Conexao com Semanas 1-2:** O Activity Log mostra TODAS as operacoes feitas desde a Semana 1: criacao de VNets, deploy de VMs, atribuicao de RBAC, aplicacao de policies, habilitacao de backup, etc.
 
@@ -340,14 +340,14 @@ Voce configura um alerta para ser notificado sobre problemas e manutencoes nos s
    | Regions      | **East US**                                            |
    | Event types  | **Service issue**, **Planned maintenance**             |
 
-4. Clique em **Actions** > selecione **az104-ag1**
+4. Clique em **Actions** > selecione **ag-contoso-ops**
 
 5. Aba **Details**:
 
    | Setting         | Value                         |
    | --------------- | ----------------------------- |
-   | Alert rule name | `az104-service-health-alert`  |
-   | Resource group  | `az104-rg-monitor`            |
+   | Alert rule name | `alert-service-health`  |
+   | Resource group  | `rg-contoso-management`            |
 
 6. Clique em **Create alert rule**
 
@@ -359,13 +359,13 @@ Voce configura um alerta para ser notificado sobre problemas e manutencoes nos s
 
 ## Modo Desafio - Bloco 4
 
-- [ ] Explorar metricas de CPU, Network In/Out da `az104-vm-win` **(Semana 2)**
-- [ ] Criar Action Group `az104-ag1` com email (+ SMS opcional)
-- [ ] Criar alerta de metrica: CPU > 80% na `az104-vm-win` → `az104-ag1`
-- [ ] Criar alerta com Dynamic Threshold (CPU) na `az104-vm-win` → `az104-ag1`
-- [ ] Criar alerta de Activity Log: VM deletada (subscription scope) → `az104-ag1`
+- [ ] Explorar metricas de CPU, Network In/Out da `vm-web-01` **(Semana 2)**
+- [ ] Criar Action Group `ag-contoso-ops` com email (+ SMS opcional)
+- [ ] Criar alerta de metrica: CPU > 80% na `vm-web-01` → `ag-contoso-ops`
+- [ ] Criar alerta com Dynamic Threshold (CPU) na `vm-web-01` → `ag-contoso-ops`
+- [ ] Criar alerta de Activity Log: VM deletada (subscription scope) → `ag-contoso-ops`
 - [ ] **Integracao:** Gerar carga de CPU na VM → verificar alerta disparado → checar email
-- [ ] Criar alerta de Service Health para VMs, Storage e VNets (East US) → `az104-ag1`
+- [ ] Criar alerta de Service Health para VMs, Storage e VNets (East US) → `ag-contoso-ops`
 - [ ] Explorar Azure Monitor: Activity Log, Alerts, Service Health
 
 ---

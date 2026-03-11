@@ -3,7 +3,7 @@
 # Bloco 7 - SSPR, Cost Management e NSG Effective Rules
 
 **Origem:** Lab 01 - Manage Microsoft Entra ID Identities (SSPR) + Cost Management + Network Watcher
-**Resource Groups utilizados:** `az104-rg4` (NSGs do Bloco 4) + `az104-rg5` (VMs do Bloco 5) + `az104-rg6lb` (VMs do Bloco 6)
+**Resource Groups utilizados:** `rg-contoso-network` (NSGs do Bloco 4) + `rg-contoso-compute` (VMs do Bloco 5) + `rg-contoso-network` (VMs do Bloco 6)
 
 ## Contexto
 
@@ -38,7 +38,7 @@ Com toda a infraestrutura da Contoso Corp operacional (identidade, governanca, r
 │                                                                    │
 │  ┌──────────────────────────────────────────────────────────────┐  │
 │  │  Network Watcher                                             │  │
-│  │  • Effective Security Rules: NSGs em LB-VM1 (Bloco 6)        │  │
+│  │  • Effective Security Rules: NSGs em vm-lb-01 (Bloco 6)        │  │
 │  │  • IP Flow Verify: testar trafego permitido/bloqueado        │  │
 │  └──────────────────────────────────────────────────────────────┘  │
 └────────────────────────────────────────────────────────────────────┘
@@ -165,7 +165,7 @@ O Self-Service Password Reset permite que usuarios resetem suas proprias senhas 
    | Setting         | Value              |
    | --------------- | ------------------ |
    | Scope           | *sua subscription* |
-   | Name            | `az104-lab-budget` |
+   | Name            | `budget-contoso-lab` |
    | Reset period    | **Monthly**        |
    | Creation date   | *data atual*       |
    | Expiration date | *6 meses a frente* |
@@ -207,7 +207,7 @@ Voce conecta um alerta de budget a um Action Group para automatizar acoes quando
 
    | Setting        | Value                                   |
    | -------------- | --------------------------------------- |
-   | Resource group | **az104-rg7**                           |
+   | Resource group | **rg-contoso-identity**                 |
    | Action group name | `ag-budget-alert`                    |
    | Display name   | `BudgetAlert`                           |
 
@@ -259,7 +259,7 @@ Voce conecta um alerta de budget a um Action Group para automatizar acoes quando
    | Scope           | *sua subscription*              |
    | Category        | **Cost**                        |
    | Impact          | **High**                        |
-   | Alert rule name | `az104-advisor-cost-alert`      |
+   | Alert rule name | `alert-advisor-cost`      |
    | Action Group    | *nenhum (ou crie um com email)* |
 
 6. Clique em **Create alert rule**
@@ -281,14 +281,14 @@ O Network Watcher permite visualizar as regras NSG efetivas aplicadas a uma NIC 
    | Setting           | Value              |
    | ----------------- | ------------------ |
    | Subscription      | *sua subscription* |
-   | Resource group    | `az104-rg6lb`      |
-   | Virtual machine   | **LB-VM1**         |
+   | Resource group    | `rg-contoso-network`      |
+   | Virtual machine   | **vm-lb-01**         |
    | Network interface | *selecione a NIC*  |
 
 3. Clique em **View effective security rules**
 
 4. Analise as regras exibidas:
-   - Note as **regras do NSG `nsg-lb`** (AllowHTTP, priority 100)
+   - Note as **regras do NSG `nsg-snet-lb`** (AllowHTTP, priority 100)
    - Note as **regras padrao** (AllowVNetInBound, AllowAzureLoadBalancerInBound, DenyAllInBound)
    - Identifique a ordem de avaliacao (menor priority = avaliada primeiro)
 
@@ -298,11 +298,11 @@ O Network Watcher permite visualizar as regras NSG efetivas aplicadas a uma NIC 
 
    | Setting     | Value                  |
    | ----------- | ---------------------- |
-   | VM          | **LB-VM1**             |
+   | VM          | **vm-lb-01**             |
    | NIC         | *selecione a NIC*      |
    | Protocol    | **TCP**                |
    | Direction   | **Inbound**            |
-   | Local IP    | *IP privado da LB-VM1* |
+   | Local IP    | *IP privado da vm-lb-01* |
    | Local port  | `80`                   |
    | Remote IP   | `10.0.0.1`             |
    | Remote port | `12345`                |
@@ -319,13 +319,13 @@ O Network Watcher permite visualizar as regras NSG efetivas aplicadas a uma NIC 
 
    | Setting         | Value                                       |
    | --------------- | ------------------------------------------- |
-   | Virtual machine | **CoreServicesVM** (Bloco 5, se disponivel) |
+   | Virtual machine | **vm-web-01** (Bloco 5, se disponivel) |
 
 10. Note que as regras efetivas sao apenas as **default rules** (sem regras customizadas)
 
     > **Conceito:** Effective Security Rules mostra a combinacao de TODAS as regras NSG aplicadas a uma NIC (subnet NSG + NIC NSG). IP Flow Verify testa se um pacote especifico seria permitido ou bloqueado, indicando qual regra decide. Essas ferramentas sao essenciais para troubleshooting de conectividade.
 
-    > **Conexao com Bloco 4:** O NSG `myNSGSecure` do Bloco 4 esta associado a SharedServicesSubnet. O NSG `nsg-lb` do Bloco 6 esta associado a LBSubnet. Cada subnet tem suas proprias regras efetivas — demonstrando que seguranca e por subnet/NIC.
+    > **Conexao com Bloco 4:** O NSG `nsg-snet-shared` do Bloco 4 esta associado a snet-shared. O NSG `nsg-snet-lb` do Bloco 6 esta associado a snet-lb. Cada subnet tem suas proprias regras efetivas — demonstrando que seguranca e por subnet/NIC.
 
     > **Dica AZ-104:** Na prova, Network Watcher e cobrado frequentemente: Effective Security Rules (ver regras combinadas), IP Flow Verify (testar pacote), Connection Troubleshoot (testar conectividade fim-a-fim), Next Hop (verificar roteamento).
 
@@ -337,13 +337,13 @@ Voce demonstra como o Azure avalia NSGs em camadas: para trafego **inbound**, pr
 
    | Setting        | Value                                   |
    | -------------- | --------------------------------------- |
-   | Name           | `nsg-nic-test`                          |
-   | Resource group | **az104-rg6**                           |
+   | Name           | `nsg-nic-vm-web-01`                          |
+   | Resource group | **rg-contoso-network**                           |
    | Region         | *(mesma regiao das VMs do Bloco 6)*     |
 
 2. Clique em **Create**
 
-3. Navegue para **nsg-nic-test** > **Settings** > **Inbound security rules** > **Add**:
+3. Navegue para **nsg-nic-vm-web-01** > **Settings** > **Inbound security rules** > **Add**:
 
    | Setting             | Value              |
    | ------------------- | ------------------ |
@@ -356,15 +356,15 @@ Voce demonstra como o Azure avalia NSGs em camadas: para trafego **inbound**, pr
 
 4. Clique em **Add**
 
-5. Navegue para **LB-VM1** > **Networking** > **Network settings** > clique na **NIC** da VM
+5. Navegue para **vm-lb-01** > **Networking** > **Network settings** > clique na **NIC** da VM
 
-6. Em **Settings** > **Network security group** > selecione **nsg-nic-test** > **Save**
+6. Em **Settings** > **Network security group** > selecione **nsg-nic-vm-web-01** > **Save**
 
 7. Navegue para **Network Watcher** > **IP flow verify**:
 
    | Setting          | Value                  |
    | ---------------- | ---------------------- |
-   | Virtual machine  | **LB-VM1**             |
+   | Virtual machine  | **vm-lb-01**             |
    | Direction        | **Inbound**            |
    | Protocol         | **TCP**                |
    | Local port       | `80`                   |
@@ -380,11 +380,11 @@ Voce demonstra como o Azure avalia NSGs em camadas: para trafego **inbound**, pr
    | **Inbound**  | Subnet NSG → NIC NSG                      | Ambos devem **permitir**       |
    | **Outbound** | NIC NSG → Subnet NSG                      | Ambos devem **permitir**       |
 
-   Mesmo que o NSG da subnet (`nsg-lb`) permita HTTP, o NSG da NIC (`nsg-nic-test`) nega — resultado final: **bloqueado**.
+   Mesmo que o NSG da subnet (`nsg-snet-lb`) permita HTTP, o NSG da NIC (`nsg-nic-vm-web-01`) nega — resultado final: **bloqueado**.
 
-10. **Limpar:** Navegue para a NIC da LB-VM1 > **Network security group** > selecione **None** > **Save**
+10. **Limpar:** Navegue para a NIC da vm-lb-01 > **Network security group** > selecione **None** > **Save**
 
-11. Delete o NSG `nsg-nic-test` (opcional)
+11. Delete o NSG `nsg-nic-vm-web-01` (opcional)
 
     > **Dica AZ-104:** Na prova, a ordem de avaliacao de NSGs e muito cobrada. Regra de ouro: para inbound, o trafego passa primeiro pelo NSG da subnet, depois pelo NSG da NIC. Para outbound, e o inverso. Se QUALQUER um dos NSGs negar, o trafego e bloqueado. Nao e necessario ter NSG em ambos — se nao ha NSG, todo trafego e permitido naquela camada.
 
@@ -401,10 +401,10 @@ Voce demonstra como o Azure avalia NSGs em camadas: para trafego **inbound**, pr
 - [ ] Explorar Cost Analysis por Resource Group e por Service
 - [ ] Revisar recomendacoes do Azure Advisor (Cost, Security, Reliability)
 - [ ] Criar alerta do Advisor para recomendacoes de Cost com impacto High
-- [ ] Visualizar Effective Security Rules da LB-VM1 **(Bloco 6)**
+- [ ] Visualizar Effective Security Rules da vm-lb-01 **(Bloco 6)**
 - [ ] IP Flow Verify: HTTP permitido (porta 80) e SSH bloqueado (porta 22)
 - [ ] Comparar regras efetivas entre VM com NSG e sem NSG
-- [ ] Criar NSG `nsg-nic-test` com regra DenyHTTP, associar a NIC da LB-VM1, testar com IP Flow Verify
+- [ ] Criar NSG `nsg-nic-vm-web-01` com regra DenyHTTP, associar a NIC da vm-lb-01, testar com IP Flow Verify
 - [ ] Verificar ordem de avaliacao: subnet NSG → NIC NSG (inbound) e NIC NSG → subnet NSG (outbound)
 
 ---

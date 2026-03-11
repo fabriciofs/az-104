@@ -3,7 +3,7 @@
 # Bloco 5 - Log Analytics & Network Watcher
 
 **Origem:** Lab 11 (continuacao) + VM Insights + Network Watcher
-**Resource Groups utilizados:** `az104-rg-monitor` (workspace) + `az104-rg7` (VMs da Semana 2) + `az104-rg4` (VNets da Semana 1)
+**Resource Groups utilizados:** `rg-contoso-management` (workspace) + `rg-contoso-compute` (VMs da Semana 2) + `rg-contoso-network` (VNets da Semana 1)
 
 ## Contexto
 
@@ -16,11 +16,11 @@ O Azure Monitor coleta metricas basicas automaticamente, mas para observabilidad
 │                    Log Analytics & Observabilidade                 │
 │                                                                    │
 │  ┌──────────────────────────────────────────────────────────────┐  │
-│  │  Log Analytics Workspace: az104-law (az104-rg-monitor)       │  │
+│  │  Log Analytics Workspace: law-contoso-prod (rg-contoso-management)       │  │
 │  │                                                              │  │
 │  │  Data Sources:                                               │  │
-│  │  ├─ az104-vm-win  (Semana 2) ◄── Azure Monitor Agent         │  │
-│  │  ├─ az104-vm-linux (Semana 2) ◄── Azure Monitor Agent        │  │
+│  │  ├─ vm-web-01  (Semana 2) ◄── Azure Monitor Agent         │  │
+│  │  ├─ vm-api-01 (Semana 2) ◄── Azure Monitor Agent        │  │
 │  │  └─ Activity Log ◄── Diagnostic Settings                     │  │
 │  │                                                              │  │
 │  │  Queries (KQL):                                              │  │
@@ -35,8 +35,8 @@ O Azure Monitor coleta metricas basicas automaticamente, mas para observabilidad
 │  │                                                              │  │
 │  │  ├─ Performance: CPU, memoria, disco, rede das VMs           │  │
 │  │  └─ Map: dependencias entre VMs e servicos                   │  │
-│  │     ├─ az104-vm-win → conexoes de rede                       │  │
-│  │     └─ az104-vm-linux → processos e portas                   │  │
+│  │     ├─ vm-web-01 → conexoes de rede                       │  │
+│  │     └─ vm-api-01 → processos e portas                   │  │
 │  └──────────────────────────────────────────────────────────────┘  │
 │                                                                    │
 │  ┌──────────────────────────────────────────────────────────────┐  │
@@ -67,8 +67,8 @@ O Azure Monitor coleta metricas basicas automaticamente, mas para observabilidad
    | Setting        | Value              |
    | -------------- | ------------------ |
    | Subscription   | *sua subscription* |
-   | Resource group | `az104-rg-monitor` |
-   | Name           | `az104-law`        |
+   | Resource group | `rg-contoso-management` |
+   | Name           | `law-contoso-prod`        |
    | Region         | **East US**        |
 
 3. Clique em **Review + Create** > **Create** > **Go to resource**
@@ -85,7 +85,7 @@ O Azure Monitor coleta metricas basicas automaticamente, mas para observabilidad
 
 Voce habilita a coleta de logs e metricas guest das VMs da Semana 2.
 
-1. No workspace **az104-law**, va para **Settings** > **Agents**
+1. No workspace **law-contoso-prod**, va para **Settings** > **Agents**
 
 2. Note as instrucoes de instalacao para Windows e Linux
 
@@ -101,15 +101,15 @@ Voce habilita a coleta de logs e metricas guest das VMs da Semana 2.
 
    | Setting        | Value              |
    | -------------- | ------------------ |
-   | Rule Name      | `az104-dcr`        |
+   | Rule Name      | `dcr-contoso-perf`        |
    | Subscription   | *sua subscription* |
-   | Resource Group | `az104-rg-monitor` |
+   | Resource Group | `rg-contoso-management` |
    | Region         | **East US**        |
    | Platform Type  | **All**            |
 
 6. Aba **Resources**: clique em **+ Add resources**
 
-7. Expanda `az104-rg7` > selecione **az104-vm-win** e **az104-vm-linux**
+7. Expanda `rg-contoso-compute` > selecione **vm-web-01** e **vm-api-01**
 
    > **Conexao com Semana 2:** Voce esta conectando as VMs criadas na Semana 2 ao workspace de Log Analytics. O agente sera instalado automaticamente nas VMs selecionadas.
 
@@ -124,7 +124,7 @@ Voce habilita a coleta de logs e metricas guest das VMs da Semana 2.
    | Data source type | **Performance Counters**               |
    | Configure        | **Basic** (CPU, Memory, Disk, Network) |
 
-   Destination: **Azure Monitor Logs** > `az104-law`
+   Destination: **Azure Monitor Logs** > `law-contoso-prod`
 
 10. **+ Add data source** novamente:
 
@@ -135,7 +135,7 @@ Voce habilita a coleta de logs e metricas guest das VMs da Semana 2.
     | Data source type | **Windows Event Logs**                                                              |
     | Configure        | **Basic** (Application: Critical, Error, Warning; System: Critical, Error, Warning) |
 
-    Destination: **Azure Monitor Logs** > `az104-law`
+    Destination: **Azure Monitor Logs** > `law-contoso-prod`
 
 11. Clique em **Review + create** > **Create**
 
@@ -145,7 +145,7 @@ Voce habilita a coleta de logs e metricas guest das VMs da Semana 2.
 
 ### Task 5.3: Habilitar VM Insights
 
-1. Navegue para **az104-vm-win** (em az104-rg7)
+1. Navegue para **vm-web-01** (em rg-contoso-compute)
 
 2. No blade **Monitoring** > **Insights**
 
@@ -155,19 +155,19 @@ Voce habilita a coleta de logs e metricas guest das VMs da Semana 2.
 
    | Setting                            | Value                        |
    | ---------------------------------- | ---------------------------- |
-   | Log Analytics Workspace            | `az104-law`                  |
-   | Data collection rule (if prompted) | `az104-dcr` ou crie uma nova |
+   | Log Analytics Workspace            | `law-contoso-prod`                  |
+   | Data collection rule (if prompted) | `dcr-contoso-perf` ou crie uma nova |
 
 5. Clique em **Configure** > aguarde o deployment
 
-6. Repita para **az104-vm-linux**:
-   - Navegue para **az104-vm-linux** > **Monitoring** > **Insights** > **Enable** > configure com `az104-law`
+6. Repita para **vm-api-01**:
+   - Navegue para **vm-api-01** > **Monitoring** > **Insights** > **Enable** > configure com `law-contoso-prod`
 
    > **Conexao com Semana 2:** VM Insights mostra performance detalhada e mapa de dependencias das VMs. Voce podera ver como as VMs da Semana 2 se comunicam entre si e com outros servicos via as VNets da Semana 1.
 
 7. Aguarde 5-10 minutos para dados comecarem a fluir
 
-8. Volte para **az104-vm-win** > **Monitoring** > **Insights**
+8. Volte para **vm-web-01** > **Monitoring** > **Insights**
 
 9. Explore as abas:
    - **Performance:** CPU, memoria, disco, rede (metricas guest via agente)
@@ -181,7 +181,7 @@ Voce habilita a coleta de logs e metricas guest das VMs da Semana 2.
 
 Voce compara as metricas disponiveis com e sem agente para entender a diferenca entre Host e Guest metrics.
 
-1. Navegue para **az104-vm-win** > **Monitoring** > **Metrics**
+1. Navegue para **vm-web-01** > **Monitoring** > **Metrics**
 
 2. Configure o primeiro grafico com metricas **Host** (sem agente):
 
@@ -219,7 +219,7 @@ Voce compara as metricas disponiveis com e sem agente para entender a diferenca 
 
 ### Task 5.4: Executar queries KQL no Log Analytics
 
-1. Navegue para **az104-law** > **General** > **Logs**
+1. Navegue para **law-contoso-prod** > **General** > **Logs**
 
 2. Feche o dialog de queries pre-built (se aparecer)
 
@@ -233,7 +233,7 @@ Heartbeat
 | project Computer, LastHeartbeat, MinutesSinceLastHeartbeat = datetime_diff('minute', now(), max_TimeGenerated)
 ```
 
-4. Verifique que ambas as VMs aparecem (az104-vm-win e az104-vm-linux)
+4. Verifique que ambas as VMs aparecem (vm-web-01 e vm-api-01)
 
 **Query 2 — Performance de CPU (ultimas 4 horas):**
 
@@ -288,11 +288,11 @@ Voce envia o Activity Log para o workspace, permitindo queries KQL sobre operaco
 
    | Setting                                      | Value                                                                      |
    | -------------------------------------------- | -------------------------------------------------------------------------- |
-   | Diagnostic setting name                      | `az104-activity-to-law`                                                    |
+   | Diagnostic setting name                      | `diag-activity-to-law`                                                    |
    | Log categories                               | **Selecione todas** (Administrative, Security, ServiceHealth, Alert, etc.) |
    | Destination: Send to Log Analytics workspace | **Checked**                                                                |
    | Subscription                                 | *sua subscription*                                                         |
-   | Log Analytics workspace                      | `az104-law`                                                                |
+   | Log Analytics workspace                      | `law-contoso-prod`                                                                |
 
 5. Clique em **Save**
 
@@ -323,20 +323,20 @@ Voce usa o Network Watcher para diagnosticar regras NSG nas VNets da Semana 1.
    | Setting           | Value                                                          |
    | ----------------- | -------------------------------------------------------------- |
    | Subscription      | *sua subscription*                                             |
-   | Resource group    | `az104-rg7`                                                    |
-   | Virtual machine   | **az104-vm-win**                                               |
+   | Resource group    | `rg-contoso-compute`                                                    |
+   | Virtual machine   | **vm-web-01**                                               |
    | Network interface | *selecione a NIC da VM*                                        |
    | Protocol          | **TCP**                                                        |
    | Direction         | **Inbound**                                                    |
    | Local port        | `3389`                                                         |
-   | Remote IP address | `10.20.10.5` (IP simulado na SharedServicesSubnet da Semana 1) |
+   | Remote IP address | `10.20.10.5` (IP simulado na snet-shared da Semana 1) |
    | Remote port       | `*`                                                            |
 
 4. Clique em **Check**
 
 5. Observe o resultado: **Allowed** ou **Denied** e qual NSG rule causou
 
-   > **Conexao com Semana 1:** O IP Flow Verify testa as regras dos NSGs criados na Semana 1 (ex: myNSGSecure associado a SharedServicesSubnet). Voce pode verificar se as regras configuradas naquela semana estao permitindo ou bloqueando o trafego esperado.
+   > **Conexao com Semana 1:** O IP Flow Verify testa as regras dos NSGs criados na Semana 1 (ex: nsg-snet-shared associado a snet-shared). Voce pode verificar se as regras configuradas naquela semana estao permitindo ou bloqueando o trafego esperado.
 
 ---
 
@@ -349,11 +349,11 @@ Voce usa o Network Watcher para diagnosticar regras NSG nas VNets da Semana 1.
    | Setting                | Value                                                      |
    | ---------------------- | ---------------------------------------------------------- |
    | Subscription           | *sua subscription*                                         |
-   | Resource group         | `az104-rg7`                                                |
-   | Virtual machine        | **az104-vm-win**                                           |
+   | Resource group         | `rg-contoso-compute`                                                |
+   | Virtual machine        | **vm-web-01**                                           |
    | Network interface      | *selecione a NIC da VM*                                    |
-   | Source IP address      | *IP privado da az104-vm-win*                               |
-   | Destination IP address | `10.30.0.4` (IP simulado na ManufacturingVnet da Semana 1) |
+   | Source IP address      | *IP privado da vm-web-01*                               |
+   | Destination IP address | `10.30.0.4` (IP simulado na vnet-contoso-spoke-brazilsouth da Semana 1) |
 
 3. Clique em **Next hop**
 
@@ -379,9 +379,9 @@ Voce usa o Network Watcher para diagnosticar regras NSG nas VNets da Semana 1.
    | Setting                 | Value                          |
    | ----------------------- | ------------------------------ |
    | Source type             | **Virtual machine**            |
-   | Virtual machine         | **az104-vm-win**               |
+   | Virtual machine         | **vm-web-01**               |
    | Destination type        | **Specify manually**           |
-   | URI, FQDN or IP address | *IP privado de az104-vm-linux* |
+   | URI, FQDN or IP address | *IP privado de vm-api-01* |
    | Destination port        | `22` (SSH)                     |
    | Protocol                | **TCP**                        |
 
@@ -402,14 +402,14 @@ Voce usa o Network Watcher para diagnosticar regras NSG nas VNets da Semana 1.
    | Setting        | Value                           |
    | -------------- | ------------------------------- |
    | Subscription   | *sua subscription*              |
-   | Resource Group | `az104-rg4` (VNets da Semana 1) |
+   | Resource Group | `rg-contoso-network` (VNets da Semana 1) |
 
 3. Observe o diagrama visual mostrando:
    - VNets e suas subnets
    - NSGs associados as subnets
    - NICs e VMs (se no mesmo RG)
 
-4. Troque para `az104-rg7` e observe as VMs da Semana 2 e suas conexoes de rede
+4. Troque para `rg-contoso-compute` e observe as VMs da Semana 2 e suas conexoes de rede
 
    > **Conceito:** O Topology fornece uma visualizacao grafica da infraestrutura de rede. E util para entender a arquitetura e identificar gaps de seguranca (subnets sem NSG, etc.).
 
@@ -430,7 +430,7 @@ Voce habilita Flow Logs em um NSG da Semana 1 para capturar e analisar o trafego
    | Setting             | Value                                        |
    | ------------------- | -------------------------------------------- |
    | Subscription        | *sua subscription*                           |
-   | NSG                 | *selecione um NSG da Semana 1 (ex: myNSGSecure)* |
+   | NSG                 | *selecione um NSG da Semana 1 (ex: nsg-snet-shared)* |
    | Storage Account     | *selecione um storage account existente*     |
    | Retention (days)    | `30`                                         |
    | Flow Logs version   | **Version 2**                                |
@@ -440,7 +440,7 @@ Voce habilita Flow Logs em um NSG da Semana 1 para capturar e analisar o trafego
    | Setting                     | Value           |
    | --------------------------- | --------------- |
    | Enable Traffic Analytics    | **Checked**     |
-   | Traffic Analytics workspace | `az104-law`     |
+   | Traffic Analytics workspace | `law-contoso-prod`     |
    | Processing interval         | **Every 10 min** |
 
 5. Clique em **Review + create** > **Create**
@@ -466,7 +466,7 @@ Voce cria um alerta baseado em query KQL que dispara quando VMs param de enviar 
 
 1. Em **Monitor** > **Alerts** > **+ Create** > **Alert rule**
 
-2. Aba **Scope**: selecione o workspace **az104-law**
+2. Aba **Scope**: selecione o workspace **law-contoso-prod**
 
 3. Aba **Condition**: clique em **See all signals** > filtre por **Custom log search**
 
@@ -489,7 +489,7 @@ Voce cria um alerta baseado em query KQL que dispara quando VMs param de enviar 
    | Frequency          | **5 minutes**    |
    | Lookback period    | **5 minutes**    |
 
-6. Clique em **Next: Actions** > selecione **az104-ag1** (do Bloco 4)
+6. Clique em **Next: Actions** > selecione **ag-contoso-ops** (do Bloco 4)
 
    > **Conexao com Bloco 4:** Voce reutiliza o mesmo Action Group criado no Bloco 4, demonstrando que Action Groups sao reutilizaveis entre diferentes tipos de alertas.
 
@@ -498,9 +498,9 @@ Voce cria um alerta baseado em query KQL que dispara quando VMs param de enviar 
    | Setting         | Value                                    |
    | --------------- | ---------------------------------------- |
    | Severity        | **1 - Error**                            |
-   | Alert rule name | `az104-vm-heartbeat-lost`                |
+   | Alert rule name | `alert-vm-heartbeat-lost`                |
    | Description     | `Alert when VM stops sending heartbeats` |
-   | Resource group  | `az104-rg-monitor`                       |
+   | Resource group  | `rg-contoso-management`                       |
 
 8. Clique em **Review + create** > **Create**
 
@@ -510,18 +510,18 @@ Voce cria um alerta baseado em query KQL que dispara quando VMs param de enviar 
 
 ## Modo Desafio - Bloco 5
 
-- [ ] Criar Log Analytics Workspace `az104-law` em `az104-rg-monitor`
-- [ ] Criar Data Collection Rule `az104-dcr` conectando VMs **(Semana 2)** ao workspace
-- [ ] Habilitar VM Insights em `az104-vm-win` e `az104-vm-linux` **(Semana 2)**
+- [ ] Criar Log Analytics Workspace `law-contoso-prod` em `rg-contoso-management`
+- [ ] Criar Data Collection Rule `dcr-contoso-perf` conectando VMs **(Semana 2)** ao workspace
+- [ ] Habilitar VM Insights em `vm-web-01` e `vm-api-01` **(Semana 2)**
 - [ ] Comparar metricas Host (CPU, Network — sem agente) vs Guest (Memory — com AMA)
 - [ ] Executar queries KQL: Heartbeat, Perf (CPU), Events, InsightsMetrics
-- [ ] Configurar Diagnostic Settings: Activity Log → `az104-law`
+- [ ] Configurar Diagnostic Settings: Activity Log → `law-contoso-prod`
 - [ ] **Integracao:** Network Watcher — IP Flow Verify nos NSGs **(Semana 1)**
 - [ ] **Integracao:** Network Watcher — Next Hop verificando routing **(Semana 1)**
 - [ ] **Integracao:** Network Watcher — Connection Troubleshoot entre VMs **(Semana 2)** via VNets **(Semana 1)**
 - [ ] **Integracao:** Network Watcher — Topology das VNets **(Semana 1)**
-- [ ] Configurar NSG Flow Logs (v2) com Traffic Analytics → `az104-law`
-- [ ] Criar alerta de log query (heartbeat lost) → reutilizar `az104-ag1` **(Bloco 4)**
+- [ ] Configurar NSG Flow Logs (v2) com Traffic Analytics → `law-contoso-prod`
+- [ ] Criar alerta de log query (heartbeat lost) → reutilizar `ag-contoso-ops` **(Bloco 4)**
 
 ---
 

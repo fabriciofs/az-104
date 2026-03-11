@@ -3,11 +3,11 @@
 # Bloco 2 - Governance & Compliance
 
 **Origem:** Lab 02a (Subscriptions & RBAC) + Lab 02b (Azure Policy) + **novos exercicios de integracao**
-**Resource Groups utilizados:** `az104-rg2`, `az104-rg3`
+**Resource Groups utilizados:** `rg-contoso-identity`
 
 ## Contexto
 
-Com a identidade configurada no Bloco 1, agora voce estabelece governanca: RBAC para os **usuarios e grupos ja criados**, policies que serao **validadas no Bloco 3** durante o deploy de discos, e locks para proteger recursos. Voce tambem prepara o `az104-rg3` que sera usado no Bloco 3 (IaC).
+Com a identidade configurada no Bloco 1, agora voce estabelece governanca: RBAC para os **usuarios e grupos ja criados**, policies que serao **validadas no Bloco 3** durante o deploy de discos, e locks para proteger recursos. Tudo e feito no `rg-contoso-identity`, que tambem sera usado no Bloco 3 (IaC).
 
 ## Diagrama
 
@@ -16,26 +16,27 @@ Com a identidade configurada no Bloco 1, agora voce estabelece governanca: RBAC 
 │                  Root Management Group                     │
 │                                                            │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │         az104-mg1 (Management Group)                 │  │
+│  │         mg-contoso-prod (Management Group)           │  │
 │  │                                                      │  │
 │  │  RBAC:                                               │  │
 │  │  • VM Contributor → IT Lab Administrators (Bloco 1)  │  │
 │  │  • Custom Support Request (custom role)              │  │
 │  └──────────────────────────────────────────────────────┘  │
 │                                                            │
-│  ┌──────────────────────────┐  ┌─────────────────────────┐ │
-│  │  az104-rg2               │  │  az104-rg3              │ │
-│  │  Tag: Cost Center = 000  │  │  Tag: Cost Center = 000 │ │
-│  │                          │  │                         │ │
-│  │  Policies:               │  │  Policies:              │ │
-│  │  • Deny: Require tag     │  │  • Modify: Inherit tag  │ │
-│  │  • Modify: Inherit tag   │  │  • Deny: Allowed Loc.   │ │
-│  │                          │  │    (East US only)       │ │
-│  │  Lock: Delete (rg-lock)  │  │                         │ │
-│  │                          │  │  RBAC:                  │ │
-│  │                          │  │  • Reader → Guest user  │ │
-│  │                          │  │    (Bloco 1)            │ │
-│  └──────────────────────────┘  └─────────────────────────┘ │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  rg-contoso-identity                                 │  │
+│  │  Tag: Cost Center = 000                              │  │
+│  │                                                      │  │
+│  │  Policies:                                           │  │
+│  │  • Deny: Require tag (testada e removida)            │  │
+│  │  • Modify: Inherit tag                               │  │
+│  │  • Deny: Allowed Locations (East US only)            │  │
+│  │                                                      │  │
+│  │  Lock: Delete (rg-lock)                              │  │
+│  │                                                      │  │
+│  │  RBAC:                                               │  │
+│  │  • Reader → Guest user (Bloco 1)                     │  │
+│  └──────────────────────────────────────────────────────┘  │
 │                                                            │
 │  → Policies validadas no Bloco 3 (deploy de discos)        │
 │  → RBAC testado nos Blocos 3 e 5                           │
@@ -58,12 +59,12 @@ Com a identidade configurada no Bloco 1, agora voce estabelece governanca: RBAC 
 
    | Setting                       | Value       |
    | ----------------------------- | ----------- |
-   | Management group ID           | `az104-mg1` |
-   | Management group display name | `az104-mg1` |
+   | Management group ID           | `mg-contoso-prod` |
+   | Management group display name | `mg-contoso-prod` |
 
 6. Clique em **Submit** e **Refresh**
 
-7. Selecione **az104-mg1** > clique em **details**
+7. Selecione **mg-contoso-prod** > clique em **details**
 
 8. Clique em **+ Add subscription** e selecione sua subscription > **Save**
 
@@ -75,7 +76,7 @@ Com a identidade configurada no Bloco 1, agora voce estabelece governanca: RBAC 
 
 Voce atribui o role ao grupo **IT Lab Administrators** (criado no Bloco 1), que inclui `az104-user1` e o guest user. Isso sera testado no **Bloco 5** quando az104-user1 gerenciar VMs.
 
-1. Selecione o management group **az104-mg1**
+1. Selecione o management group **mg-contoso-prod**
 
 2. Selecione **Access control (IAM)** > aba **Roles**
 
@@ -101,7 +102,7 @@ Voce atribui o role ao grupo **IT Lab Administrators** (criado no Bloco 1), que 
 
 ### Task 2.3: Criar custom RBAC role
 
-1. No management group **az104-mg1**, va para **Access control (IAM)**
+1. No management group **mg-contoso-prod**, va para **Access control (IAM)**
 
 2. Clique em **+ Add** > **Add custom role**
 
@@ -132,25 +133,23 @@ Voce atribui o role ao grupo **IT Lab Administrators** (criado no Bloco 1), que 
 
 ### Task 2.4: Monitorar role assignments via Activity Log
 
-1. No recurso **az104-mg1**, selecione **Activity log**
+1. No recurso **mg-contoso-prod**, selecione **Activity log**
 
 2. Revise as atividades de role assignments
 
 ---
 
-### Task 2.5: Criar Resource Groups com tags
+### Task 2.5: Criar Resource Group com tags
 
-Voce cria **dois** Resource Groups: `az104-rg2` para testes de governanca e `az104-rg3` para uso no Bloco 3 (IaC). Ambos recebem a tag `Cost Center`.
-
-**Criar az104-rg2:**
+Voce cria o Resource Group `rg-contoso-identity` para testes de governanca e para uso no Bloco 3 (IaC). Ele recebe a tag `Cost Center`.
 
 1. Pesquise e selecione **Resource groups** > **+ Create**:
 
-   | Setting             | Value              |
-   | ------------------- | ------------------ |
-   | Subscription        | *sua subscription* |
-   | Resource group name | `az104-rg2`        |
-   | Location            | **East US**        |
+   | Setting             | Value                 |
+   | ------------------- | --------------------- |
+   | Subscription        | *sua subscription*    |
+   | Resource group name | `rg-contoso-identity` |
+   | Location            | **East US**           |
 
 2. Na aba **Tags**:
 
@@ -160,15 +159,11 @@ Voce cria **dois** Resource Groups: `az104-rg2` para testes de governanca e `az1
 
 3. Clique em **Review + Create** > **Create**
 
-**Criar az104-rg3:**
-
-4. Repita o processo para `az104-rg3` com a mesma tag `Cost Center: 000`
-
-   > **Conexao com Bloco 3:** O az104-rg3 sera usado para deploy de managed disks. As policies aplicadas aqui serao validadas quando os discos forem criados.
+   > **Conexao com Bloco 3:** O rg-contoso-identity sera usado para deploy de managed disks. As policies aplicadas aqui serao validadas quando os discos forem criados.
 
 ---
 
-### Task 2.6: Aplicar Azure Policy (Deny) - Require tag no az104-rg2
+### Task 2.6: Aplicar Azure Policy (Deny) - Require tag no rg-contoso-identity
 
 1. Pesquise e selecione **Policy** > **Authoring** > **Definitions**
 
@@ -176,7 +171,7 @@ Voce cria **dois** Resource Groups: `az104-rg2` para testes de governanca e `az1
 
 3. Selecione a policy > **Assign policy**
 
-4. Configure o **Scope**: Subscription + Resource Group **az104-rg2**
+4. Configure o **Scope**: Subscription + Resource Group **rg-contoso-identity**
 
 5. Configure **Basics**:
 
@@ -191,7 +186,7 @@ Voce cria **dois** Resource Groups: `az104-rg2` para testes de governanca e `az1
 
    > Aguarde 5-10 minutos para a policy entrar em vigor.
 
-8. **Teste:** Pesquise **Storage Accounts** > **+ Create** no RG **az104-rg2** com qualquer nome
+8. **Teste:** Pesquise **Storage Accounts** > **+ Create** no RG **rg-contoso-identity** com qualquer nome
 
 9. Clique em **Review** > **Create** — voce deve receber **Validation failed** (recurso sem tag)
 
@@ -199,11 +194,11 @@ Voce cria **dois** Resource Groups: `az104-rg2` para testes de governanca e `az1
 
 ---
 
-### Task 2.7: Substituir Deny por Modify policy (Inherit tag) no az104-rg2
+### Task 2.7: Substituir Deny por Modify policy (Inherit tag) no rg-contoso-identity
 
 1. Va em **Policy** > **Assignments** > localize a atribuicao **Require Cost Center tag...** > **...** > **Delete assignment**
 
-2. Clique em **Assign policy** > Scope: **az104-rg2**
+2. Clique em **Assign policy** > Scope: **rg-contoso-identity**
 
 3. Pesquise: `Inherit a tag from the resource group if missing`
 
@@ -222,32 +217,11 @@ Voce cria **dois** Resource Groups: `az104-rg2` para testes de governanca e `az1
 
 7. Clique em **Review + Create** > **Create**
 
----
-
-### Task 2.8: Aplicar Modify policy (Inherit tag) no az104-rg3
-
-Aplique a **mesma** policy ao az104-rg3 para que os discos criados no Bloco 3 herdem a tag automaticamente.
-
-1. Em **Policy** > **Assignments** > **Assign policy** > Scope: **az104-rg3**
-
-2. Pesquise: `Inherit a tag from the resource group if missing`
-
-3. Configure:
-
-   | Setting            | Value                                            |
-   | ------------------ | ------------------------------------------------ |
-   | Assignment name    | `Inherit Cost Center tag on az104-rg3 resources` |
-   | Policy enforcement | **Enabled**                                      |
-   | Tag Name (param)   | `Cost Center`                                    |
-   | Remediation task   | **enabled**                                      |
-
-4. Clique em **Review + Create** > **Create**
-
-   > **Conexao com Bloco 3:** Quando voce criar managed disks no az104-rg3, eles receberao automaticamente a tag `Cost Center: 000`. Voce verificara isso em cada deploy.
+   > **Conexao com Bloco 3:** Quando voce criar managed disks no rg-contoso-identity, eles receberao automaticamente a tag `Cost Center: 000`. Voce verificara isso em cada deploy.
 
 ---
 
-### Task 2.9: Aplicar Allowed Locations policy no az104-rg3
+### Task 2.8: Aplicar Allowed Locations policy no rg-contoso-identity
 
 Esta policy restringe a criacao de recursos ao **East US** apenas. Sera testada no **Bloco 3** tentando criar um disco em outra regiao.
 
@@ -255,7 +229,7 @@ Esta policy restringe a criacao de recursos ao **East US** apenas. Sera testada 
 
 2. Selecione a policy (nao confunda com "Allowed locations for resource groups") > **Assign policy**
 
-3. Configure o **Scope**: Subscription + Resource Group **az104-rg3**
+3. Configure o **Scope**: Subscription + Resource Group **rg-contoso-identity**
 
 4. Configure **Basics**:
 
@@ -272,11 +246,11 @@ Esta policy restringe a criacao de recursos ao **East US** apenas. Sera testada 
 
 ---
 
-### Task 2.10: Atribuir Reader role ao Guest user no az104-rg3
+### Task 2.9: Atribuir Reader role ao Guest user no rg-contoso-identity
 
-O guest user (convidado no Bloco 1) recebera permissao somente-leitura no az104-rg3, o que sera testado no **Bloco 3**.
+O guest user (convidado no Bloco 1) recebera permissao somente-leitura no rg-contoso-identity, o que sera testado no **Bloco 3**.
 
-1. Navegue para o resource group **az104-rg3**
+1. Navegue para o resource group **rg-contoso-identity**
 
 2. Selecione **Access control (IAM)** > **+ Add** > **Add role assignment**
 
@@ -288,15 +262,15 @@ O guest user (convidado no Bloco 1) recebera permissao somente-leitura no az104-
 
 6. Clique em **Review + assign** duas vezes
 
-7. Confirme na aba **Role assignments** que o guest user tem role **Reader** no az104-rg3
+7. Confirme na aba **Role assignments** que o guest user tem role **Reader** no rg-contoso-identity
 
-   > **Conexao com Bloco 3:** O guest user podera VER os discos criados no az104-rg3, mas NAO podera criar ou modificar recursos. Testaremos isso no Bloco 3.
+   > **Conexao com Bloco 3:** O guest user podera VER os discos criados no rg-contoso-identity, mas NAO podera criar ou modificar recursos. Testaremos isso no Bloco 3.
 
 ---
 
-### Task 2.11: Configurar Resource Lock e testar
+### Task 2.10: Configurar Resource Lock e testar
 
-1. Navegue para **az104-rg2** > **Settings** > **Locks**
+1. Navegue para **rg-contoso-identity** > **Settings** > **Locks**
 
 2. Clique em **Add**:
 
@@ -307,7 +281,7 @@ O guest user (convidado no Bloco 1) recebera permissao somente-leitura no az104-
 
 3. Clique em **Ok**
 
-4. Tente deletar o resource group: **Overview** > **Delete resource group** > digite `az104-rg2` > **Delete**
+4. Tente deletar o resource group: **Overview** > **Delete resource group** > digite `rg-contoso-identity` > **Delete**
 
 5. Voce deve receber uma notificacao **negando a exclusao**
 
@@ -315,7 +289,7 @@ O guest user (convidado no Bloco 1) recebera permissao somente-leitura no az104-
 
 ---
 
-### Task 2.12: Teste de integracao — Verificar acesso do az104-user1
+### Task 2.11: Teste de integracao — Verificar acesso do az104-user1
 
 Aqui voce valida que o RBAC configurado neste bloco funciona com o usuario do Bloco 1.
 
@@ -325,13 +299,13 @@ Aqui voce valida que o RBAC configurado neste bloco funciona com o usuario do Bl
 
 3. Faca login como **az104-user1@{seu-dominio}.onmicrosoft.com** usando a senha salva no Bloco 1
 
-4. Pesquise **Management groups** — voce deve ver **az104-mg1**
+4. Pesquise **Management groups** — voce deve ver **mg-contoso-prod**
 
 5. Pesquise **Virtual Machines** — voce deve poder ver a pagina (mas nao havera VMs ainda)
 
 6. Pesquise **Resource groups** — voce deve ver os RGs, mas com permissoes limitadas
 
-7. Tente criar um **Storage Account** no az104-rg2 — deve **falhar** (VM Contributor nao tem permissao para storage)
+7. Tente criar um **Storage Account** no rg-contoso-identity — deve **falhar** (VM Contributor nao tem permissao para storage)
 
    > **Validacao:** az104-user1 tem VM Contributor (pode gerenciar VMs) mas nao pode criar outros tipos de recursos. No Bloco 5, testaremos com VMs reais.
 
@@ -341,16 +315,16 @@ Aqui voce valida que o RBAC configurado neste bloco funciona com o usuario do Bl
 
 ## Modo Desafio - Bloco 2
 
-- [ ] Criar Management Group `az104-mg1` e **mover sua subscription para dentro dele**
+- [ ] Criar Management Group `mg-contoso-prod` e **mover sua subscription para dentro dele**
 - [ ] Atribuir **VM Contributor** ao grupo `IT Lab Administrators` (Bloco 1) no MG
 - [ ] Criar custom role **Custom Support Request** (clone + NotActions)
 - [ ] Verificar no Activity Log
-- [ ] Criar RGs `az104-rg2` e `az104-rg3` com tag `Cost Center: 000`
-- [ ] Aplicar Deny policy (Require tag) no rg2 → testar → remover
-- [ ] Aplicar Modify policy (Inherit tag) no rg2 e rg3
-- [ ] Aplicar **Allowed Locations** (East US only) no rg3
-- [ ] Atribuir **Reader** ao guest user no rg3
-- [ ] Criar Resource Lock (Delete) no rg2 → testar exclusao
+- [ ] Criar RG `rg-contoso-identity` com tag `Cost Center: 000`
+- [ ] Aplicar Deny policy (Require tag) → testar → remover
+- [ ] Aplicar Modify policy (Inherit tag)
+- [ ] Aplicar **Allowed Locations** (East US only)
+- [ ] Atribuir **Reader** ao guest user
+- [ ] Criar Resource Lock (Delete) → testar exclusao
 - [ ] **Integracao:** Login como az104-user1 → verificar acesso limitado
 
 ---

@@ -340,7 +340,7 @@ Para trafego de **saida**, a ordem e invertida: NIC primeiro, depois Subnet.
 
 O trafego precisa ser **permitido em ambos** os NSGs para passar. Se qualquer um dos dois bloquear, o trafego e descartado.
 
-**Referencia no lab:** Bloco 4 — Configuracao de NSG e ASG na SharedServicesSubnet
+**Referencia no lab:** Bloco 4 — Configuracao de NSG e ASG na snet-shared
 
 ---
 
@@ -434,7 +434,7 @@ Tecnicamente, **funcionaria parcialmente** — VMs internas conseguiriam resolve
 | **Registro** | Dominio publico (ex: .com, .com.br) | Qualquer nome (ex: .local, .internal) |
 | **Auto-registration** | Nao | Sim (com VNet Link) |
 
-**Referencia no lab:** Bloco 4 — DNS publico (contoso.com) e DNS privado (private.contoso.com)
+**Referencia no lab:** Bloco 4 — DNS publico (contoso.com) e DNS privado (contoso.internal)
 
 ---
 
@@ -468,7 +468,7 @@ Mesmo que ambas as VNets estejam conectadas ao Hub, elas **nao** conseguem se co
 
 **[GOTCHA]** "Peering nao e transitivo" e provavelmente o gotcha MAIS testado em AZ-104 sobre networking. Se A↔B e B↔C, isso NAO significa que A↔C. E a primeira coisa a verificar quando duas VNets nao se comunicam.
 
-**Referencia no lab:** Bloco 5 — Configuracao de peering entre CoreServicesVnet e ManufacturingVnet
+**Referencia no lab:** Bloco 5 — Configuracao de peering entre vnet-contoso-hub-brazilsouth e vnet-contoso-spoke-brazilsouth
 
 ---
 
@@ -553,7 +553,7 @@ Ou, para granularidade ainda maior, criar um **custom role** com apenas:
 
 Atribuir nos RGs necessarios.
 
-**Referencia no lab:** Bloco 5 — Peering entre CoreServicesVnet e ManufacturingVnet
+**Referencia no lab:** Bloco 5 — Peering entre vnet-contoso-hub-brazilsouth e vnet-contoso-spoke-brazilsouth
 
 ---
 

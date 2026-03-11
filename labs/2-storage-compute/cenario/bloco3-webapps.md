@@ -3,7 +3,7 @@
 # Bloco 3 - Azure Web Apps
 
 **Origem:** Lab 09a - Implement Web Apps
-**Resource Groups utilizados:** `az104-rg8`
+**Resource Groups utilizados:** `rg-contoso-compute`
 
 ## Contexto
 
@@ -13,15 +13,15 @@ Com armazenamento (Bloco 1) e computacao (Bloco 2) configurados, voce agora impl
 
 ```
 ┌───────────────────────────────────────────────────────────────────┐
-│                          az104-rg8                                │
+│                          rg-contoso-compute                                │
 │                                                                   │
 │  ┌─────────────────────────────────────────────────────────────┐  │
-│  │  App Service Plan: az104-appplan                            │  │
+│  │  App Service Plan: asp-contoso-prod                            │  │
 │  │  SKU: Standard S1                                           │  │
 │  │  OS: Linux                                                  │  │
 │  │                                                             │  │
 │  │  ┌───────────────────────────────────────────────────────┐  │  │
-│  │  │  Web App: az104-webapp-<uniqueid>                     │  │  │
+│  │  │  Web App: app-contoso-web                     │  │  │
 │  │  │                                                       │  │  │
 │  │  │  Runtime: PHP 8.2                                     │  │  │
 │  │  │  Deployment: GitHub/External Git                      │  │  │
@@ -56,13 +56,13 @@ Com armazenamento (Bloco 1) e computacao (Bloco 2) configurados, voce agora impl
    | Setting          | Value                                         |
    | ---------------- | --------------------------------------------- |
    | Subscription     | *sua subscription*                            |
-   | Resource group   | `az104-rg8` (crie se necessario)              |
-   | Name             | `az104-webapp-<uniqueid>` (globalmente unico) |
+   | Resource group   | `rg-contoso-compute` (ja existe do Modulo 1)              |
+   | Name             | `app-contoso-web` (globalmente unico) |
    | Publish          | **Code**                                      |
    | Runtime stack    | **PHP 8.2**                                   |
    | Operating System | **Linux**                                     |
    | Region           | **East US**                                   |
-   | App Service Plan | *Create new*: `az104-appplan`                 |
+   | App Service Plan | *Create new*: `asp-contoso-prod`                 |
    | Pricing plan     | **Standard S1**                               |
 
    > **Nota:** Standard S1 ou superior e necessario para deployment slots. Free/Basic nao suportam slots.
@@ -75,7 +75,7 @@ Com armazenamento (Bloco 1) e computacao (Bloco 2) configurados, voce agora impl
 
 6. Clique em **Review + create** > **Create** > **Go to resource**
 
-7. No blade **Overview**, copie a **Default domain** URL (ex: `az104-webapp-<uniqueid>.azurewebsites.net`)
+7. No blade **Overview**, copie a **Default domain** URL (ex: `app-contoso-web.azurewebsites.net`)
 
 8. Acesse a URL no navegador — voce deve ver a pagina padrao do App Service
 
@@ -94,7 +94,7 @@ Voce conecta a Web App ao Storage Account do Bloco 1 para que a aplicacao possa 
    | Setting | Value                                                         |
    | ------- | ------------------------------------------------------------- |
    | Name    | `STORAGE_ACCOUNT_NAME`                                        |
-   | Value   | `contosostore<uniqueid>` (nome do storage account do Bloco 1) |
+   | Value   | `stcontosoprod01` (nome do storage account do Bloco 1) |
 
 3. Clique em **Apply**
 
@@ -157,7 +157,7 @@ Voce conecta a Web App ao Storage Account do Bloco 1 para que a aplicacao possa 
     - Navegue para **Deployment Center** do slot staging
     - Mantenha o mesmo source ou altere o branch para demonstrar a diferenca
 
-11. Acesse a URL do slot staging: `az104-webapp-<uniqueid>-staging.azurewebsites.net`
+11. Acesse a URL do slot staging: `app-contoso-web-staging.azurewebsites.net`
 
    > **Conceito:** Slots permitem testar alteracoes em um ambiente identico ao producao antes de promover (swap). Cada slot tem sua propria URL, configuracoes e deployment.
 
@@ -264,7 +264,7 @@ Voce conecta a Web App ao Storage Account do Bloco 1 para que a aplicacao possa 
 
 ## Modo Desafio - Bloco 3
 
-- [ ] Criar App Service Plan `az104-appplan` (Standard S1, Linux) no az104-rg8
+- [ ] Criar App Service Plan `asp-contoso-prod` (Standard S1, Linux) no rg-contoso-compute
 - [ ] Criar Web App com runtime PHP 8.2
 - [ ] **Integracao Bloco 1:** Configurar App Setting com nome do Storage Account e Connection String
 - [ ] Validar variaveis de ambiente via Kudu

@@ -111,11 +111,11 @@ GUEST_DISPLAY_NAME="Seu Nome"                          # ← ALTERE
 LOCATION="eastus"
 VM_USERNAME="localadmin"
 VM_PASSWORD='SenhaComplexa@2024!'                      # ← ALTERE
-RG2="az104-rg2"
-RG3="az104-rg3"
-RG4="az104-rg4"
-RG5="az104-rg5"
-MG_NAME="az104-mg1"
+RG2="rg-contoso-identity"
+RG3="rg-contoso-identity"
+RG4="rg-contoso-network"
+RG5="rg-contoso-compute"
+MG_NAME="mg-contoso-prod"
 ```
 
 ---
@@ -473,7 +473,7 @@ Salve como **`bloco2-rgs.json`**:
         {
             "type": "Microsoft.Resources/resourceGroups",
             "apiVersion": "2023-07-01",
-            "name": "az104-rg2",
+            "name": "rg-contoso-identity",
             "location": "[parameters('location')]",
             "tags": {
                 "Cost Center": "[parameters('costCenter')]"
@@ -482,7 +482,7 @@ Salve como **`bloco2-rgs.json`**:
         {
             "type": "Microsoft.Resources/resourceGroups",
             "apiVersion": "2023-07-01",
-            "name": "az104-rg3",
+            "name": "rg-contoso-identity",
             "location": "[parameters('location')]",
             "tags": {
                 "Cost Center": "[parameters('costCenter')]"
@@ -650,7 +650,7 @@ Salve como **`bloco2-policies-rg3.json`**:
                 "type": "SystemAssigned"
             },
             "properties": {
-                "displayName": "Inherit Cost Center tag on az104-rg3 resources",
+                "displayName": "Inherit Cost Center tag on rg-contoso-identity resources",
                 "policyDefinitionId": "[variables('inheritPolicyId')]",
                 "parameters": {
                     "tagName": {
@@ -903,16 +903,16 @@ az role assignment list \
 echo ""
 echo "=== O que az104-user1 PODE fazer ==="
 echo "  ✓ Gerenciar VMs (VM Contributor no MG)"
-echo "  ✓ Ver recursos no az104-rg3 (heranca do MG)"
+echo "  ✓ Ver recursos no rg-contoso-identity (heranca do MG)"
 echo ""
 echo "=== O que az104-user1 NAO PODE fazer ==="
 echo "  ✗ Criar Storage Accounts (VM Contributor nao inclui Storage)"
-echo "  ✗ Deletar az104-rg2 (Lock impede + sem permissao)"
+echo "  ✗ Deletar rg-contoso-identity (Lock impede + sem permissao)"
 echo ""
 echo "Para validar manualmente:"
 echo "  1. Abra janela InPrivate/Incognito"
 echo "  2. Login como az104-user1@${TENANT_DOMAIN}"
-echo "  3. Tente criar Storage Account no az104-rg2 → deve FALHAR"
+echo "  3. Tente criar Storage Account no rg-contoso-identity → deve FALHAR"
 echo "  4. Feche a janela InPrivate"
 ```
 
@@ -1017,7 +1017,7 @@ A) Criar e modificar  B) Apenas visualizar  C) Gerenciar VMs  D) Nada para guest
 # Bloco 3 - Azure Resources & IaC
 
 **Tecnologia:** ARM Template parametrizado
-**Recursos criados:** 5 managed disks em az104-rg3
+**Recursos criados:** 5 managed disks em rg-contoso-identity
 
 ---
 
@@ -1100,7 +1100,7 @@ Salve como **`bloco3-disk.parameters.json`** (arquivo de parametros):
     "contentVersion": "1.0.0.0",
     "parameters": {
         "diskName": {
-            "value": "az104-disk1"
+            "value": "disk-iac-test-01"
         }
     }
 }
@@ -1128,32 +1128,32 @@ az deployment group create \
     --parameters @bloco3-disk.parameters.json
 
 # Verificar tag herdada
-echo "=== Tag do az104-disk1 ==="
-az disk show -g "$RG3" -n az104-disk1 --query tags -o json
+echo "=== Tag do disk-iac-test-01 ==="
+az disk show -g "$RG3" -n disk-iac-test-01 --query tags -o json
 
 # Disco 2 (parametro inline)
 az deployment group create \
     --resource-group "$RG3" \
     --template-file bloco3-disk.json \
-    --parameters diskName=az104-disk2
+    --parameters diskName=disk-iac-test-02
 
 # Disco 3
 az deployment group create \
     --resource-group "$RG3" \
     --template-file bloco3-disk.json \
-    --parameters diskName=az104-disk3
+    --parameters diskName=disk-iac-test-03
 
 # Disco 4
 az deployment group create \
     --resource-group "$RG3" \
     --template-file bloco3-disk.json \
-    --parameters diskName=az104-disk4
+    --parameters diskName=disk-iac-test-04
 
 # Disco 5 (StandardSSD)
 az deployment group create \
     --resource-group "$RG3" \
     --template-file bloco3-disk.json \
-    --parameters diskName=az104-disk5 diskSku=StandardSSD_LRS
+    --parameters diskName=disk-iac-test-05 diskSku=StandardSSD_LRS
 
 # Verificar todos
 echo ""
@@ -1184,7 +1184,7 @@ az disk list -g "$RG3" --query "[].{name:name, size:diskSizeGb, sku:sku.name, ta
 az deployment group create \
     --resource-group "$RG3" \
     --template-file bloco3-disk.json \
-    --parameters diskName=az104-disk-test location=westus 2>&1 || \
+    --parameters diskName=disk-iac-test-region location=westus 2>&1 || \
     echo "✓ Policy Allowed Locations bloqueou!"
 
 az disk list -g "$RG3" --query "length(@)"
@@ -1270,10 +1270,10 @@ Salve como **`bloco4-networking.json`**:
         {
             "type": "Microsoft.Network/virtualNetworks",
             "apiVersion": "2023-05-01",
-            "name": "CoreServicesVnet",
+            "name": "vnet-contoso-hub-brazilsouth",
             "location": "[parameters('location')]",
             "dependsOn": [
-                "[resourceId('Microsoft.Network/networkSecurityGroups', 'myNSGSecure')]"
+                "[resourceId('Microsoft.Network/networkSecurityGroups', 'nsg-snet-shared')]"
             ],
             "properties": {
                 "addressSpace": {
@@ -1281,16 +1281,16 @@ Salve como **`bloco4-networking.json`**:
                 },
                 "subnets": [
                     {
-                        "name": "SharedServicesSubnet",
+                        "name": "snet-shared",
                         "properties": {
                             "addressPrefix": "10.20.10.0/24",
                             "networkSecurityGroup": {
-                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', 'myNSGSecure')]"
+                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', 'nsg-snet-shared')]"
                             }
                         }
                     },
                     {
-                        "name": "DatabaseSubnet",
+                        "name": "snet-data",
                         "properties": {
                             "addressPrefix": "10.20.20.0/24"
                         }
@@ -1301,7 +1301,7 @@ Salve como **`bloco4-networking.json`**:
         {
             "type": "Microsoft.Network/virtualNetworks",
             "apiVersion": "2023-05-01",
-            "name": "ManufacturingVnet",
+            "name": "vnet-contoso-spoke-brazilsouth",
             "location": "[parameters('location')]",
             "properties": {
                 "addressSpace": {
@@ -1332,7 +1332,7 @@ Salve como **`bloco4-networking.json`**:
         {
             "type": "Microsoft.Network/networkSecurityGroups",
             "apiVersion": "2023-05-01",
-            "name": "myNSGSecure",
+            "name": "nsg-snet-shared",
             "location": "[parameters('location')]",
             "dependsOn": [
                 "[resourceId('Microsoft.Network/applicationSecurityGroups', 'asg-web')]"
@@ -1426,20 +1426,20 @@ Salve como **`bloco4-dns.json`**:
         {
             "type": "Microsoft.Network/privateDnsZones",
             "apiVersion": "2020-06-01",
-            "name": "private.contoso.com",
+            "name": "contoso.internal",
             "location": "global"
         },
         {
             "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
             "apiVersion": "2020-06-01",
-            "name": "private.contoso.com/manufacturing-link",
+            "name": "contoso.internal/manufacturing-link",
             "location": "global",
             "dependsOn": [
-                "[resourceId('Microsoft.Network/privateDnsZones', 'private.contoso.com')]"
+                "[resourceId('Microsoft.Network/privateDnsZones', 'contoso.internal')]"
             ],
             "properties": {
                 "virtualNetwork": {
-                    "id": "[resourceId('Microsoft.Network/virtualNetworks', 'ManufacturingVnet')]"
+                    "id": "[resourceId('Microsoft.Network/virtualNetworks', 'vnet-contoso-spoke-brazilsouth')]"
                 },
                 "registrationEnabled": false
             }
@@ -1447,9 +1447,9 @@ Salve como **`bloco4-dns.json`**:
         {
             "type": "Microsoft.Network/privateDnsZones/A",
             "apiVersion": "2020-06-01",
-            "name": "private.contoso.com/sensorvm",
+            "name": "contoso.internal/sensorvm",
             "dependsOn": [
-                "[resourceId('Microsoft.Network/privateDnsZones', 'private.contoso.com')]"
+                "[resourceId('Microsoft.Network/privateDnsZones', 'contoso.internal')]"
             ],
             "properties": {
                 "ttl": 1,
@@ -1469,7 +1469,7 @@ Salve como **`bloco4-dns.json`**:
 ```
 
 > **Comparacao com Bicep:**
-> - ARM: `"name": "private.contoso.com/sensorvm"` — nome composto tipo/nome
+> - ARM: `"name": "contoso.internal/sensorvm"` — nome composto tipo/nome
 > - Bicep: `parent: privateDns` + `name: 'sensorvm'` — mais claro com `parent`
 > - ARM: `dependsOn` necessario para cada recurso filho
 > - Bicep: `parent` cria dependencia implicita
@@ -1499,7 +1499,7 @@ nslookup www.contoso.com "$NS"
 ## Questoes de Prova - Bloco 4
 
 ### Questao 4.1
-**NSG na SharedServicesSubnet. VM na DatabaseSubnet afetada?**
+**NSG na snet-shared. VM na snet-data afetada?**
 
 A) Sim  B) Nao, apenas subnet associada  C) Sim com ASG  D) Depende
 
@@ -1546,12 +1546,12 @@ A) Sim  B) Falha sem link  C) DNS publico  D) Com peering
 
 ```bash
 az network vnet subnet create \
-    --resource-group "$RG4" --vnet-name "CoreServicesVnet" \
-    --name "Core" --address-prefixes "10.20.0.0/24"
+    --resource-group "$RG4" --vnet-name "vnet-contoso-hub-brazilsouth" \
+    --name "snet-apps" --address-prefixes "10.20.0.0/24"
 
 az network vnet subnet create \
-    --resource-group "$RG4" --vnet-name "ManufacturingVnet" \
-    --name "Manufacturing" --address-prefixes "10.30.0.0/24"
+    --resource-group "$RG4" --vnet-name "vnet-contoso-spoke-brazilsouth" \
+    --name "snet-workloads" --address-prefixes "10.30.0.0/24"
 ```
 
 ---
@@ -1583,21 +1583,21 @@ Salve como **`bloco5-vms.json`**:
         },
         "vnetResourceGroup": {
             "type": "string",
-            "defaultValue": "az104-rg4",
+            "defaultValue": "rg-contoso-network",
             "metadata": {
                 "description": "RG onde as VNets estao (cross-RG reference)"
             }
         }
     },
     "variables": {
-        "coreSubnetId": "[resourceId(parameters('vnetResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets', 'CoreServicesVnet', 'Core')]",
-        "mfgSubnetId": "[resourceId(parameters('vnetResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets', 'ManufacturingVnet', 'Manufacturing')]"
+        "coreSubnetId": "[resourceId(parameters('vnetResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets', 'vnet-contoso-hub-brazilsouth', 'snet-apps')]",
+        "mfgSubnetId": "[resourceId(parameters('vnetResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets', 'vnet-contoso-spoke-brazilsouth', 'snet-workloads')]"
     },
     "resources": [
         {
             "type": "Microsoft.Network/networkInterfaces",
             "apiVersion": "2023-05-01",
-            "name": "CoreServicesVM-nic",
+            "name": "vm-web-01-nic",
             "location": "[parameters('location')]",
             "properties": {
                 "ipConfigurations": [
@@ -1616,7 +1616,7 @@ Salve como **`bloco5-vms.json`**:
         {
             "type": "Microsoft.Network/networkInterfaces",
             "apiVersion": "2023-05-01",
-            "name": "ManufacturingVM-nic",
+            "name": "vm-app-01-nic",
             "location": "[parameters('location')]",
             "properties": {
                 "ipConfigurations": [
@@ -1635,17 +1635,17 @@ Salve como **`bloco5-vms.json`**:
         {
             "type": "Microsoft.Compute/virtualMachines",
             "apiVersion": "2024-03-01",
-            "name": "CoreServicesVM",
+            "name": "vm-web-01",
             "location": "[parameters('location')]",
             "dependsOn": [
-                "[resourceId('Microsoft.Network/networkInterfaces', 'CoreServicesVM-nic')]"
+                "[resourceId('Microsoft.Network/networkInterfaces', 'vm-web-01-nic')]"
             ],
             "properties": {
                 "hardwareProfile": {
                     "vmSize": "Standard_D2s_v3"
                 },
                 "osProfile": {
-                    "computerName": "CoreServicesVM",
+                    "computerName": "vm-web-01",
                     "adminUsername": "[parameters('adminUsername')]",
                     "adminPassword": "[parameters('adminPassword')]"
                 },
@@ -1666,7 +1666,7 @@ Salve como **`bloco5-vms.json`**:
                 "networkProfile": {
                     "networkInterfaces": [
                         {
-                            "id": "[resourceId('Microsoft.Network/networkInterfaces', 'CoreServicesVM-nic')]"
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', 'vm-web-01-nic')]"
                         }
                     ]
                 },
@@ -1680,17 +1680,17 @@ Salve como **`bloco5-vms.json`**:
         {
             "type": "Microsoft.Compute/virtualMachines",
             "apiVersion": "2024-03-01",
-            "name": "ManufacturingVM",
+            "name": "vm-app-01",
             "location": "[parameters('location')]",
             "dependsOn": [
-                "[resourceId('Microsoft.Network/networkInterfaces', 'ManufacturingVM-nic')]"
+                "[resourceId('Microsoft.Network/networkInterfaces', 'vm-app-01-nic')]"
             ],
             "properties": {
                 "hardwareProfile": {
                     "vmSize": "Standard_D2s_v3"
                 },
                 "osProfile": {
-                    "computerName": "ManufacturingVM",
+                    "computerName": "vm-app-01",
                     "adminUsername": "[parameters('adminUsername')]",
                     "adminPassword": "[parameters('adminPassword')]"
                 },
@@ -1711,7 +1711,7 @@ Salve como **`bloco5-vms.json`**:
                 "networkProfile": {
                     "networkInterfaces": [
                         {
-                            "id": "[resourceId('Microsoft.Network/networkInterfaces', 'ManufacturingVM-nic')]"
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', 'vm-app-01-nic')]"
                         }
                     ]
                 },
@@ -1726,7 +1726,7 @@ Salve como **`bloco5-vms.json`**:
     "outputs": {
         "coreVmPrivateIp": {
             "type": "string",
-            "value": "[reference(resourceId('Microsoft.Network/networkInterfaces', 'CoreServicesVM-nic')).ipConfigurations[0].properties.privateIPAddress]"
+            "value": "[reference(resourceId('Microsoft.Network/networkInterfaces', 'vm-web-01-nic')).ipConfigurations[0].properties.privateIPAddress]"
         }
     }
 }
@@ -1734,15 +1734,15 @@ Salve como **`bloco5-vms.json`**:
 
 > **Cross-RG reference em ARM:**
 > ```json
-> "[resourceId(parameters('vnetResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets', 'CoreServicesVnet', 'Core')]"
+> "[resourceId(parameters('vnetResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets', 'vnet-contoso-hub-brazilsouth', 'snet-apps')]"
 > ```
 > O primeiro parametro de `resourceId()` e o nome do RG. Quando omitido, assume o RG do deploy.
 >
 > **Em Bicep seria:**
 > ```bicep
 > resource coreVnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
->   name: 'CoreServicesVnet'
->   scope: resourceGroup('az104-rg4')
+>   name: 'vnet-contoso-hub-brazilsouth'
+>   scope: resourceGroup('rg-contoso-network')
 > }
 > ```
 
@@ -1783,8 +1783,8 @@ echo "VMs criadas"
 ```bash
 az network watcher test-connectivity \
     --resource-group "$RG5" \
-    --source-resource "CoreServicesVM" \
-    --dest-resource "ManufacturingVM" \
+    --source-resource "vm-web-01" \
+    --dest-resource "vm-app-01" \
     --dest-port 3389
 # Esperado: Unreachable
 ```
@@ -1803,10 +1803,10 @@ Salve como **`bloco5-peering.json`**:
         {
             "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
             "apiVersion": "2023-05-01",
-            "name": "CoreServicesVnet/CoreServicesVnet-to-ManufacturingVnet",
+            "name": "vnet-contoso-hub-brazilsouth/vnet-contoso-hub-brazilsouth-to-vnet-contoso-spoke-brazilsouth",
             "properties": {
                 "remoteVirtualNetwork": {
-                    "id": "[resourceId('Microsoft.Network/virtualNetworks', 'ManufacturingVnet')]"
+                    "id": "[resourceId('Microsoft.Network/virtualNetworks', 'vnet-contoso-spoke-brazilsouth')]"
                 },
                 "allowVirtualNetworkAccess": true,
                 "allowForwardedTraffic": true,
@@ -1817,10 +1817,10 @@ Salve como **`bloco5-peering.json`**:
         {
             "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
             "apiVersion": "2023-05-01",
-            "name": "ManufacturingVnet/ManufacturingVnet-to-CoreServicesVnet",
+            "name": "vnet-contoso-spoke-brazilsouth/vnet-contoso-spoke-brazilsouth-to-vnet-contoso-hub-brazilsouth",
             "properties": {
                 "remoteVirtualNetwork": {
-                    "id": "[resourceId('Microsoft.Network/virtualNetworks', 'CoreServicesVnet')]"
+                    "id": "[resourceId('Microsoft.Network/virtualNetworks', 'vnet-contoso-hub-brazilsouth')]"
                 },
                 "allowVirtualNetworkAccess": true,
                 "allowForwardedTraffic": true,
@@ -1833,8 +1833,8 @@ Salve como **`bloco5-peering.json`**:
 ```
 
 > **Comparacao com Bicep:**
-> - ARM: `"name": "CoreServicesVnet/CoreServicesVnet-to-ManufacturingVnet"` — nome composto
-> - Bicep: `parent: coreVnet` + `name: 'CoreServicesVnet-to-ManufacturingVnet'`
+> - ARM: `"name": "vnet-contoso-hub-brazilsouth/vnet-contoso-hub-brazilsouth-to-vnet-contoso-spoke-brazilsouth"` — nome composto
+> - Bicep: `parent: coreVnet` + `name: 'vnet-contoso-hub-brazilsouth-to-vnet-contoso-spoke-brazilsouth'`
 > - ARM: sem `dependsOn` aqui pois as VNets ja existem (deploy anterior)
 > - Nota: ambas VNets devem existir no mesmo RG para este template funcionar
 
@@ -1845,7 +1845,7 @@ az deployment group create \
     --resource-group "$RG4" \
     --template-file bloco5-peering.json
 
-az network vnet peering list -g "$RG4" --vnet-name "CoreServicesVnet" \
+az network vnet peering list -g "$RG4" --vnet-name "vnet-contoso-hub-brazilsouth" \
     --query "[].{name:name, status:peeringState}" -o table
 ```
 
@@ -1854,11 +1854,11 @@ az network vnet peering list -g "$RG4" --vnet-name "CoreServicesVnet" \
 ### Task 5.6: Testar conexao
 
 ```bash
-CORE_IP=$(az vm show -g "$RG5" -n "CoreServicesVM" -d --query privateIps -o tsv)
+CORE_IP=$(az vm show -g "$RG5" -n "vm-web-01" -d --query privateIps -o tsv)
 
 az vm run-command invoke \
     --resource-group "$RG5" \
-    --name "ManufacturingVM" \
+    --name "vm-app-01" \
     --command-id RunPowerShellScript \
     --scripts "Test-NetConnection $CORE_IP -Port 3389"
 # Esperado: TcpTestSucceeded: True
@@ -1873,12 +1873,12 @@ az vm run-command invoke \
 # TASK 5.6b - Testar nao-transitividade do peering
 # ============================================================
 # CONCEITO AZ-104: Peering e NAO transitivo!
-# CoreServicesVnet ↔ ManufacturingVnet, mas trafego NAO transita para outras VNets
+# vnet-contoso-hub-brazilsouth ↔ vnet-contoso-spoke-brazilsouth, mas trafego NAO transita para outras VNets
 # Para transitividade: hub-spoke com NVA ou Azure Virtual WAN.
 
 az vm run-command invoke \
     --resource-group "$RG5" \
-    --name "ManufacturingVM" \
+    --name "vm-app-01" \
     --command-id RunPowerShellScript \
     --scripts "Test-NetConnection -ComputerName 10.40.0.4 -Port 3389 -WarningAction SilentlyContinue | Select-Object TcpTestSucceeded"
 
@@ -1900,7 +1900,7 @@ Salve como **`bloco5-dns-update.json`**:
         "coreVmIp": {
             "type": "string",
             "metadata": {
-                "description": "IP privado da CoreServicesVM"
+                "description": "IP privado da vm-web-01"
             }
         }
     },
@@ -1908,11 +1908,11 @@ Salve como **`bloco5-dns-update.json`**:
         {
             "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
             "apiVersion": "2020-06-01",
-            "name": "private.contoso.com/coreservices-link",
+            "name": "contoso.internal/coreservices-link",
             "location": "global",
             "properties": {
                 "virtualNetwork": {
-                    "id": "[resourceId('Microsoft.Network/virtualNetworks', 'CoreServicesVnet')]"
+                    "id": "[resourceId('Microsoft.Network/virtualNetworks', 'vnet-contoso-hub-brazilsouth')]"
                 },
                 "registrationEnabled": false
             }
@@ -1920,7 +1920,7 @@ Salve como **`bloco5-dns-update.json`**:
         {
             "type": "Microsoft.Network/privateDnsZones/A",
             "apiVersion": "2020-06-01",
-            "name": "private.contoso.com/corevm",
+            "name": "contoso.internal/corevm",
             "properties": {
                 "ttl": 1,
                 "aRecords": [
@@ -1937,7 +1937,7 @@ Salve como **`bloco5-dns-update.json`**:
 Deploy:
 
 ```bash
-CORE_IP=$(az vm show -g "$RG5" -n "CoreServicesVM" -d --query privateIps -o tsv)
+CORE_IP=$(az vm show -g "$RG5" -n "vm-web-01" -d --query privateIps -o tsv)
 
 az deployment group create \
     --resource-group "$RG4" \
@@ -1947,9 +1947,9 @@ az deployment group create \
 # Testar DNS
 az vm run-command invoke \
     --resource-group "$RG5" \
-    --name "ManufacturingVM" \
+    --name "vm-app-01" \
     --command-id RunPowerShellScript \
-    --scripts "Resolve-DnsName corevm.private.contoso.com"
+    --scripts "Resolve-DnsName corevm.contoso.internal"
 ```
 
 ---
@@ -1972,7 +1972,7 @@ Salve como **`bloco5-route.json`**:
         {
             "type": "Microsoft.Network/routeTables",
             "apiVersion": "2023-05-01",
-            "name": "rt-CoreServices",
+            "name": "rt-contoso-spoke",
             "location": "[parameters('location')]",
             "properties": {
                 "disableBgpRoutePropagation": true,
@@ -1992,7 +1992,7 @@ Salve como **`bloco5-route.json`**:
     "outputs": {
         "routeTableId": {
             "type": "string",
-            "value": "[resourceId('Microsoft.Network/routeTables', 'rt-CoreServices')]"
+            "value": "[resourceId('Microsoft.Network/routeTables', 'rt-contoso-spoke')]"
         }
     }
 }
@@ -2007,14 +2007,14 @@ az deployment group create \
 
 # Criar subnet perimeter
 az network vnet subnet create \
-    --resource-group "$RG4" --vnet-name "CoreServicesVnet" \
+    --resource-group "$RG4" --vnet-name "vnet-contoso-hub-brazilsouth" \
     --name "perimeter" --address-prefixes "10.20.1.0/24"
 
 # Associar route table
-RT_ID=$(az network route-table show -g "$RG5" -n "rt-CoreServices" --query id -o tsv)
+RT_ID=$(az network route-table show -g "$RG5" -n "rt-contoso-spoke" --query id -o tsv)
 az network vnet subnet update \
-    --resource-group "$RG4" --vnet-name "CoreServicesVnet" \
-    --name "Core" --route-table "$RT_ID"
+    --resource-group "$RG4" --vnet-name "vnet-contoso-hub-brazilsouth" \
+    --name "snet-apps" --route-table "$RT_ID"
 ```
 
 ---
@@ -2023,8 +2023,8 @@ az network vnet subnet update \
 
 ```bash
 # NSG isolado por subnet
-az network nsg show -g "$RG4" -n "myNSGSecure" --query "subnets[].id" -o table
-echo "NSG apenas em SharedServicesSubnet"
+az network nsg show -g "$RG4" -n "nsg-snet-shared" --query "subnets[].id" -o table
+echo "NSG apenas em snet-shared"
 
 # RBAC informativo
 echo "=== Teste RBAC Final ==="
@@ -2062,9 +2062,9 @@ A) Nao  B) Sim, qualquer RG na subscription  C) Apenas ARM  D) Mover VNet
 
 Em ARM JSON, cross-RG e feito com `resourceId()` passando o RG como primeiro parametro:
 ```json
-"[resourceId('az104-rg4', 'Microsoft.Network/virtualNetworks/subnets', 'CoreServicesVnet', 'Core')]"
+"[resourceId('rg-contoso-network', 'Microsoft.Network/virtualNetworks/subnets', 'vnet-contoso-hub-brazilsouth', 'snet-apps')]"
 ```
-Em Bicep: `existing` + `scope: resourceGroup('az104-rg4')`.
+Em Bicep: `existing` + `scope: resourceGroup('rg-contoso-network')`.
 
 </details>
 
@@ -2103,30 +2103,30 @@ A) Sim  B) Falha sem link  C) Forwarded traffic  D) DNS forwarder
 # Bloco 6 - Load Balancer e Azure Bastion
 
 **Tecnologia:** ARM Templates JSON + CLI (para Run Command, NSG association, testes)
-**Recursos criados:** Subnet LBSubnet, Availability Set, 2 VMs (IIS), Public LB, Internal LB, NSG, Bastion
-**Resource Group:** `az104-rg6lb` (VMs e LBs) + `az104-rg4` (VNet existente)
+**Recursos criados:** Subnet snet-lb, Availability Set, 2 VMs (IIS), Public LB, Internal LB, NSG, Bastion
+**Resource Group:** `rg-contoso-network` (VMs e LBs) + `rg-contoso-network` (VNet existente)
 
 > **Nota:** Este bloco cria VMs, Public IPs e Bastion que geram custo. Faca cleanup assim que terminar.
 
 ---
 
-### Task 6.1: Criar subnet LBSubnet (CLI) e Resource Group
+### Task 6.1: Criar subnet snet-lb (CLI) e Resource Group
 
 ```bash
 # ============================================================
-# TASK 6.1a - Criar RG e subnet LBSubnet
+# TASK 6.1a - Criar RG e subnet snet-lb
 # ============================================================
 
-RG6="az104-rg6lb"
+RG6="rg-contoso-network"
 az group create --name "$RG6" --location "$LOCATION" --tags "Cost Center=000"
 
 az network vnet subnet create \
     --resource-group "$RG4" \
-    --vnet-name "CoreServicesVnet" \
-    --name "LBSubnet" \
+    --vnet-name "vnet-contoso-hub-brazilsouth" \
+    --name "snet-lb" \
     --address-prefixes "10.20.40.0/24"
 
-echo "RG az104-rg6lb e subnet LBSubnet criados"
+echo "RG rg-contoso-network e subnet snet-lb criados"
 ```
 
 ---
@@ -2154,14 +2154,14 @@ Salve como **`bloco6-lb-infra.json`**:
         },
         "vnetResourceGroup": {
             "type": "string",
-            "defaultValue": "az104-rg4",
-            "metadata": { "description": "RG onde a CoreServicesVnet esta" }
+            "defaultValue": "rg-contoso-network",
+            "metadata": { "description": "RG onde a vnet-contoso-hub-brazilsouth esta" }
         }
     },
     "variables": {
-        "avSetName": "az104-avset-lb",
-        "vnetName": "CoreServicesVnet",
-        "subnetName": "LBSubnet",
+        "avSetName": "avail-contoso-lb",
+        "vnetName": "vnet-contoso-hub-brazilsouth",
+        "subnetName": "snet-lb",
         "subnetId": "[resourceId(parameters('vnetResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('subnetName'))]"
     },
     "resources": [
@@ -2181,7 +2181,7 @@ Salve como **`bloco6-lb-infra.json`**:
         {
             "type": "Microsoft.Network/networkInterfaces",
             "apiVersion": "2023-05-01",
-            "name": "LB-VM1-nic",
+            "name": "nic-vm-lb-01",
             "location": "[parameters('location')]",
             "properties": {
                 "ipConfigurations": [
@@ -2200,7 +2200,7 @@ Salve como **`bloco6-lb-infra.json`**:
         {
             "type": "Microsoft.Network/networkInterfaces",
             "apiVersion": "2023-05-01",
-            "name": "LB-VM2-nic",
+            "name": "nic-vm-lb-02",
             "location": "[parameters('location')]",
             "properties": {
                 "ipConfigurations": [
@@ -2219,11 +2219,11 @@ Salve como **`bloco6-lb-infra.json`**:
         {
             "type": "Microsoft.Compute/virtualMachines",
             "apiVersion": "2023-07-01",
-            "name": "LB-VM1",
+            "name": "vm-lb-01",
             "location": "[parameters('location')]",
             "dependsOn": [
                 "[resourceId('Microsoft.Compute/availabilitySets', variables('avSetName'))]",
-                "[resourceId('Microsoft.Network/networkInterfaces', 'LB-VM1-nic')]"
+                "[resourceId('Microsoft.Network/networkInterfaces', 'nic-vm-lb-01')]"
             ],
             "properties": {
                 "availabilitySet": {
@@ -2231,7 +2231,7 @@ Salve como **`bloco6-lb-infra.json`**:
                 },
                 "hardwareProfile": { "vmSize": "Standard_D2s_v3" },
                 "osProfile": {
-                    "computerName": "LB-VM1",
+                    "computerName": "vm-lb-01",
                     "adminUsername": "[parameters('adminUsername')]",
                     "adminPassword": "[parameters('adminPassword')]"
                 },
@@ -2249,7 +2249,7 @@ Salve como **`bloco6-lb-infra.json`**:
                 },
                 "networkProfile": {
                     "networkInterfaces": [
-                        { "id": "[resourceId('Microsoft.Network/networkInterfaces', 'LB-VM1-nic')]" }
+                        { "id": "[resourceId('Microsoft.Network/networkInterfaces', 'nic-vm-lb-01')]" }
                     ]
                 },
                 "diagnosticsProfile": {
@@ -2260,11 +2260,11 @@ Salve como **`bloco6-lb-infra.json`**:
         {
             "type": "Microsoft.Compute/virtualMachines",
             "apiVersion": "2023-07-01",
-            "name": "LB-VM2",
+            "name": "vm-lb-02",
             "location": "[parameters('location')]",
             "dependsOn": [
                 "[resourceId('Microsoft.Compute/availabilitySets', variables('avSetName'))]",
-                "[resourceId('Microsoft.Network/networkInterfaces', 'LB-VM2-nic')]"
+                "[resourceId('Microsoft.Network/networkInterfaces', 'nic-vm-lb-02')]"
             ],
             "properties": {
                 "availabilitySet": {
@@ -2272,7 +2272,7 @@ Salve como **`bloco6-lb-infra.json`**:
                 },
                 "hardwareProfile": { "vmSize": "Standard_D2s_v3" },
                 "osProfile": {
-                    "computerName": "LB-VM2",
+                    "computerName": "vm-lb-02",
                     "adminUsername": "[parameters('adminUsername')]",
                     "adminPassword": "[parameters('adminPassword')]"
                 },
@@ -2290,7 +2290,7 @@ Salve como **`bloco6-lb-infra.json`**:
                 },
                 "networkProfile": {
                     "networkInterfaces": [
-                        { "id": "[resourceId('Microsoft.Network/networkInterfaces', 'LB-VM2-nic')]" }
+                        { "id": "[resourceId('Microsoft.Network/networkInterfaces', 'nic-vm-lb-02')]" }
                     ]
                 },
                 "diagnosticsProfile": {
@@ -2304,8 +2304,8 @@ Salve como **`bloco6-lb-infra.json`**:
             "type": "string",
             "value": "[resourceId('Microsoft.Compute/availabilitySets', variables('avSetName'))]"
         },
-        "vm1Name": { "type": "string", "value": "LB-VM1" },
-        "vm2Name": { "type": "string", "value": "LB-VM2" }
+        "vm1Name": { "type": "string", "value": "vm-lb-01" },
+        "vm2Name": { "type": "string", "value": "vm-lb-02" }
     }
 }
 ```
@@ -2327,9 +2327,9 @@ az deployment group create \
     --parameters adminPassword="$VM_PASSWORD" \
     --name "deploy-lb-infra"
 
-az vm wait --resource-group "$RG6" --name "LB-VM1" --created
-az vm wait --resource-group "$RG6" --name "LB-VM2" --created
-echo "VMs LB-VM1 e LB-VM2 criadas no Availability Set"
+az vm wait --resource-group "$RG6" --name "vm-lb-01" --created
+az vm wait --resource-group "$RG6" --name "vm-lb-02" --created
+echo "VMs vm-lb-01 e vm-lb-02 criadas no Availability Set"
 ```
 
 ---
@@ -2342,12 +2342,12 @@ echo "VMs LB-VM1 e LB-VM2 criadas no Availability Set"
 # ============================================================
 
 az vm run-command invoke \
-    --resource-group "$RG6" --name "LB-VM1" \
+    --resource-group "$RG6" --name "vm-lb-01" \
     --command-id RunPowerShellScript \
     --scripts "Install-WindowsFeature -name Web-Server -IncludeManagementTools; Remove-Item 'C:\inetpub\wwwroot\iisstart.htm'; Add-Content -Path 'C:\inetpub\wwwroot\iisstart.htm' -Value \$('Hello from ' + \$env:computername)"
 
 az vm run-command invoke \
-    --resource-group "$RG6" --name "LB-VM2" \
+    --resource-group "$RG6" --name "vm-lb-02" \
     --command-id RunPowerShellScript \
     --scripts "Install-WindowsFeature -name Web-Server -IncludeManagementTools; Remove-Item 'C:\inetpub\wwwroot\iisstart.htm'; Add-Content -Path 'C:\inetpub\wwwroot\iisstart.htm' -Value \$('Hello from ' + \$env:computername)"
 
@@ -2371,11 +2371,11 @@ Salve como **`bloco6-public-lb.json`**:
         }
     },
     "variables": {
-        "lbName": "az104-pub-lb",
-        "pipName": "az104-lb-pip",
-        "nsgName": "nsg-lb",
-        "frontendName": "lb-frontend",
-        "backendPoolName": "lb-backend-pool",
+        "lbName": "lbe-contoso-web",
+        "pipName": "pip-lbe-contoso-web",
+        "nsgName": "nsg-snet-lb",
+        "frontendName": "fe-lbe-web",
+        "backendPoolName": "bp-lbe-web",
         "probeName": "http-probe",
         "lbId": "[resourceId('Microsoft.Network/loadBalancers', variables('lbName'))]",
         "frontendId": "[concat(variables('lbId'), '/frontendIPConfigurations/', variables('frontendName'))]",
@@ -2505,24 +2505,24 @@ az deployment group create \
     --template-file bloco6-public-lb.json \
     --name "deploy-public-lb"
 
-# Associar NSG a LBSubnet
-NSG_ID=$(az network nsg show -g "$RG6" -n "nsg-lb" --query id -o tsv)
+# Associar NSG a snet-lb
+NSG_ID=$(az network nsg show -g "$RG6" -n "nsg-snet-lb" --query id -o tsv)
 az network vnet subnet update \
-    --resource-group "$RG4" --vnet-name "CoreServicesVnet" \
-    --name "LBSubnet" --network-security-group "$NSG_ID"
+    --resource-group "$RG4" --vnet-name "vnet-contoso-hub-brazilsouth" \
+    --name "snet-lb" --network-security-group "$NSG_ID"
 
 # Adicionar VMs ao Backend Pool
 az network nic ip-config address-pool add \
-    --resource-group "$RG6" --nic-name "LB-VM1-nic" \
-    --ip-config-name "ipconfig1" --lb-name "az104-pub-lb" \
-    --address-pool "lb-backend-pool"
+    --resource-group "$RG6" --nic-name "nic-vm-lb-01" \
+    --ip-config-name "ipconfig1" --lb-name "lbe-contoso-web" \
+    --address-pool "bp-lbe-web"
 
 az network nic ip-config address-pool add \
-    --resource-group "$RG6" --nic-name "LB-VM2-nic" \
-    --ip-config-name "ipconfig1" --lb-name "az104-pub-lb" \
-    --address-pool "lb-backend-pool"
+    --resource-group "$RG6" --nic-name "nic-vm-lb-02" \
+    --ip-config-name "ipconfig1" --lb-name "lbe-contoso-web" \
+    --address-pool "bp-lbe-web"
 
-LB_PIP=$(az network public-ip show -g "$RG6" -n "az104-lb-pip" --query ipAddress -o tsv)
+LB_PIP=$(az network public-ip show -g "$RG6" -n "pip-lbe-contoso-web" --query ipAddress -o tsv)
 echo "Teste: http://${LB_PIP}"
 ```
 
@@ -2543,20 +2543,20 @@ echo "Teste: http://${LB_PIP}"
 # None = melhor distribuicao | SourceIP = sticky sessions
 
 # Modo 1: None (5-tuple hash) - padrao, ja testado
-az network lb rule show -g "$RG6" --lb-name "az104-pub-lb" -n "az104-lb-rule" \
+az network lb rule show -g "$RG6" --lb-name "lbe-contoso-web" -n "rule-lbe-http" \
     --query loadDistribution -o tsv
 
 # Modo 2: Client IP (2-tuple: source IP + dest IP)
-az network lb rule update -g "$RG6" --lb-name "az104-pub-lb" -n "az104-lb-rule" \
+az network lb rule update -g "$RG6" --lb-name "lbe-contoso-web" -n "rule-lbe-http" \
     --load-distribution SourceIP
 # Testar: refresh no navegador → mesmo servidor responde
 
 # Modo 3: Client IP and Protocol (3-tuple)
-az network lb rule update -g "$RG6" --lb-name "az104-pub-lb" -n "az104-lb-rule" \
+az network lb rule update -g "$RG6" --lb-name "lbe-contoso-web" -n "rule-lbe-http" \
     --load-distribution SourceIPProtocol
 
 # Reverter para None (5-tuple)
-az network lb rule update -g "$RG6" --lb-name "az104-pub-lb" -n "az104-lb-rule" \
+az network lb rule update -g "$RG6" --lb-name "lbe-contoso-web" -n "rule-lbe-http" \
     --load-distribution Default
 echo "Session persistence revertida para Default (5-tuple)"
 ```
@@ -2570,12 +2570,12 @@ echo "Session persistence revertida para Default (5-tuple)"
 # TASK 6.4 - Testar failover do Load Balancer
 # ============================================================
 
-az vm stop --resource-group "$RG6" --name "LB-VM1"
-echo "LB-VM1 parada. Aguarde 30-60s. Apenas LB-VM2 deve responder."
+az vm stop --resource-group "$RG6" --name "vm-lb-01"
+echo "vm-lb-01 parada. Aguarde 30-60s. Apenas vm-lb-02 deve responder."
 
 # Reiniciar
-az vm start --resource-group "$RG6" --name "LB-VM1"
-echo "LB-VM1 reiniciada. Aguarde probe detectar como healthy."
+az vm start --resource-group "$RG6" --name "vm-lb-01"
+echo "vm-lb-01 reiniciada. Aguarde probe detectar como healthy."
 ```
 
 ---
@@ -2595,15 +2595,15 @@ Salve como **`bloco6-internal-lb.json`**:
         },
         "vnetResourceGroup": {
             "type": "string",
-            "defaultValue": "az104-rg4"
+            "defaultValue": "rg-contoso-network"
         }
     },
     "variables": {
-        "lbName": "az104-int-lb",
-        "frontendName": "int-lb-frontend",
-        "backendPoolName": "int-lb-backend",
+        "lbName": "lbi-contoso-apps",
+        "frontendName": "int-fe-lbe-web",
+        "backendPoolName": "bp-lbi-apps",
         "probeName": "int-http-probe",
-        "subnetId": "[resourceId(parameters('vnetResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets', 'CoreServicesVnet', 'LBSubnet')]",
+        "subnetId": "[resourceId(parameters('vnetResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets', 'vnet-contoso-hub-brazilsouth', 'snet-lb')]",
         "lbId": "[resourceId('Microsoft.Network/loadBalancers', variables('lbName'))]"
     },
     "resources": [
@@ -2689,14 +2689,14 @@ az deployment group create \
     --name "deploy-internal-lb"
 
 az network nic ip-config address-pool add \
-    --resource-group "$RG6" --nic-name "LB-VM1-nic" \
-    --ip-config-name "ipconfig1" --lb-name "az104-int-lb" \
-    --address-pool "int-lb-backend"
+    --resource-group "$RG6" --nic-name "nic-vm-lb-01" \
+    --ip-config-name "ipconfig1" --lb-name "lbi-contoso-apps" \
+    --address-pool "bp-lbi-apps"
 
 az network nic ip-config address-pool add \
-    --resource-group "$RG6" --nic-name "LB-VM2-nic" \
-    --ip-config-name "ipconfig1" --lb-name "az104-int-lb" \
-    --address-pool "int-lb-backend"
+    --resource-group "$RG6" --nic-name "nic-vm-lb-02" \
+    --ip-config-name "ipconfig1" --lb-name "lbi-contoso-apps" \
+    --address-pool "bp-lbi-apps"
 
 echo "Internal LB criado com frontend IP 10.20.40.100"
 ```
@@ -2710,12 +2710,12 @@ echo "Internal LB criado com frontend IP 10.20.40.100"
 # TASK 6.6 - Troubleshoot: parar IIS e diagnosticar
 # ============================================================
 
-az vm run-command invoke --resource-group "$RG6" --name "LB-VM1" \
+az vm run-command invoke --resource-group "$RG6" --name "vm-lb-01" \
     --command-id RunPowerShellScript --scripts "Stop-Service -Name W3SVC -Force"
-echo "IIS parado em LB-VM1. Verifique Health Probe Status no portal."
+echo "IIS parado em vm-lb-01. Verifique Health Probe Status no portal."
 
 # Corrigir
-az vm run-command invoke --resource-group "$RG6" --name "LB-VM1" \
+az vm run-command invoke --resource-group "$RG6" --name "vm-lb-01" \
     --command-id RunPowerShellScript --scripts "Start-Service -Name W3SVC"
 echo "IIS reiniciado."
 ```
@@ -2737,19 +2737,19 @@ Salve como **`bloco6-bastion.json`**:
         },
         "vnetResourceGroup": {
             "type": "string",
-            "defaultValue": "az104-rg4"
+            "defaultValue": "rg-contoso-network"
         }
     },
     "variables": {
-        "bastionName": "az104-bastion",
-        "bastionPipName": "az104-bastion-pip",
-        "bastionSubnetId": "[resourceId(parameters('vnetResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets', 'CoreServicesVnet', 'AzureBastionSubnet')]"
+        "bastionName": "bas-contoso-hub",
+        "bastionPipName": "bas-contoso-hub-pip",
+        "bastionSubnetId": "[resourceId(parameters('vnetResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets', 'vnet-contoso-hub-brazilsouth', 'AzureBastionSubnet')]"
     },
     "resources": [
         {
             "type": "Microsoft.Network/virtualNetworks/subnets",
             "apiVersion": "2023-05-01",
-            "name": "CoreServicesVnet/AzureBastionSubnet",
+            "name": "vnet-contoso-hub-brazilsouth/AzureBastionSubnet",
             "properties": {
                 "addressPrefix": "10.20.30.0/26"
             }
@@ -2800,14 +2800,14 @@ Salve como **`bloco6-bastion.json`**:
 > via `resourceId()` com o RG da VNet como parametro (cross-RG). O nome da subnet DEVE ser
 > `AzureBastionSubnet` — e requisito do Azure.
 
-> **NOTA:** A subnet `AzureBastionSubnet` deve ser criada na VNet que esta em `az104-rg4`.
+> **NOTA:** A subnet `AzureBastionSubnet` deve ser criada na VNet que esta em `rg-contoso-network`.
 > O ARM template acima cria a subnet como nested resource. Se preferir, crie via CLI:
 
 ```bash
 # Alternativa: criar AzureBastionSubnet via CLI
 az network vnet subnet create \
     --resource-group "$RG4" \
-    --vnet-name "CoreServicesVnet" \
+    --vnet-name "vnet-contoso-hub-brazilsouth" \
     --name "AzureBastionSubnet" \
     --address-prefixes "10.20.30.0/26"
 ```
@@ -2820,7 +2820,7 @@ Deploy:
 # ============================================================
 # Primeiro criar a subnet (se nao usou o template acima para isso)
 az network vnet subnet create \
-    --resource-group "$RG4" --vnet-name "CoreServicesVnet" \
+    --resource-group "$RG4" --vnet-name "vnet-contoso-hub-brazilsouth" \
     --name "AzureBastionSubnet" --address-prefixes "10.20.30.0/26" 2>/dev/null
 
 # Deploy Bastion (pode levar 5-10 minutos)
@@ -2836,11 +2836,11 @@ echo "Azure Bastion implantado. Acesse VMs via Connect > Bastion"
 
 ## Modo Desafio - Bloco 6
 
-- [ ] Criar RG `az104-rg6lb` e subnet `LBSubnet` (10.20.40.0/24)
+- [ ] Criar RG `rg-contoso-network` e subnet `snet-lb` (10.20.40.0/24)
 - [ ] Deploy `bloco6-lb-infra.json` com parameter file
 - [ ] Instalar IIS via Run Command
 - [ ] Deploy `bloco6-public-lb.json`
-- [ ] Associar NSG a LBSubnet e VMs ao backend pool
+- [ ] Associar NSG a snet-lb e VMs ao backend pool
 - [ ] Testar balanceamento (hard refresh)
 - [ ] Testar failover: parar VM1 → apenas VM2 → reiniciar VM1
 - [ ] Deploy `bloco6-internal-lb.json` (IP 10.20.40.100)
@@ -2893,7 +2893,7 @@ A) Enfileirado  B) Redirecionado para VMs healthy  C) LB para  D) Descartado
 
 **Tecnologia:** CLI (operacoes de Entra ID, Cost Management e Network Watcher)
 **Recursos:** SSPR config, Budget, Advisor alert, Network Watcher diagnostics
-**Resource Groups utilizados:** `az104-rg4`, `az104-rg5`, `az104-rg6lb`
+**Resource Groups utilizados:** `rg-contoso-network`, `rg-contoso-compute`, `rg-contoso-network`
 
 > **Nota:** Bloco majoritariamente portal/CLI. SSPR e configuracao do Entra ID,
 > Cost Management/Advisor sao leitura + config, Network Watcher e diagnostico.
@@ -3034,21 +3034,21 @@ echo "Category: Cost, Impact: High, Name: az104-advisor-cost-alert"
 # TASK 7.6 - Network Watcher diagnostics
 # ============================================================
 
-echo "=== Effective Security Rules - LB-VM1 ==="
+echo "=== Effective Security Rules - vm-lb-01 ==="
 az network watcher show-security-group-view \
-    --resource-group "$RG6" --vm "LB-VM1" -o table
+    --resource-group "$RG6" --vm "vm-lb-01" -o table
 
-VM1_IP=$(az vm show -g "$RG6" -n "LB-VM1" -d --query privateIps -o tsv)
+VM1_IP=$(az vm show -g "$RG6" -n "vm-lb-01" -d --query privateIps -o tsv)
 
 echo "=== IP Flow Verify: HTTP porta 80 (ALLOW) ==="
 az network watcher test-ip-flow \
-    --resource-group "$RG6" --vm "LB-VM1" \
+    --resource-group "$RG6" --vm "vm-lb-01" \
     --direction "Inbound" --protocol "TCP" \
     --local "${VM1_IP}:80" --remote "10.0.0.1:12345"
 
 echo "=== IP Flow Verify: SSH porta 22 (DENY) ==="
 az network watcher test-ip-flow \
-    --resource-group "$RG6" --vm "LB-VM1" \
+    --resource-group "$RG6" --vm "vm-lb-01" \
     --direction "Inbound" --protocol "TCP" \
     --local "${VM1_IP}:22" --remote "10.0.0.1:12345"
 ```
@@ -3067,32 +3067,32 @@ az network watcher test-ip-flow \
 #   Se QUALQUER um bloquear, o trafego e negado.
 
 # 1. Criar NSG para associar a NIC
-az network nsg create -g "$RG6" -n "nsg-nic-test"
+az network nsg create -g "$RG6" -n "nsg-nic-vm-web-01"
 
 # 2. Adicionar regra Deny HTTP na NIC
-az network nsg rule create -g "$RG6" --nsg-name "nsg-nic-test" \
+az network nsg rule create -g "$RG6" --nsg-name "nsg-nic-vm-web-01" \
     -n "DenyHTTP" --priority 100 --access Deny --protocol Tcp \
     --direction Inbound --destination-port-ranges 80
 
-# 3. Associar NSG a NIC da LB-VM1
-NIC_NAME=$(az vm show -g "$RG6" -n "LB-VM1" \
+# 3. Associar NSG a NIC da vm-lb-01
+NIC_NAME=$(az vm show -g "$RG6" -n "vm-lb-01" \
     --query "networkProfile.networkInterfaces[0].id" -o tsv | xargs basename)
 az network nic update -g "$RG6" -n "$NIC_NAME" \
-    --network-security-group "nsg-nic-test"
+    --network-security-group "nsg-nic-vm-web-01"
 
-echo "NSG nsg-nic-test associado a NIC $NIC_NAME"
+echo "NSG nsg-nic-vm-web-01 associado a NIC $NIC_NAME"
 
 # 4. Testar com IP Flow Verify - HTTP agora bloqueado
 echo "=== IP Flow Verify: HTTP porta 80 (agora DENY pela NIC) ==="
 az network watcher test-ip-flow \
-    -g "$RG6" --vm "LB-VM1" --direction Inbound \
+    -g "$RG6" --vm "vm-lb-01" --direction Inbound \
     --protocol TCP --local "${VM1_IP}:80" --remote "10.0.0.1:12345"
 # Resultado: Access DENY — subnet NSG permite, mas NIC NSG bloqueia
 
 # 5. Cleanup: remover NSG da NIC
 az network nic update -g "$RG6" -n "$NIC_NAME" --remove networkSecurityGroup
-az network nsg delete -g "$RG6" -n "nsg-nic-test"
-echo "Cleanup: NSG nsg-nic-test removido"
+az network nsg delete -g "$RG6" -n "nsg-nic-vm-web-01"
+echo "Cleanup: NSG nsg-nic-vm-web-01 removido"
 ```
 
 ---
@@ -3106,7 +3106,7 @@ echo "Cleanup: NSG nsg-nic-test removido"
 - [ ] Criar Budget $50/mes
 - [ ] Alertas 80%, 100%, 120% (forecasted)
 - [ ] Revisar Advisor + criar alerta Cost/High
-- [ ] Effective Security Rules em LB-VM1
+- [ ] Effective Security Rules em vm-lb-01
 - [ ] IP Flow Verify HTTP (Allow) e SSH (Deny)
 
 ---
@@ -3149,16 +3149,16 @@ Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos
 
 ```bash
 # Pausar
-az vm deallocate -g az104-rg5 -n CoreServicesVM --no-wait
-az vm deallocate -g az104-rg5 -n ManufacturingVM --no-wait
-az vm deallocate -g az104-rg6lb -n LB-VM1 --no-wait
-az vm deallocate -g az104-rg6lb -n LB-VM2 --no-wait
+az vm deallocate -g rg-contoso-compute -n vm-web-01 --no-wait
+az vm deallocate -g rg-contoso-compute -n vm-app-01 --no-wait
+az vm deallocate -g rg-contoso-network -n vm-lb-01 --no-wait
+az vm deallocate -g rg-contoso-network -n vm-lb-02 --no-wait
 
 # Retomar
-az vm start -g az104-rg5 -n CoreServicesVM --no-wait
-az vm start -g az104-rg5 -n ManufacturingVM --no-wait
-az vm start -g az104-rg6lb -n LB-VM1 --no-wait
-az vm start -g az104-rg6lb -n LB-VM2 --no-wait
+az vm start -g rg-contoso-compute -n vm-web-01 --no-wait
+az vm start -g rg-contoso-compute -n vm-app-01 --no-wait
+az vm start -g rg-contoso-network -n vm-lb-01 --no-wait
+az vm start -g rg-contoso-network -n vm-lb-02 --no-wait
 ```
 
 > **Nota:** Desalocar para cobranca de compute. Discos, IPs publicos e Bastion continuam gerando custo.
@@ -3188,7 +3188,7 @@ az lock delete --name "rg-lock" --resource-group "$RG2" 2>/dev/null
 
 # 3. RGs (VMs primeiro)
 echo "3. Deletando RGs..."
-az group delete --name "az104-rg6lb" --yes --no-wait
+az group delete --name "rg-contoso-network" --yes --no-wait
 az group delete --name "$RG5" --yes --no-wait
 az group delete --name "$RG4" --yes --no-wait
 az group delete --name "$RG3" --yes --no-wait
@@ -3253,13 +3253,13 @@ sourceApplicationSecurityGroups: [ { id: asg.id } ]
 ### Cross-RG Reference
 ```json
 // ARM:
-"[resourceId('az104-rg4', 'Microsoft.Network/virtualNetworks/subnets', 'CoreServicesVnet', 'Core')]"
+"[resourceId('rg-contoso-network', 'Microsoft.Network/virtualNetworks/subnets', 'vnet-contoso-hub-brazilsouth', 'snet-apps')]"
 ```
 ```bicep
 // Bicep:
 resource coreVnet 'type' existing = {
-  name: 'CoreServicesVnet'
-  scope: resourceGroup('az104-rg4')
+  name: 'vnet-contoso-hub-brazilsouth'
+  scope: resourceGroup('rg-contoso-network')
 }
 ```
 

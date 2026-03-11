@@ -67,7 +67,7 @@ resource myVnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
 
 // 5. existing: referencia recurso ja existente (NAO cria)
 resource existingRg 'Microsoft.Resources/resourceGroups@2023-07-01' existing = {
-  name: 'az104-rg4'
+  name: 'rg-contoso-network'
   scope: subscription()               // Pode cruzar scopes!
 }
 
@@ -105,13 +105,13 @@ VM_USERNAME="localadmin"
 VM_PASSWORD='SenhaComplexa@2024!'                      # ← ALTERE
 
 # --- Resource Groups ---
-RG2="az104-rg2"
-RG3="az104-rg3"
-RG4="az104-rg4"
-RG5="az104-rg5"
+RG2="rg-contoso-identity"
+RG3="rg-contoso-identity"
+RG4="rg-contoso-network"
+RG5="rg-contoso-compute"
 
 # --- Management Group ---
-MG_NAME="az104-mg1"
+MG_NAME="mg-contoso-prod"
 ```
 
 ---
@@ -130,22 +130,22 @@ Bloco 1 (Identity)
 Bloco 2 (Governance) ──────────────────────────────────────┐
   │                                                        │
   ├─ RBAC: VM Contributor → IT Lab Administrators (MG)     │
-  ├─ RBAC: Reader → Guest user (az104-rg3)                 │
-  ├─ Policy: Require tag (Deny) → az104-rg2 (testada)       │
-  ├─ Policy: Inherit tag (Modify) → az104-rg2 + az104-rg3  │
-  ├─ Policy: Allowed Locations (Deny) → az104-rg3          │
-  ├─ Lock: Delete → az104-rg2                              │
-  └─ Cria az104-rg3 com tag Cost Center = 000              │
+  ├─ RBAC: Reader → Guest user (rg-contoso-identity)                 │
+  ├─ Policy: Require tag (Deny) → rg-contoso-identity (testada)       │
+  ├─ Policy: Inherit tag (Modify) → rg-contoso-identity + rg-contoso-identity  │
+  ├─ Policy: Allowed Locations (Deny) → rg-contoso-identity          │
+  ├─ Lock: Delete → rg-contoso-identity                              │
+  └─ Cria rg-contoso-identity com tag Cost Center = 000              │
                                    │                       │
                                    ▼                       │
 Bloco 3 (IaC) ◄──── Valida governanca ─────────────────────┘
   │
-  ├─ Disks em az104-rg3 → tags herdadas automaticamente ✓
+  ├─ Disks em rg-contoso-identity → tags herdadas automaticamente ✓
   └─ Deploy West US → bloqueado por Allowed Locations ✓
                                                      ▼
 Bloco 4 (Networking)
   │
-  ├─ CoreServicesVnet (10.20.0.0/16) + ManufacturingVnet (10.30.0.0/16)
+  ├─ vnet-contoso-hub-brazilsouth (10.20.0.0/16) + vnet-contoso-spoke-brazilsouth (10.30.0.0/16)
   ├─ NSG + ASG
   └─ DNS publico + privado
                                                      ▼
@@ -453,8 +453,8 @@ az account management-group show --name "$MG_NAME" --expand --recurse
 > ```bicep
 > targetScope = 'tenant'
 > resource mg 'Microsoft.Management/managementGroups@2021-04-01' = {
->   name: 'az104-mg1'
->   properties: { displayName: 'az104-mg1' }
+>   name: 'mg-contoso-prod'
+>   properties: { displayName: 'mg-contoso-prod' }
 > }
 > ```
 > Deploy: `az deployment tenant create --location eastus --template-file mg.bicep`
@@ -592,18 +592,18 @@ param location string = 'eastus'
 @description('Valor da tag Cost Center')
 param costCenter string = '000'
 
-// Resource Group az104-rg2 (Governance)
+// Resource Group rg-contoso-identity (Governance)
 resource rg2 'Microsoft.Resources/resourceGroups@2023-07-01' = {
-  name: 'az104-rg2'
+  name: 'rg-contoso-identity'
   location: location
   tags: {
     'Cost Center': costCenter
   }
 }
 
-// Resource Group az104-rg3 (IaC)
+// Resource Group rg-contoso-identity (IaC)
 resource rg3 'Microsoft.Resources/resourceGroups@2023-07-01' = {
-  name: 'az104-rg3'
+  name: 'rg-contoso-identity'
   location: location
   tags: {
     'Cost Center': costCenter
@@ -623,7 +623,7 @@ az deployment sub create \
     --location "$LOCATION" \
     --template-file bloco2-rgs.bicep
 
-echo "RGs az104-rg2 e az104-rg3 criados com tag Cost Center = 000"
+echo "RGs rg-contoso-identity e rg-contoso-identity criados com tag Cost Center = 000"
 ```
 
 > **Conceito:** Note `targetScope = 'subscription'` e o comando `az deployment sub create`.
@@ -675,7 +675,7 @@ Salve como **`bloco2-policies-rg2.bicep`**:
 ```bicep
 // ============================================================
 // bloco2-policies-rg2.bicep
-// Scope: resourceGroup (az104-rg2)
+// Scope: resourceGroup (rg-contoso-identity)
 // Aplica policy Modify: Inherit tag from resource group
 // ============================================================
 
@@ -745,7 +745,7 @@ Salve como **`bloco2-policies-rg3.bicep`**:
 ```bicep
 // ============================================================
 // bloco2-policies-rg3.bicep
-// Scope: resourceGroup (az104-rg3)
+// Scope: resourceGroup (rg-contoso-identity)
 // Aplica: Modify (inherit tag) + Allowed Locations + Reader role
 // ============================================================
 
@@ -765,7 +765,7 @@ resource inheritPolicy 'Microsoft.Authorization/policyAssignments@2024-04-01' = 
   }
   location: resourceGroup().location
   properties: {
-    displayName: 'Inherit Cost Center tag on az104-rg3 resources'
+    displayName: 'Inherit Cost Center tag on rg-contoso-identity resources'
     policyDefinitionId: inheritPolicyId
     parameters: {
       tagName: { value: tagName }
@@ -837,7 +837,7 @@ Salve como **`bloco2-lock.bicep`**:
 ```bicep
 // ============================================================
 // bloco2-lock.bicep
-// Scope: resourceGroup (az104-rg2)
+// Scope: resourceGroup (rg-contoso-identity)
 // Cria Delete Lock
 // ============================================================
 
@@ -999,14 +999,14 @@ echo "  ✓ Gerenciar VMs (VM Contributor no MG)"
 echo ""
 echo "O que az104-user1 NAO PODE fazer:"
 echo "  ✗ Criar Storage Accounts"
-echo "  ✗ Deletar az104-rg2 (Lock + sem permissao)"
+echo "  ✗ Deletar rg-contoso-identity (Lock + sem permissao)"
 ```
 
 ---
 
 ## Modo Desafio - Bloco 2
 
-- [ ] Criar Management Group `az104-mg1` e mover subscription
+- [ ] Criar Management Group `mg-contoso-prod` e mover subscription
 - [ ] Atribuir **VM Contributor** ao grupo `IT Lab Administrators`
 - [ ] Deploy `bloco2-custom-role.bicep` no scope managementGroup
 - [ ] Deploy `bloco2-rgs.bicep` no scope subscription
@@ -1123,7 +1123,7 @@ D) Nada — guests nao recebem roles
 # Bloco 3 - Azure Resources & IaC
 
 **Tecnologia:** Bicep (template parametrizado + loop)
-**Recursos criados:** 5 managed disks em az104-rg3
+**Recursos criados:** 5 managed disks em rg-contoso-identity
 
 ---
 
@@ -1134,7 +1134,7 @@ Salve como **`bloco3-disk.bicep`**:
 ```bicep
 // ============================================================
 // bloco3-disk.bicep
-// Scope: resourceGroup (az104-rg3)
+// Scope: resourceGroup (rg-contoso-identity)
 // Cria managed disk parametrizado (reusavel para todos os 5 discos)
 // ============================================================
 
@@ -1190,36 +1190,36 @@ Deploy dos 5 discos:
 az deployment group create \
     --resource-group "$RG3" \
     --template-file bloco3-disk.bicep \
-    --parameters diskName=az104-disk1
+    --parameters diskName=disk-iac-test-01
 
 # Verificar tag herdada
-echo "=== Verificando tag do az104-disk1 ==="
-az disk show -g "$RG3" -n az104-disk1 --query tags -o json
+echo "=== Verificando tag do disk-iac-test-01 ==="
+az disk show -g "$RG3" -n disk-iac-test-01 --query tags -o json
 # Esperado: {"Cost Center": "000"}
 
 # Disco 2
 az deployment group create \
     --resource-group "$RG3" \
     --template-file bloco3-disk.bicep \
-    --parameters diskName=az104-disk2
+    --parameters diskName=disk-iac-test-02
 
 # Disco 3
 az deployment group create \
     --resource-group "$RG3" \
     --template-file bloco3-disk.bicep \
-    --parameters diskName=az104-disk3
+    --parameters diskName=disk-iac-test-03
 
 # Disco 4
 az deployment group create \
     --resource-group "$RG3" \
     --template-file bloco3-disk.bicep \
-    --parameters diskName=az104-disk4
+    --parameters diskName=disk-iac-test-04
 
 # Disco 5 (Standard SSD - diferente dos anteriores)
 az deployment group create \
     --resource-group "$RG3" \
     --template-file bloco3-disk.bicep \
-    --parameters diskName=az104-disk5 diskSku=StandardSSD_LRS
+    --parameters diskName=disk-iac-test-05 diskSku=StandardSSD_LRS
 
 # Listar todos os discos
 echo ""
@@ -1234,11 +1234,11 @@ az disk list -g "$RG3" --query "[].{name:name, size:diskSizeGb, sku:sku.name, ta
 // Demonstra o loop for do Bicep
 
 param diskNames array = [
-  'az104-disk1'
-  'az104-disk2'
-  'az104-disk3'
-  'az104-disk4'
-  'az104-disk5'
+  'disk-iac-test-01'
+  'disk-iac-test-02'
+  'disk-iac-test-03'
+  'disk-iac-test-04'
+  'disk-iac-test-05'
 ]
 
 param location string = resourceGroup().location
@@ -1249,7 +1249,7 @@ resource disks 'Microsoft.Compute/disks@2023-10-02' = [for name in diskNames: {
   name: name
   location: location
   sku: {
-    name: name == 'az104-disk5' ? 'StandardSSD_LRS' : 'Standard_LRS'
+    name: name == 'disk-iac-test-05' ? 'StandardSSD_LRS' : 'Standard_LRS'
     // Operador ternario: disk5 usa SSD, demais usam HDD
   }
   properties: {
@@ -1272,7 +1272,7 @@ resource disks 'Microsoft.Compute/disks@2023-10-02' = [for name in diskNames: {
 az deployment group create \
     --resource-group "$RG3" \
     --template-file bloco3-disk.bicep \
-    --parameters diskName=az104-disk-test location=westus 2>&1 || \
+    --parameters diskName=disk-iac-test-region location=westus 2>&1 || \
     echo "✓ Policy Allowed Locations bloqueou deploy em West US!"
 
 # Confirmar que apenas 5 discos existem
@@ -1285,7 +1285,7 @@ az disk list -g "$RG3" --query "length(@)"
 ### Task 3.7: Teste de integracao — Guest user (informativo)
 
 ```bash
-# O guest user tem Reader no az104-rg3
+# O guest user tem Reader no rg-contoso-identity
 # Verificar programaticamente:
 az role assignment list \
     --resource-group "$RG3" \
@@ -1299,8 +1299,8 @@ echo ">>> Para teste manual: login como guest em InPrivate <<<"
 
 ## Modo Desafio - Bloco 3
 
-- [ ] Deploy `bloco3-disk.bicep` com `diskName=az104-disk1` a `az104-disk4`
-- [ ] Deploy `az104-disk5` com `diskSku=StandardSSD_LRS`
+- [ ] Deploy `bloco3-disk.bicep` com `diskName=disk-iac-test-01` a `disk-iac-test-04`
+- [ ] Deploy `disk-iac-test-05` com `diskSku=StandardSSD_LRS`
 - [ ] Verificar tag `Cost Center = 000` herdada em cada disco
 - [ ] **Integracao:** Testar deploy com `location=westus` → bloqueado
 - [ ] (Bonus) Experimentar `bloco3-disks-loop.bicep` com `for`
@@ -1374,15 +1374,15 @@ Salve como **`bloco4-networking.bicep`**:
 ```bicep
 // ============================================================
 // bloco4-networking.bicep
-// Scope: resourceGroup (az104-rg4)
+// Scope: resourceGroup (rg-contoso-network)
 // Cria 2 VNets com subnets + ASG + NSG
 // ============================================================
 
 param location string = resourceGroup().location
 
-// ==================== VNet 1: CoreServicesVnet ====================
+// ==================== VNet 1: vnet-contoso-hub-brazilsouth ====================
 resource coreVnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
-  name: 'CoreServicesVnet'
+  name: 'vnet-contoso-hub-brazilsouth'
   location: location
   properties: {
     addressSpace: {
@@ -1390,7 +1390,7 @@ resource coreVnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
     }
     subnets: [
       {
-        name: 'SharedServicesSubnet'
+        name: 'snet-shared'
         properties: {
           addressPrefix: '10.20.10.0/24'
           networkSecurityGroup: {
@@ -1399,7 +1399,7 @@ resource coreVnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
         }
       }
       {
-        name: 'DatabaseSubnet'
+        name: 'snet-data'
         properties: {
           addressPrefix: '10.20.20.0/24'
         }
@@ -1408,9 +1408,9 @@ resource coreVnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
   }
 }
 
-// ==================== VNet 2: ManufacturingVnet ====================
+// ==================== VNet 2: vnet-contoso-spoke-brazilsouth ====================
 resource mfgVnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
-  name: 'ManufacturingVnet'
+  name: 'vnet-contoso-spoke-brazilsouth'
   location: location
   properties: {
     addressSpace: {
@@ -1442,7 +1442,7 @@ resource asg 'Microsoft.Network/applicationSecurityGroups@2023-05-01' = {
 
 // ==================== NSG ====================
 resource nsg 'Microsoft.Network/networkSecurityGroups@2023-05-01' = {
-  name: 'myNSGSecure'
+  name: 'nsg-snet-shared'
   location: location
   properties: {
     securityRules: [
@@ -1513,7 +1513,7 @@ Salve como **`bloco4-dns.bicep`**:
 ```bicep
 // ============================================================
 // bloco4-dns.bicep
-// Scope: resourceGroup (az104-rg4)
+// Scope: resourceGroup (rg-contoso-network)
 // Cria DNS public zone + private zone + VNet link
 // ============================================================
 
@@ -1538,14 +1538,14 @@ resource wwwRecord 'Microsoft.Network/dnsZones/A@2023-07-01-preview' = {
 
 // ==================== DNS Private Zone ====================
 resource privateDns 'Microsoft.Network/privateDnsZones@2020-06-01' = {
-  name: 'private.contoso.com'
+  name: 'contoso.internal'
   location: 'global'
 }
 
-// Virtual Network Link: ManufacturingVnet
+// Virtual Network Link: vnet-contoso-spoke-brazilsouth
 // Referencia a VNet usando 'existing' keyword
 resource mfgVnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
-  name: 'ManufacturingVnet'
+  name: 'vnet-contoso-spoke-brazilsouth'
   // Nao precisa de scope pois esta no mesmo RG
 }
 
@@ -1600,7 +1600,7 @@ nslookup www.contoso.com "$NS"
 ## Modo Desafio - Bloco 4
 
 - [ ] Deploy `bloco4-networking.bicep` (2 VNets + ASG + NSG)
-- [ ] Verificar que NSG esta associado apenas a SharedServicesSubnet
+- [ ] Verificar que NSG esta associado apenas a snet-shared
 - [ ] Deploy `bloco4-dns.bicep` (DNS public + private + link)
 - [ ] Testar nslookup via CLI
 
@@ -1609,7 +1609,7 @@ nslookup www.contoso.com "$NS"
 ## Questoes de Prova - Bloco 4
 
 ### Questao 4.1
-**NSG na SharedServicesSubnet. VM em DatabaseSubnet e afetada?**
+**NSG na snet-shared. VM em snet-data e afetada?**
 
 A) Sim, NSG se aplica a toda a VNet
 B) Nao, NSG se aplica apenas a subnet associada
@@ -1668,14 +1668,14 @@ A) Sim  B) Falha — sem link  C) Via DNS publico  D) Apenas com peering
 
 az network vnet subnet create \
     --resource-group "$RG4" \
-    --vnet-name "CoreServicesVnet" \
-    --name "Core" \
+    --vnet-name "vnet-contoso-hub-brazilsouth" \
+    --name "snet-apps" \
     --address-prefixes "10.20.0.0/24"
 
 az network vnet subnet create \
     --resource-group "$RG4" \
-    --vnet-name "ManufacturingVnet" \
-    --name "Manufacturing" \
+    --vnet-name "vnet-contoso-spoke-brazilsouth" \
+    --name "snet-workloads" \
     --address-prefixes "10.30.0.0/24"
 
 echo "Subnets Core e Manufacturing adicionadas"
@@ -1692,8 +1692,8 @@ Salve como **`bloco5-vms.bicep`**:
 ```bicep
 // ============================================================
 // bloco5-vms.bicep
-// Scope: resourceGroup (az104-rg5)
-// Cria 2 VMs com NICs referenciando VNets em OUTRO RG (az104-rg4)
+// Scope: resourceGroup (rg-contoso-compute)
+// Cria 2 VMs com NICs referenciando VNets em OUTRO RG (rg-contoso-network)
 // ============================================================
 
 param location string = resourceGroup().location
@@ -1706,38 +1706,38 @@ param adminUsername string = 'localadmin'
 param adminPassword string
 
 @description('RG onde as VNets estao')
-param vnetResourceGroup string = 'az104-rg4'
+param vnetResourceGroup string = 'rg-contoso-network'
 
 // ==================== Referencia CROSS-RG a VNets ====================
 // 'existing' + 'scope' permite referenciar recursos em outro RG!
 // Isso e essencial quando recursos estao organizados em RGs diferentes
 
-// Referencia a CoreServicesVnet (em az104-rg4)
+// Referencia a vnet-contoso-hub-brazilsouth (em rg-contoso-network)
 resource coreVnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
-  name: 'CoreServicesVnet'
+  name: 'vnet-contoso-hub-brazilsouth'
   scope: resourceGroup(vnetResourceGroup)  // Aponta para OUTRO resource group!
 }
 
 // Referencia a subnet Core dentro da VNet
 resource coreSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' existing = {
   parent: coreVnet
-  name: 'Core'
+  name: 'snet-apps'
 }
 
-// Referencia a ManufacturingVnet (em az104-rg4)
+// Referencia a vnet-contoso-spoke-brazilsouth (em rg-contoso-network)
 resource mfgVnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
-  name: 'ManufacturingVnet'
+  name: 'vnet-contoso-spoke-brazilsouth'
   scope: resourceGroup(vnetResourceGroup)
 }
 
 resource mfgSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' existing = {
   parent: mfgVnet
-  name: 'Manufacturing'
+  name: 'snet-workloads'
 }
 
-// ==================== NIC: CoreServicesVM ====================
+// ==================== NIC: vm-web-01 ====================
 resource coreNic 'Microsoft.Network/networkInterfaces@2023-05-01' = {
-  name: 'CoreServicesVM-nic'
+  name: 'vm-web-01-nic'
   location: location
   properties: {
     ipConfigurations: [
@@ -1754,9 +1754,9 @@ resource coreNic 'Microsoft.Network/networkInterfaces@2023-05-01' = {
   }
 }
 
-// ==================== NIC: ManufacturingVM ====================
+// ==================== NIC: vm-app-01 ====================
 resource mfgNic 'Microsoft.Network/networkInterfaces@2023-05-01' = {
-  name: 'ManufacturingVM-nic'
+  name: 'vm-app-01-nic'
   location: location
   properties: {
     ipConfigurations: [
@@ -1773,16 +1773,16 @@ resource mfgNic 'Microsoft.Network/networkInterfaces@2023-05-01' = {
   }
 }
 
-// ==================== VM: CoreServicesVM ====================
+// ==================== VM: vm-web-01 ====================
 resource coreVM 'Microsoft.Compute/virtualMachines@2024-03-01' = {
-  name: 'CoreServicesVM'
+  name: 'vm-web-01'
   location: location
   properties: {
     hardwareProfile: {
       vmSize: 'Standard_D2s_v3'
     }
     osProfile: {
-      computerName: 'CoreServicesVM'
+      computerName: 'vm-web-01'
       adminUsername: adminUsername
       adminPassword: adminPassword
     }
@@ -1813,16 +1813,16 @@ resource coreVM 'Microsoft.Compute/virtualMachines@2024-03-01' = {
   }
 }
 
-// ==================== VM: ManufacturingVM ====================
+// ==================== VM: vm-app-01 ====================
 resource mfgVM 'Microsoft.Compute/virtualMachines@2024-03-01' = {
-  name: 'ManufacturingVM'
+  name: 'vm-app-01'
   location: location
   properties: {
     hardwareProfile: {
       vmSize: 'Standard_D2s_v3'
     }
     osProfile: {
-      computerName: 'ManufacturingVM'
+      computerName: 'vm-app-01'
       adminUsername: adminUsername
       adminPassword: adminPassword
     }
@@ -1885,8 +1885,8 @@ echo "VMs criadas"
 
 az network watcher test-connectivity \
     --resource-group "$RG5" \
-    --source-resource "CoreServicesVM" \
-    --dest-resource "ManufacturingVM" \
+    --source-resource "vm-web-01" \
+    --dest-resource "vm-app-01" \
     --dest-port 3389
 
 # Esperado: connectionStatus = Unreachable
@@ -1902,24 +1902,24 @@ Salve como **`bloco5-peering.bicep`**:
 ```bicep
 // ============================================================
 // bloco5-peering.bicep
-// Scope: resourceGroup (az104-rg4)
+// Scope: resourceGroup (rg-contoso-network)
 // Cria peering bidirecional entre as 2 VNets
 // ============================================================
 
 // Referenciar VNets existentes
 resource coreVnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
-  name: 'CoreServicesVnet'
+  name: 'vnet-contoso-hub-brazilsouth'
 }
 
 resource mfgVnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
-  name: 'ManufacturingVnet'
+  name: 'vnet-contoso-spoke-brazilsouth'
 }
 
 // Peering 1: Core → Manufacturing
 // VNet Peering precisa ser criado em AMBAS as direcoes
 resource peeringCoreToMfg 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-05-01' = {
   parent: coreVnet
-  name: 'CoreServicesVnet-to-ManufacturingVnet'
+  name: 'vnet-contoso-hub-brazilsouth-to-vnet-contoso-spoke-brazilsouth'
   properties: {
     remoteVirtualNetwork: {
       id: mfgVnet.id
@@ -1934,7 +1934,7 @@ resource peeringCoreToMfg 'Microsoft.Network/virtualNetworks/virtualNetworkPeeri
 // Peering 2: Manufacturing → Core
 resource peeringMfgToCore 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-05-01' = {
   parent: mfgVnet
-  name: 'ManufacturingVnet-to-CoreServicesVnet'
+  name: 'vnet-contoso-spoke-brazilsouth-to-vnet-contoso-hub-brazilsouth'
   properties: {
     remoteVirtualNetwork: {
       id: coreVnet.id
@@ -1957,7 +1957,7 @@ az deployment group create \
 # Verificar status
 az network vnet peering list \
     --resource-group "$RG4" \
-    --vnet-name "CoreServicesVnet" \
+    --vnet-name "vnet-contoso-hub-brazilsouth" \
     --query "[].{name:name, status:peeringState}" -o table
 ```
 
@@ -1972,14 +1972,14 @@ az network vnet peering list \
 # TASK 5.6 - Testar conectividade APOS peering
 # ============================================================
 
-# Obter IP privado da CoreServicesVM
-CORE_IP=$(az vm show -g "$RG5" -n "CoreServicesVM" -d --query privateIps -o tsv)
-echo "CoreServicesVM IP: $CORE_IP"
+# Obter IP privado da vm-web-01
+CORE_IP=$(az vm show -g "$RG5" -n "vm-web-01" -d --query privateIps -o tsv)
+echo "vm-web-01 IP: $CORE_IP"
 
 # Run Command: executa script dentro da VM
 az vm run-command invoke \
     --resource-group "$RG5" \
-    --name "ManufacturingVM" \
+    --name "vm-app-01" \
     --command-id RunPowerShellScript \
     --scripts "Test-NetConnection $CORE_IP -Port 3389"
 
@@ -1995,12 +1995,12 @@ az vm run-command invoke \
 # TASK 5.6b - Testar nao-transitividade do peering
 # ============================================================
 # CONCEITO AZ-104: Peering e NAO transitivo!
-# CoreServicesVnet ↔ ManufacturingVnet, mas trafego NAO transita para outras VNets
+# vnet-contoso-hub-brazilsouth ↔ vnet-contoso-spoke-brazilsouth, mas trafego NAO transita para outras VNets
 # Para transitividade: hub-spoke com NVA ou Azure Virtual WAN.
 
 az vm run-command invoke \
     --resource-group "$RG5" \
-    --name "ManufacturingVM" \
+    --name "vm-app-01" \
     --command-id RunPowerShellScript \
     --scripts "Test-NetConnection -ComputerName 10.40.0.4 -Port 3389 -WarningAction SilentlyContinue | Select-Object TcpTestSucceeded"
 
@@ -2017,23 +2017,23 @@ Salve como **`bloco5-dns-update.bicep`**:
 ```bicep
 // ============================================================
 // bloco5-dns-update.bicep
-// Scope: resourceGroup (az104-rg4)
-// Adiciona link para CoreServicesVnet + registro com IP real
+// Scope: resourceGroup (rg-contoso-network)
+// Adiciona link para vnet-contoso-hub-brazilsouth + registro com IP real
 // ============================================================
 
-@description('IP privado da CoreServicesVM')
+@description('IP privado da vm-web-01')
 param coreVmIp string
 
 // Referenciar DNS zone e VNet existentes
 resource privateDns 'Microsoft.Network/privateDnsZones@2020-06-01' existing = {
-  name: 'private.contoso.com'
+  name: 'contoso.internal'
 }
 
 resource coreVnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
-  name: 'CoreServicesVnet'
+  name: 'vnet-contoso-hub-brazilsouth'
 }
 
-// Link para CoreServicesVnet
+// Link para vnet-contoso-hub-brazilsouth
 resource coreLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
   parent: privateDns
   name: 'coreservices-link'
@@ -2062,19 +2062,19 @@ resource coreVmRecord 'Microsoft.Network/privateDnsZones/A@2020-06-01' = {
 Deploy:
 
 ```bash
-CORE_IP=$(az vm show -g "$RG5" -n "CoreServicesVM" -d --query privateIps -o tsv)
+CORE_IP=$(az vm show -g "$RG5" -n "vm-web-01" -d --query privateIps -o tsv)
 
 az deployment group create \
     --resource-group "$RG4" \
     --template-file bloco5-dns-update.bicep \
     --parameters coreVmIp="$CORE_IP"
 
-# Testar resolucao DNS a partir da ManufacturingVM
+# Testar resolucao DNS a partir da vm-app-01
 az vm run-command invoke \
     --resource-group "$RG5" \
-    --name "ManufacturingVM" \
+    --name "vm-app-01" \
     --command-id RunPowerShellScript \
-    --scripts "Resolve-DnsName corevm.private.contoso.com"
+    --scripts "Resolve-DnsName corevm.contoso.internal"
 ```
 
 ---
@@ -2086,18 +2086,18 @@ Salve como **`bloco5-route.bicep`**:
 ```bicep
 // ============================================================
 // bloco5-route.bicep
-// Scope: resourceGroup (az104-rg5)
+// Scope: resourceGroup (rg-contoso-compute)
 // Cria Route Table + custom route + associa a subnet Core
 // ============================================================
 
 param location string = resourceGroup().location
 
 @description('RG onde a VNet esta')
-param vnetResourceGroup string = 'az104-rg4'
+param vnetResourceGroup string = 'rg-contoso-network'
 
 // Route Table
 resource routeTable 'Microsoft.Network/routeTables@2023-05-01' = {
-  name: 'rt-CoreServices'
+  name: 'rt-contoso-spoke'
   location: location
   properties: {
     disableBgpRoutePropagation: true   // Nao propaga rotas BGP
@@ -2128,17 +2128,17 @@ az deployment group create \
 # Criar subnet perimeter
 az network vnet subnet create \
     --resource-group "$RG4" \
-    --vnet-name "CoreServicesVnet" \
+    --vnet-name "vnet-contoso-hub-brazilsouth" \
     --name "perimeter" \
     --address-prefixes "10.20.1.0/24"
 
 # Associar route table a subnet Core (CLI mais simples que Bicep aqui)
-RT_ID=$(az network route-table show -g "$RG5" -n "rt-CoreServices" --query id -o tsv)
+RT_ID=$(az network route-table show -g "$RG5" -n "rt-contoso-spoke" --query id -o tsv)
 
 az network vnet subnet update \
     --resource-group "$RG4" \
-    --vnet-name "CoreServicesVnet" \
-    --name "Core" \
+    --vnet-name "vnet-contoso-hub-brazilsouth" \
+    --name "snet-apps" \
     --route-table "$RT_ID"
 
 echo "Route table associada a subnet Core"
@@ -2155,12 +2155,12 @@ echo "Route table associada a subnet Core"
 # TASK 5.9 - Verificar NSG isolado por subnet
 # ============================================================
 
-az network nsg show -g "$RG4" -n "myNSGSecure" \
+az network nsg show -g "$RG4" -n "nsg-snet-shared" \
     --query "subnets[].id" -o table
 
 echo ""
-echo "NSG associado APENAS a SharedServicesSubnet"
-echo "CoreServicesVM (subnet Core) e ManufacturingVM (subnet Manufacturing)"
+echo "NSG associado APENAS a snet-shared"
+echo "vm-web-01 (subnet Core) e vm-app-01 (subnet Manufacturing)"
 echo "NAO sao afetadas pelo NSG."
 ```
 
@@ -2176,9 +2176,9 @@ echo "NAO sao afetadas pelo NSG."
 echo "=== Teste Final RBAC ==="
 echo "Login como az104-user1@${TENANT_DOMAIN} em InPrivate"
 echo ""
-echo "1. VMs → deve ver CoreServicesVM e ManufacturingVM"
+echo "1. VMs → deve ver vm-web-01 e vm-app-01"
 echo "2. Stop VM → deve funcionar (VM Contributor)"
-echo "3. Deletar az104-rg2 → deve falhar (Lock + sem permissao)"
+echo "3. Deletar rg-contoso-identity → deve falhar (Lock + sem permissao)"
 echo "4. Criar Storage → deve falhar (VM Contributor ≠ Storage)"
 ```
 
@@ -2243,33 +2243,33 @@ A) Sim  B) Falha — sem link  C) Com forwarded traffic  D) Com DNS forwarder
 # Bloco 6 - Load Balancer e Azure Bastion
 
 **Tecnologia:** Bicep + CLI (para Run Command, NSG association, testes)
-**Recursos criados:** Subnet LBSubnet, Availability Set, 2 VMs (IIS), Public LB, Internal LB, NSG, Bastion
-**Resource Group:** `az104-rg6lb` (VMs e LBs) + `az104-rg4` (VNet existente)
+**Recursos criados:** Subnet snet-lb, Availability Set, 2 VMs (IIS), Public LB, Internal LB, NSG, Bastion
+**Resource Group:** `rg-contoso-network` (VMs e LBs) + `rg-contoso-network` (VNet existente)
 
 > **Nota:** Este bloco cria VMs, Public IPs e Bastion que geram custo. Faca cleanup assim que terminar.
 
 ---
 
-### Task 6.1: Criar subnet LBSubnet (CLI) e Resource Group
+### Task 6.1: Criar subnet snet-lb (CLI) e Resource Group
 
 ```bash
 # ============================================================
-# TASK 6.1a - Criar RG para Load Balancer e subnet LBSubnet
+# TASK 6.1a - Criar RG para Load Balancer e subnet snet-lb
 # ============================================================
 
 # Criar Resource Group para o Bloco 6
-RG6="az104-rg6lb"
+RG6="rg-contoso-network"
 az group create --name "$RG6" --location "$LOCATION" --tags "Cost Center=000"
 
-# Criar subnet LBSubnet na CoreServicesVnet (az104-rg4)
+# Criar subnet snet-lb na vnet-contoso-hub-brazilsouth (rg-contoso-network)
 # A VNet ja existe do Bloco 4 — adicionamos a subnet via CLI
 az network vnet subnet create \
     --resource-group "$RG4" \
-    --vnet-name "CoreServicesVnet" \
-    --name "LBSubnet" \
+    --vnet-name "vnet-contoso-hub-brazilsouth" \
+    --name "snet-lb" \
     --address-prefixes "10.20.40.0/24"
 
-echo "RG az104-rg6lb e subnet LBSubnet criados"
+echo "RG rg-contoso-network e subnet snet-lb criados"
 ```
 
 ---
@@ -2281,7 +2281,7 @@ Salve como **`bloco6-lb-infra.bicep`**:
 ```bicep
 // ============================================================
 // bloco6-lb-infra.bicep
-// Scope: resourceGroup (az104-rg6lb)
+// Scope: resourceGroup (rg-contoso-network)
 // Cria Availability Set + 2 VMs + NICs referenciando VNet em OUTRO RG
 // ============================================================
 // CONCEITO AZ-104: Availability Sets distribuem VMs entre:
@@ -2300,20 +2300,20 @@ param adminUsername string = 'localadmin'
 @secure()
 param adminPassword string
 
-@description('RG onde a CoreServicesVnet esta')
-param vnetResourceGroup string = 'az104-rg4'
+@description('RG onde a vnet-contoso-hub-brazilsouth esta')
+param vnetResourceGroup string = 'rg-contoso-network'
 
 // ==================== Referencia CROSS-RG a VNet ====================
 // 'existing' + 'scope' permite referenciar VNet de outro RG
-// As VMs ficam em az104-rg6lb mas usam subnet em az104-rg4
+// As VMs ficam em rg-contoso-network mas usam subnet em rg-contoso-network
 resource coreVnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
-  name: 'CoreServicesVnet'
+  name: 'vnet-contoso-hub-brazilsouth'
   scope: resourceGroup(vnetResourceGroup)
 }
 
 resource lbSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' existing = {
   parent: coreVnet
-  name: 'LBSubnet'
+  name: 'snet-lb'
 }
 
 // ==================== Availability Set ====================
@@ -2321,7 +2321,7 @@ resource lbSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' existin
 //           platformUpdateDomainCount = quantos grupos de reboot
 // SKU 'Aligned' e obrigatorio para VMs com managed disks
 resource avSet 'Microsoft.Compute/availabilitySets@2023-07-01' = {
-  name: 'az104-avset-lb'
+  name: 'avail-contoso-lb'
   location: location
   sku: {
     name: 'Aligned'  // Obrigatorio para managed disks
@@ -2332,9 +2332,9 @@ resource avSet 'Microsoft.Compute/availabilitySets@2023-07-01' = {
   }
 }
 
-// ==================== NIC: LB-VM1 ====================
+// ==================== NIC: vm-lb-01 ====================
 resource nic1 'Microsoft.Network/networkInterfaces@2023-05-01' = {
-  name: 'LB-VM1-nic'
+  name: 'nic-vm-lb-01'
   location: location
   properties: {
     ipConfigurations: [
@@ -2351,9 +2351,9 @@ resource nic1 'Microsoft.Network/networkInterfaces@2023-05-01' = {
   }
 }
 
-// ==================== NIC: LB-VM2 ====================
+// ==================== NIC: vm-lb-02 ====================
 resource nic2 'Microsoft.Network/networkInterfaces@2023-05-01' = {
-  name: 'LB-VM2-nic'
+  name: 'nic-vm-lb-02'
   location: location
   properties: {
     ipConfigurations: [
@@ -2370,11 +2370,11 @@ resource nic2 'Microsoft.Network/networkInterfaces@2023-05-01' = {
   }
 }
 
-// ==================== VM: LB-VM1 ====================
+// ==================== VM: vm-lb-01 ====================
 // CONCEITO: Public inbound ports = None — VMs atras de LB nao precisam
 // de IP publico. O trafego chega via LB frontend IP.
 resource vm1 'Microsoft.Compute/virtualMachines@2023-07-01' = {
-  name: 'LB-VM1'
+  name: 'vm-lb-01'
   location: location
   properties: {
     availabilitySet: {
@@ -2384,7 +2384,7 @@ resource vm1 'Microsoft.Compute/virtualMachines@2023-07-01' = {
       vmSize: 'Standard_D2s_v3'
     }
     osProfile: {
-      computerName: 'LB-VM1'
+      computerName: 'vm-lb-01'
       adminUsername: adminUsername
       adminPassword: adminPassword
     }
@@ -2411,9 +2411,9 @@ resource vm1 'Microsoft.Compute/virtualMachines@2023-07-01' = {
   }
 }
 
-// ==================== VM: LB-VM2 ====================
+// ==================== VM: vm-lb-02 ====================
 resource vm2 'Microsoft.Compute/virtualMachines@2023-07-01' = {
-  name: 'LB-VM2'
+  name: 'vm-lb-02'
   location: location
   properties: {
     availabilitySet: {
@@ -2423,7 +2423,7 @@ resource vm2 'Microsoft.Compute/virtualMachines@2023-07-01' = {
       vmSize: 'Standard_D2s_v3'
     }
     osProfile: {
-      computerName: 'LB-VM2'
+      computerName: 'vm-lb-02'
       adminUsername: adminUsername
       adminPassword: adminPassword
     }
@@ -2472,9 +2472,9 @@ az deployment group create \
     --name "deploy-lb-infra"
 
 # Aguardar VMs ficarem Running
-az vm wait --resource-group "$RG6" --name "LB-VM1" --created
-az vm wait --resource-group "$RG6" --name "LB-VM2" --created
-echo "VMs LB-VM1 e LB-VM2 criadas no Availability Set"
+az vm wait --resource-group "$RG6" --name "vm-lb-01" --created
+az vm wait --resource-group "$RG6" --name "vm-lb-02" --created
+echo "VMs vm-lb-01 e vm-lb-02 criadas no Availability Set"
 ```
 
 ---
@@ -2489,23 +2489,23 @@ echo "VMs LB-VM1 e LB-VM2 criadas no Availability Set"
 # O script instala IIS e cria pagina customizada com hostname
 # para verificar qual VM esta respondendo ao Load Balancer
 
-# Instalar IIS na LB-VM1
+# Instalar IIS na vm-lb-01
 az vm run-command invoke \
     --resource-group "$RG6" \
-    --name "LB-VM1" \
+    --name "vm-lb-01" \
     --command-id RunPowerShellScript \
     --scripts "Install-WindowsFeature -name Web-Server -IncludeManagementTools; Remove-Item 'C:\inetpub\wwwroot\iisstart.htm'; Add-Content -Path 'C:\inetpub\wwwroot\iisstart.htm' -Value \$('Hello from ' + \$env:computername)"
 
-echo "IIS instalado em LB-VM1"
+echo "IIS instalado em vm-lb-01"
 
-# Instalar IIS na LB-VM2
+# Instalar IIS na vm-lb-02
 az vm run-command invoke \
     --resource-group "$RG6" \
-    --name "LB-VM2" \
+    --name "vm-lb-02" \
     --command-id RunPowerShellScript \
     --scripts "Install-WindowsFeature -name Web-Server -IncludeManagementTools; Remove-Item 'C:\inetpub\wwwroot\iisstart.htm'; Add-Content -Path 'C:\inetpub\wwwroot\iisstart.htm' -Value \$('Hello from ' + \$env:computername)"
 
-echo "IIS instalado em LB-VM2"
+echo "IIS instalado em vm-lb-02"
 ```
 
 ---
@@ -2517,8 +2517,8 @@ Salve como **`bloco6-public-lb.bicep`**:
 ```bicep
 // ============================================================
 // bloco6-public-lb.bicep
-// Scope: resourceGroup (az104-rg6lb)
-// Cria Public Load Balancer Standard + NSG para LBSubnet
+// Scope: resourceGroup (rg-contoso-network)
+// Cria Public Load Balancer Standard + NSG para snet-lb
 // ============================================================
 // CONCEITO AZ-104: Standard LB vs Basic LB
 //   - Standard: zone-aware, backend por VNet, BLOQUEIA trafego por padrao (NSG obrigatorio)
@@ -2528,14 +2528,14 @@ Salve como **`bloco6-public-lb.bicep`**:
 
 param location string = resourceGroup().location
 
-@description('RG onde a CoreServicesVnet esta')
-param vnetResourceGroup string = 'az104-rg4'
+@description('RG onde a vnet-contoso-hub-brazilsouth esta')
+param vnetResourceGroup string = 'rg-contoso-network'
 
 // ==================== Public IP para o LB ====================
 // CONCEITO: Standard LB requer Standard SKU PIP
 // Zone-redundant distribui o IP entre zonas de disponibilidade
 resource lbPip 'Microsoft.Network/publicIPAddresses@2023-05-01' = {
-  name: 'az104-lb-pip'
+  name: 'pip-lbe-contoso-web'
   location: location
   sku: {
     name: 'Standard'       // Obrigatorio para Standard LB
@@ -2549,7 +2549,7 @@ resource lbPip 'Microsoft.Network/publicIPAddresses@2023-05-01' = {
 
 // ==================== Load Balancer Standard ====================
 resource publicLb 'Microsoft.Network/loadBalancers@2023-05-01' = {
-  name: 'az104-pub-lb'
+  name: 'lbe-contoso-web'
   location: location
   sku: {
     name: 'Standard'     // Standard SKU — bloqueia trafego por padrao
@@ -2559,7 +2559,7 @@ resource publicLb 'Microsoft.Network/loadBalancers@2023-05-01' = {
     // Frontend IP: onde o trafego externo chega
     frontendIPConfigurations: [
       {
-        name: 'lb-frontend'
+        name: 'fe-lbe-web'
         properties: {
           publicIPAddress: {
             id: lbPip.id  // Associa o PIP ao frontend
@@ -2570,7 +2570,7 @@ resource publicLb 'Microsoft.Network/loadBalancers@2023-05-01' = {
     // Backend Pool: grupo de VMs que recebem trafego
     backendAddressPools: [
       {
-        name: 'lb-backend-pool'
+        name: 'bp-lbe-web'
       }
     ]
     // Health Probe: verifica saude dos backends
@@ -2596,13 +2596,13 @@ resource publicLb 'Microsoft.Network/loadBalancers@2023-05-01' = {
         name: 'http-rule'
         properties: {
           frontendIPConfiguration: {
-            id: resourceId('Microsoft.Network/loadBalancers/frontendIPConfigurations', 'az104-pub-lb', 'lb-frontend')
+            id: resourceId('Microsoft.Network/loadBalancers/frontendIPConfigurations', 'lbe-contoso-web', 'fe-lbe-web')
           }
           backendAddressPool: {
-            id: resourceId('Microsoft.Network/loadBalancers/backendAddressPools', 'az104-pub-lb', 'lb-backend-pool')
+            id: resourceId('Microsoft.Network/loadBalancers/backendAddressPools', 'lbe-contoso-web', 'bp-lbe-web')
           }
           probe: {
-            id: resourceId('Microsoft.Network/loadBalancers/probes', 'az104-pub-lb', 'http-probe')
+            id: resourceId('Microsoft.Network/loadBalancers/probes', 'lbe-contoso-web', 'http-probe')
           }
           protocol: 'Tcp'
           frontendPort: 80
@@ -2616,11 +2616,11 @@ resource publicLb 'Microsoft.Network/loadBalancers@2023-05-01' = {
   }
 }
 
-// ==================== NSG para LBSubnet ====================
+// ==================== NSG para snet-lb ====================
 // CONCEITO: Standard LB BLOQUEIA todo trafego por padrao!
 // Sem NSG com AllowHTTP, o LB recebe trafego mas as VMs nao respondem
 resource nsgLb 'Microsoft.Network/networkSecurityGroups@2023-05-01' = {
-  name: 'nsg-lb'
+  name: 'nsg-snet-lb'
   location: location
   properties: {
     securityRules: [
@@ -2660,38 +2660,38 @@ az deployment group create \
     --template-file bloco6-public-lb.bicep \
     --name "deploy-public-lb"
 
-# Associar NSG a LBSubnet (cross-RG — NSG em rg6lb, subnet em rg4)
-NSG_ID=$(az network nsg show -g "$RG6" -n "nsg-lb" --query id -o tsv)
+# Associar NSG a snet-lb (cross-RG — NSG em rg6lb, subnet em rg4)
+NSG_ID=$(az network nsg show -g "$RG6" -n "nsg-snet-lb" --query id -o tsv)
 az network vnet subnet update \
     --resource-group "$RG4" \
-    --vnet-name "CoreServicesVnet" \
-    --name "LBSubnet" \
+    --vnet-name "vnet-contoso-hub-brazilsouth" \
+    --name "snet-lb" \
     --network-security-group "$NSG_ID"
 
-echo "NSG nsg-lb associado a LBSubnet"
+echo "NSG nsg-snet-lb associado a snet-lb"
 
 # Adicionar VMs ao Backend Pool
 # CONCEITO: As NICs das VMs sao associadas ao backend pool
 az network nic ip-config address-pool add \
     --resource-group "$RG6" \
-    --nic-name "LB-VM1-nic" \
+    --nic-name "nic-vm-lb-01" \
     --ip-config-name "ipconfig1" \
-    --lb-name "az104-pub-lb" \
-    --address-pool "lb-backend-pool"
+    --lb-name "lbe-contoso-web" \
+    --address-pool "bp-lbe-web"
 
 az network nic ip-config address-pool add \
     --resource-group "$RG6" \
-    --nic-name "LB-VM2-nic" \
+    --nic-name "nic-vm-lb-02" \
     --ip-config-name "ipconfig1" \
-    --lb-name "az104-pub-lb" \
-    --address-pool "lb-backend-pool"
+    --lb-name "lbe-contoso-web" \
+    --address-pool "bp-lbe-web"
 
 echo "VMs adicionadas ao backend pool"
 
 # Obter IP publico do LB
-LB_PIP=$(az network public-ip show -g "$RG6" -n "az104-lb-pip" --query ipAddress -o tsv)
+LB_PIP=$(az network public-ip show -g "$RG6" -n "pip-lbe-contoso-web" --query ipAddress -o tsv)
 echo "Teste no navegador: http://${LB_PIP}"
-echo "Hard refresh (Ctrl+Shift+R) para ver alternancia entre LB-VM1 e LB-VM2"
+echo "Hard refresh (Ctrl+Shift+R) para ver alternancia entre vm-lb-01 e vm-lb-02"
 ```
 
 ---
@@ -2711,20 +2711,20 @@ echo "Hard refresh (Ctrl+Shift+R) para ver alternancia entre LB-VM1 e LB-VM2"
 # None = melhor distribuicao | SourceIP = sticky sessions
 
 # Modo 1: None (5-tuple hash) - padrao, ja testado
-az network lb rule show -g "$RG6" --lb-name "az104-pub-lb" -n "az104-lb-rule" \
+az network lb rule show -g "$RG6" --lb-name "lbe-contoso-web" -n "rule-lbe-http" \
     --query loadDistribution -o tsv
 
 # Modo 2: Client IP (2-tuple: source IP + dest IP)
-az network lb rule update -g "$RG6" --lb-name "az104-pub-lb" -n "az104-lb-rule" \
+az network lb rule update -g "$RG6" --lb-name "lbe-contoso-web" -n "rule-lbe-http" \
     --load-distribution SourceIP
 # Testar: refresh no navegador → mesmo servidor responde
 
 # Modo 3: Client IP and Protocol (3-tuple)
-az network lb rule update -g "$RG6" --lb-name "az104-pub-lb" -n "az104-lb-rule" \
+az network lb rule update -g "$RG6" --lb-name "lbe-contoso-web" -n "rule-lbe-http" \
     --load-distribution SourceIPProtocol
 
 # Reverter para None (5-tuple)
-az network lb rule update -g "$RG6" --lb-name "az104-pub-lb" -n "az104-lb-rule" \
+az network lb rule update -g "$RG6" --lb-name "lbe-contoso-web" -n "rule-lbe-http" \
     --load-distribution Default
 echo "Session persistence revertida para Default (5-tuple)"
 ```
@@ -2740,17 +2740,17 @@ echo "Session persistence revertida para Default (5-tuple)"
 # CONCEITO: Quando o health probe falha, o LB remove a VM da rotacao
 # automaticamente. Ao restaurar, a VM volta ao pool sem intervencao.
 
-# Parar LB-VM1
-az vm stop --resource-group "$RG6" --name "LB-VM1"
-echo "LB-VM1 parada. Aguarde 30-60s (probe interval + timeout)"
-echo "Acesse http://${LB_PIP} — apenas LB-VM2 deve responder"
+# Parar vm-lb-01
+az vm stop --resource-group "$RG6" --name "vm-lb-01"
+echo "vm-lb-01 parada. Aguarde 30-60s (probe interval + timeout)"
+echo "Acesse http://${LB_PIP} — apenas vm-lb-02 deve responder"
 
 # Verificar health probe status
-az network lb show -g "$RG6" -n "az104-pub-lb" --query "backendAddressPools[0]" -o json
+az network lb show -g "$RG6" -n "lbe-contoso-web" --query "backendAddressPools[0]" -o json
 
-# Reiniciar LB-VM1
-az vm start --resource-group "$RG6" --name "LB-VM1"
-echo "LB-VM1 reiniciada. Aguarde probe detectar como healthy (~30s)"
+# Reiniciar vm-lb-01
+az vm start --resource-group "$RG6" --name "vm-lb-01"
+echo "vm-lb-01 reiniciada. Aguarde probe detectar como healthy (~30s)"
 ```
 
 ---
@@ -2762,7 +2762,7 @@ Salve como **`bloco6-internal-lb.bicep`**:
 ```bicep
 // ============================================================
 // bloco6-internal-lb.bicep
-// Scope: resourceGroup (az104-rg6lb)
+// Scope: resourceGroup (rg-contoso-network)
 // Cria Internal Load Balancer com frontend IP estatico
 // ============================================================
 // CONCEITO AZ-104: Public LB vs Internal LB
@@ -2773,23 +2773,23 @@ Salve como **`bloco6-internal-lb.bicep`**:
 
 param location string = resourceGroup().location
 
-@description('RG onde a CoreServicesVnet esta')
-param vnetResourceGroup string = 'az104-rg4'
+@description('RG onde a vnet-contoso-hub-brazilsouth esta')
+param vnetResourceGroup string = 'rg-contoso-network'
 
 // Referencia cross-RG a subnet
 resource coreVnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
-  name: 'CoreServicesVnet'
+  name: 'vnet-contoso-hub-brazilsouth'
   scope: resourceGroup(vnetResourceGroup)
 }
 
 resource lbSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' existing = {
   parent: coreVnet
-  name: 'LBSubnet'
+  name: 'snet-lb'
 }
 
 // ==================== Internal Load Balancer ====================
 resource intLb 'Microsoft.Network/loadBalancers@2023-05-01' = {
-  name: 'az104-int-lb'
+  name: 'lbi-contoso-apps'
   location: location
   sku: {
     name: 'Standard'
@@ -2799,9 +2799,9 @@ resource intLb 'Microsoft.Network/loadBalancers@2023-05-01' = {
     // Frontend com IP PRIVADO estatico (nao publico!)
     frontendIPConfigurations: [
       {
-        name: 'int-lb-frontend'
+        name: 'int-fe-lbe-web'
         properties: {
-          privateIPAddress: '10.20.40.100'          // IP fixo na LBSubnet
+          privateIPAddress: '10.20.40.100'          // IP fixo na snet-lb
           privateIPAllocationMethod: 'Static'        // Estatico para previsibilidade
           subnet: {
             id: lbSubnet.id  // Cross-RG reference
@@ -2811,7 +2811,7 @@ resource intLb 'Microsoft.Network/loadBalancers@2023-05-01' = {
     ]
     backendAddressPools: [
       {
-        name: 'int-lb-backend'
+        name: 'bp-lbi-apps'
       }
     ]
     probes: [
@@ -2831,13 +2831,13 @@ resource intLb 'Microsoft.Network/loadBalancers@2023-05-01' = {
         name: 'int-http-rule'
         properties: {
           frontendIPConfiguration: {
-            id: resourceId('Microsoft.Network/loadBalancers/frontendIPConfigurations', 'az104-int-lb', 'int-lb-frontend')
+            id: resourceId('Microsoft.Network/loadBalancers/frontendIPConfigurations', 'lbi-contoso-apps', 'int-fe-lbe-web')
           }
           backendAddressPool: {
-            id: resourceId('Microsoft.Network/loadBalancers/backendAddressPools', 'az104-int-lb', 'int-lb-backend')
+            id: resourceId('Microsoft.Network/loadBalancers/backendAddressPools', 'lbi-contoso-apps', 'bp-lbi-apps')
           }
           probe: {
-            id: resourceId('Microsoft.Network/loadBalancers/probes', 'az104-int-lb', 'int-http-probe')
+            id: resourceId('Microsoft.Network/loadBalancers/probes', 'lbi-contoso-apps', 'int-http-probe')
           }
           protocol: 'Tcp'
           frontendPort: 80
@@ -2870,20 +2870,20 @@ az deployment group create \
 # Adicionar VMs ao backend pool do Internal LB
 az network nic ip-config address-pool add \
     --resource-group "$RG6" \
-    --nic-name "LB-VM1-nic" \
+    --nic-name "nic-vm-lb-01" \
     --ip-config-name "ipconfig1" \
-    --lb-name "az104-int-lb" \
-    --address-pool "int-lb-backend"
+    --lb-name "lbi-contoso-apps" \
+    --address-pool "bp-lbi-apps"
 
 az network nic ip-config address-pool add \
     --resource-group "$RG6" \
-    --nic-name "LB-VM2-nic" \
+    --nic-name "nic-vm-lb-02" \
     --ip-config-name "ipconfig1" \
-    --lb-name "az104-int-lb" \
-    --address-pool "int-lb-backend"
+    --lb-name "lbi-contoso-apps" \
+    --address-pool "bp-lbi-apps"
 
 echo "Internal LB criado com frontend IP 10.20.40.100"
-echo "Teste de qualquer VM na CoreServicesVnet: curl http://10.20.40.100"
+echo "Teste de qualquer VM na vnet-contoso-hub-brazilsouth: curl http://10.20.40.100"
 ```
 
 ---
@@ -2897,25 +2897,25 @@ echo "Teste de qualquer VM na CoreServicesVnet: curl http://10.20.40.100"
 # CONCEITO: Health probe detecta falha na APLICACAO (IIS), nao na VM
 # A VM continua running mas o probe HTTP falha → VM removida do pool
 
-# Parar IIS na LB-VM1
+# Parar IIS na vm-lb-01
 az vm run-command invoke \
     --resource-group "$RG6" \
-    --name "LB-VM1" \
+    --name "vm-lb-01" \
     --command-id RunPowerShellScript \
     --scripts "Stop-Service -Name W3SVC -Force"
 
-echo "IIS parado em LB-VM1. Aguarde 30s para o probe detectar..."
-echo "Verifique no portal: az104-pub-lb > Monitoring > Metrics > Health Probe Status"
-echo "LB-VM1 deve aparecer como Unhealthy"
+echo "IIS parado em vm-lb-01. Aguarde 30s para o probe detectar..."
+echo "Verifique no portal: lbe-contoso-web > Monitoring > Metrics > Health Probe Status"
+echo "vm-lb-01 deve aparecer como Unhealthy"
 
 # Corrigir: reiniciar IIS
 az vm run-command invoke \
     --resource-group "$RG6" \
-    --name "LB-VM1" \
+    --name "vm-lb-01" \
     --command-id RunPowerShellScript \
     --scripts "Start-Service -Name W3SVC"
 
-echo "IIS reiniciado em LB-VM1. Aguarde probe detectar como healthy (~30s)"
+echo "IIS reiniciado em vm-lb-01. Aguarde probe detectar como healthy (~30s)"
 ```
 
 ---
@@ -2927,7 +2927,7 @@ Salve como **`bloco6-bastion.bicep`**:
 ```bicep
 // ============================================================
 // bloco6-bastion.bicep
-// Scope: resourceGroup (az104-rg6lb)
+// Scope: resourceGroup (rg-contoso-network)
 // Cria AzureBastionSubnet + Bastion + Public IP
 // ============================================================
 // CONCEITO AZ-104: Azure Bastion
@@ -2941,12 +2941,12 @@ Salve como **`bloco6-bastion.bicep`**:
 
 param location string = resourceGroup().location
 
-@description('RG onde a CoreServicesVnet esta')
-param vnetResourceGroup string = 'az104-rg4'
+@description('RG onde a vnet-contoso-hub-brazilsouth esta')
+param vnetResourceGroup string = 'rg-contoso-network'
 
 // Referencia cross-RG a VNet
 resource coreVnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
-  name: 'CoreServicesVnet'
+  name: 'vnet-contoso-hub-brazilsouth'
   scope: resourceGroup(vnetResourceGroup)
 }
 
@@ -2964,7 +2964,7 @@ resource bastionSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' = 
 
 // ==================== Public IP para Bastion ====================
 resource bastionPip 'Microsoft.Network/publicIPAddresses@2023-05-01' = {
-  name: 'az104-bastion-pip'
+  name: 'bas-contoso-hub-pip'
   location: location
   sku: {
     name: 'Standard'  // Bastion requer Standard PIP
@@ -2976,7 +2976,7 @@ resource bastionPip 'Microsoft.Network/publicIPAddresses@2023-05-01' = {
 
 // ==================== Azure Bastion ====================
 resource bastion 'Microsoft.Network/bastionHosts@2023-05-01' = {
-  name: 'az104-bastion'
+  name: 'bas-contoso-hub'
   location: location
   sku: {
     name: 'Basic'  // Basic: RDP/SSH via portal | Standard: + native client
@@ -3016,7 +3016,7 @@ az deployment group create \
     --name "deploy-bastion"
 
 echo "Azure Bastion implantado"
-echo "Acesse: LB-VM1 > Connect > Bastion (sem IP publico!)"
+echo "Acesse: vm-lb-01 > Connect > Bastion (sem IP publico!)"
 echo "Username: localadmin | Password: sua senha"
 ```
 
@@ -3024,11 +3024,11 @@ echo "Username: localadmin | Password: sua senha"
 
 ## Modo Desafio - Bloco 6
 
-- [ ] Criar RG `az104-rg6lb` e subnet `LBSubnet` (10.20.40.0/24) na CoreServicesVnet
+- [ ] Criar RG `rg-contoso-network` e subnet `snet-lb` (10.20.40.0/24) na vnet-contoso-hub-brazilsouth
 - [ ] Deploy `bloco6-lb-infra.bicep` (Availability Set + 2 VMs cross-RG)
 - [ ] Instalar IIS em ambas VMs via `az vm run-command invoke`
 - [ ] Deploy `bloco6-public-lb.bicep` (Public LB + NSG)
-- [ ] Associar NSG a LBSubnet e adicionar VMs ao backend pool
+- [ ] Associar NSG a snet-lb e adicionar VMs ao backend pool
 - [ ] Testar balanceamento (hard refresh no IP publico)
 - [ ] Testar failover: parar VM1 → apenas VM2 responde → reiniciar VM1
 - [ ] Deploy `bloco6-internal-lb.bicep` (Internal LB com IP 10.20.40.100)
@@ -3081,7 +3081,7 @@ A) Enfileirado ate recuperar  B) Redirecionado para VMs healthy  C) LB para  D) 
 
 **Tecnologia:** CLI (operacoes de portal/Entra ID e Cost Management, minimal Bicep)
 **Recursos:** SSPR config, Budget, Advisor alert, Network Watcher diagnostics
-**Resource Groups utilizados:** `az104-rg4`, `az104-rg5`, `az104-rg6lb`
+**Resource Groups utilizados:** `rg-contoso-network`, `rg-contoso-compute`, `rg-contoso-network`
 
 > **Nota:** Este bloco e majoritariamente portal/CLI. SSPR e uma configuracao do Entra ID,
 > Cost Management e Advisor sao leitura + configuracao, e Network Watcher e diagnostico.
@@ -3308,24 +3308,24 @@ echo "5. Create alert rule"
 # Inbound: subnet NSG primeiro, depois NIC NSG
 # Outbound: NIC NSG primeiro, depois subnet NSG
 
-# Obter NIC ID da LB-VM1
-NIC_ID=$(az vm show -g "$RG6" -n "LB-VM1" --query "networkProfile.networkInterfaces[0].id" -o tsv)
+# Obter NIC ID da vm-lb-01
+NIC_ID=$(az vm show -g "$RG6" -n "vm-lb-01" --query "networkProfile.networkInterfaces[0].id" -o tsv)
 NIC_NAME=$(basename "$NIC_ID")
 
 # Effective Security Rules
-echo "=== Effective Security Rules - LB-VM1 ==="
+echo "=== Effective Security Rules - vm-lb-01 ==="
 az network watcher show-security-group-view \
     --resource-group "$RG6" \
-    --vm "LB-VM1" \
+    --vm "vm-lb-01" \
     -o table
 
 # IP Flow Verify - Teste 1: HTTP (deve ser permitido)
 echo ""
 echo "=== IP Flow Verify: HTTP porta 80 (deve: ALLOW) ==="
-VM1_IP=$(az vm show -g "$RG6" -n "LB-VM1" -d --query privateIps -o tsv)
+VM1_IP=$(az vm show -g "$RG6" -n "vm-lb-01" -d --query privateIps -o tsv)
 az network watcher test-ip-flow \
     --resource-group "$RG6" \
-    --vm "LB-VM1" \
+    --vm "vm-lb-01" \
     --direction "Inbound" \
     --protocol "TCP" \
     --local "${VM1_IP}:80" \
@@ -3336,15 +3336,15 @@ echo ""
 echo "=== IP Flow Verify: SSH porta 22 (deve: DENY) ==="
 az network watcher test-ip-flow \
     --resource-group "$RG6" \
-    --vm "LB-VM1" \
+    --vm "vm-lb-01" \
     --direction "Inbound" \
     --protocol "TCP" \
     --local "${VM1_IP}:22" \
     --remote "10.0.0.1:12345"
 
 echo ""
-echo "Compare com CoreServicesVM (Bloco 5) que NAO tem NSG customizado:"
-echo "az network watcher show-security-group-view -g az104-rg5 --vm CoreServicesVM"
+echo "Compare com vm-web-01 (Bloco 5) que NAO tem NSG customizado:"
+echo "az network watcher show-security-group-view -g rg-contoso-compute --vm vm-web-01"
 ```
 
 ---
@@ -3361,33 +3361,33 @@ echo "az network watcher show-security-group-view -g az104-rg5 --vm CoreServices
 #   Se QUALQUER um bloquear, o trafego e negado.
 
 # 1. Criar NSG para associar a NIC
-az network nsg create -g "$RG6" -n "nsg-nic-test"
+az network nsg create -g "$RG6" -n "nsg-nic-vm-web-01"
 
 # 2. Adicionar regra Deny HTTP na NIC
-az network nsg rule create -g "$RG6" --nsg-name "nsg-nic-test" \
+az network nsg rule create -g "$RG6" --nsg-name "nsg-nic-vm-web-01" \
     -n "DenyHTTP" --priority 100 --access Deny --protocol Tcp \
     --direction Inbound --destination-port-ranges 80
 
-# 3. Associar NSG a NIC da LB-VM1
-NIC_NAME=$(az vm show -g "$RG6" -n "LB-VM1" \
+# 3. Associar NSG a NIC da vm-lb-01
+NIC_NAME=$(az vm show -g "$RG6" -n "vm-lb-01" \
     --query "networkProfile.networkInterfaces[0].id" -o tsv | xargs basename)
 az network nic update -g "$RG6" -n "$NIC_NAME" \
-    --network-security-group "nsg-nic-test"
+    --network-security-group "nsg-nic-vm-web-01"
 
-echo "NSG nsg-nic-test associado a NIC $NIC_NAME"
+echo "NSG nsg-nic-vm-web-01 associado a NIC $NIC_NAME"
 
 # 4. Testar com IP Flow Verify - HTTP agora bloqueado
 echo "=== IP Flow Verify: HTTP porta 80 (agora DENY pela NIC) ==="
-VM1_IP=$(az vm show -g "$RG6" -n "LB-VM1" -d --query privateIps -o tsv)
+VM1_IP=$(az vm show -g "$RG6" -n "vm-lb-01" -d --query privateIps -o tsv)
 az network watcher test-ip-flow \
-    -g "$RG6" --vm "LB-VM1" --direction Inbound \
+    -g "$RG6" --vm "vm-lb-01" --direction Inbound \
     --protocol TCP --local "${VM1_IP}:80" --remote "10.0.0.1:12345"
 # Resultado: Access DENY — subnet NSG permite, mas NIC NSG bloqueia
 
 # 5. Cleanup: remover NSG da NIC
 az network nic update -g "$RG6" -n "$NIC_NAME" --remove networkSecurityGroup
-az network nsg delete -g "$RG6" -n "nsg-nic-test"
-echo "Cleanup: NSG nsg-nic-test removido"
+az network nsg delete -g "$RG6" -n "nsg-nic-vm-web-01"
+echo "Cleanup: NSG nsg-nic-vm-web-01 removido"
 ```
 
 ---
@@ -3402,7 +3402,7 @@ echo "Cleanup: NSG nsg-nic-test removido"
 - [ ] Configurar alertas 80%, 100%, 120% (forecasted) no portal
 - [ ] Revisar Azure Advisor (Cost, Security, Reliability)
 - [ ] Criar alerta Advisor Cost/High
-- [ ] `az network watcher show-security-group-view` em LB-VM1
+- [ ] `az network watcher show-security-group-view` em vm-lb-01
 - [ ] `az network watcher test-ip-flow` HTTP (Allow) e SSH (Deny)
 - [ ] Comparar regras efetivas entre VM com NSG e sem NSG
 
@@ -3446,16 +3446,16 @@ Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos
 
 ```bash
 # Pausar
-az vm deallocate -g az104-rg5 -n CoreServicesVM --no-wait
-az vm deallocate -g az104-rg5 -n ManufacturingVM --no-wait
-az vm deallocate -g az104-rg6lb -n LB-VM1 --no-wait
-az vm deallocate -g az104-rg6lb -n LB-VM2 --no-wait
+az vm deallocate -g rg-contoso-compute -n vm-web-01 --no-wait
+az vm deallocate -g rg-contoso-compute -n vm-app-01 --no-wait
+az vm deallocate -g rg-contoso-network -n vm-lb-01 --no-wait
+az vm deallocate -g rg-contoso-network -n vm-lb-02 --no-wait
 
 # Retomar
-az vm start -g az104-rg5 -n CoreServicesVM --no-wait
-az vm start -g az104-rg5 -n ManufacturingVM --no-wait
-az vm start -g az104-rg6lb -n LB-VM1 --no-wait
-az vm start -g az104-rg6lb -n LB-VM2 --no-wait
+az vm start -g rg-contoso-compute -n vm-web-01 --no-wait
+az vm start -g rg-contoso-compute -n vm-app-01 --no-wait
+az vm start -g rg-contoso-network -n vm-lb-01 --no-wait
+az vm start -g rg-contoso-network -n vm-lb-02 --no-wait
 ```
 
 > **Nota:** Desalocar a VM para a cobranca de compute mas discos e IPs publicos continuam gerando cobranca.
@@ -3486,7 +3486,7 @@ az lock delete --name "rg-lock" --resource-group "$RG2" 2>/dev/null
 
 # 3. Deletar RGs (VMs primeiro)
 echo "3. Deletando RGs..."
-az group delete --name "az104-rg6lb" --yes --no-wait
+az group delete --name "rg-contoso-network" --yes --no-wait
 az group delete --name "$RG5" --yes --no-wait
 az group delete --name "$RG4" --yes --no-wait
 az group delete --name "$RG3" --yes --no-wait

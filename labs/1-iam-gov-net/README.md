@@ -34,8 +34,8 @@ Labs e simulado cobrindo principalmente os dominios de **Identity/Governance** e
 
 | Recurso                                       | Gera cobranca?                        | Pode parar?     | Como parar          |
 | --------------------------------------------- | ------------------------------------- | --------------- | ------------------- |
-| VMs (CoreServicesVM, ManufacturingVM)         | Sim, enquanto alocada                 | Sim, desalocar  | `az vm deallocate`  |
-| Managed Disks (az104-disk1 a disk5, OS disks) | Sim, sempre (mesmo com VM desalocada) | Nao, so deletar | Deletar disco ou RG |
+| VMs (vm-web-01, vm-app-01)         | Sim, enquanto alocada                 | Sim, desalocar  | `az vm deallocate`  |
+| Managed Disks (disk-iac-test-01 a 05, OS disks) | Sim, sempre (mesmo com VM desalocada) | Nao, so deletar | Deletar disco ou RG |
 | Public IP (Standard SKU)                      | Sim, enquanto existir                 | Nao, so deletar | Deletar IP ou RG    |
 | DNS Zones (publica e privada)                 | Sim, cobranca minima mensal           | Nao, so deletar | Deletar zona ou RG  |
 | Storage Account                               | Sim, por dados armazenados            | Nao, so deletar | Deletar conta ou RG |
@@ -48,21 +48,21 @@ Labs e simulado cobrindo principalmente os dominios de **Identity/Governance** e
 
 ```bash
 # CLI
-az vm deallocate -g az104-rg5 -n CoreServicesVM --no-wait
-az vm deallocate -g az104-rg5 -n ManufacturingVM --no-wait
+az vm deallocate -g rg-contoso-compute -n vm-web-01 --no-wait
+az vm deallocate -g rg-contoso-compute -n vm-app-01 --no-wait
 ```
 
 ```powershell
 # PowerShell
-Stop-AzVM -ResourceGroupName az104-rg5 -Name CoreServicesVM -Force
-Stop-AzVM -ResourceGroupName az104-rg5 -Name ManufacturingVM -Force
+Stop-AzVM -ResourceGroupName rg-contoso-compute -Name vm-web-01 -Force
+Stop-AzVM -ResourceGroupName rg-contoso-compute -Name vm-app-01 -Force
 ```
 
 ### Retomar (quando voltar ao lab)
 
 ```bash
-az vm start -g az104-rg5 -n CoreServicesVM --no-wait
-az vm start -g az104-rg5 -n ManufacturingVM --no-wait
+az vm start -g rg-contoso-compute -n vm-web-01 --no-wait
+az vm start -g rg-contoso-compute -n vm-app-01 --no-wait
 ```
 
 > **Nota:** Desalocar a VM para a cobranca de compute mas discos e IPs publicos continuam gerando cobranca. Para zerar completamente, delete o Resource Group.

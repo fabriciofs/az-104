@@ -3,7 +3,7 @@
 # Bloco 5 - Azure Container Apps
 
 **Origem:** Lab 09c - Implement Azure Container Apps
-**Resource Groups utilizados:** `az104-rg10`
+**Resource Groups utilizados:** `rg-contoso-compute`
 
 ## Contexto
 
@@ -13,17 +13,17 @@ Como passo final, voce implanta Azure Container Apps — uma plataforma serverle
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                          az104-rg10                              │
+│                          rg-contoso-compute                              │
 │                                                                  │
 │  ┌────────────────────────────────────────────────────────────┐  │
-│  │  Container Apps Environment: az104-cae                     │  │
+│  │  Container Apps Environment: cae-contoso-prod                     │  │
 │  │  (Ambiente gerenciado para Container Apps)                 │  │
 │  │                                                            │  │
-│  │  VNet Integration: CoreServicesVnet (Semana 1)             │  │
+│  │  VNet Integration: vnet-contoso-hub-brazilsouth (Semana 1)             │  │
 │  │  ou subnet dedicada                                        │  │
 │  │                                                            │  │
 │  │  ┌──────────────────────────────────────────────────────┐  │  │
-│  │  │  Container App: az104-ca-1                           │  │  │
+│  │  │  Container App: ca-contoso-api                           │  │  │
 │  │  │  Image: mcr.microsoft.com/azuredocs/containerapps-   │  │  │
 │  │  │         helloworld:latest                            │  │  │
 │  │  │                                                      │  │  │
@@ -36,7 +36,7 @@ Como passo final, voce implanta Azure Container Apps — uma plataforma serverle
 │  │  └──────────────────────────────────────────────────────┘  │  │
 │  │                                                            │  │
 │  │  ┌──────────────────────────────────────────────────────┐  │  │
-│  │  │  Container App: az104-ca-2                           │  │  │
+│  │  │  Container App: ca-contoso-api-2                           │  │  │
 │  │  │  (segunda revisao / multi-container)                 │  │  │
 │  │  └──────────────────────────────────────────────────────┘  │  │
 │  └────────────────────────────────────────────────────────────┘  │
@@ -60,8 +60,8 @@ O environment define a infraestrutura compartilhada onde os Container Apps execu
    | Setting          | Value                             |
    | ---------------- | --------------------------------- |
    | Subscription     | *sua subscription*                |
-   | Resource group   | `az104-rg10` (crie se necessario) |
-   | Environment name | `az104-cae`                       |
+   | Resource group   | `rg-contoso-compute` (ja existe do Modulo 1) |
+   | Environment name | `cae-contoso-prod`                       |
    | Region           | **East US**                       |
    | Environment type | **Consumption only**              |
 
@@ -70,12 +70,12 @@ O environment define a infraestrutura compartilhada onde os Container Apps execu
    | Setting                      | Value                                                                             |
    | ---------------------------- | --------------------------------------------------------------------------------- |
    | Use your own virtual network | **Yes**                                                                           |
-   | Virtual network              | **CoreServicesVnet** (de az104-rg4, Semana 1)                                     |
-   | Infrastructure subnet        | *Crie uma nova subnet dedicada* `ContainerAppsSubnet` (10.20.30.0/23, minimo /23) |
+   | Virtual network              | **vnet-contoso-hub-brazilsouth** (de rg-contoso-network, Semana 1)                                     |
+   | Infrastructure subnet        | *Crie uma nova subnet dedicada* `snet-containers` (10.20.30.0/23, minimo /23) |
 
-   > **Nota:** Container Apps requer uma subnet dedicada com tamanho minimo /23. Se a CoreServicesVnet nao tiver espaco disponivel ou nao existir, crie sem VNet integration (selecione **No**) e prossiga.
+   > **Nota:** Container Apps requer uma subnet dedicada com tamanho minimo /23. Se a vnet-contoso-hub-brazilsouth nao tiver espaco disponivel ou nao existir, crie sem VNet integration (selecione **No**) e prossiga.
 
-   > **Conexao com Semana 1:** O Container Apps Environment esta integrado a CoreServicesVnet, permitindo comunicacao com recursos na VNet e VNets peered (ManufacturingVnet).
+   > **Conexao com Semana 1:** O Container Apps Environment esta integrado a vnet-contoso-hub-brazilsouth, permitindo comunicacao com recursos na VNet e VNets peered (vnet-contoso-spoke-brazilsouth).
 
 4. Aba **Monitoring**: selecione **Do not create** para Log Analytics (simplificar) ou crie um novo workspace
 
@@ -98,10 +98,10 @@ O environment define a infraestrutura compartilhada onde os Container Apps execu
    | Setting                    | Value                        |
    | -------------------------- | ---------------------------- |
    | Subscription               | *sua subscription*           |
-   | Resource group             | `az104-rg10`                 |
-   | Container app name         | `az104-ca-1`                 |
+   | Resource group             | `rg-contoso-compute`                 |
+   | Container app name         | `ca-contoso-api`                 |
    | Region                     | **East US**                  |
-   | Container Apps Environment | **az104-cae** (criado acima) |
+   | Container Apps Environment | **cae-contoso-prod** (criado acima) |
 
 3. Aba **Container**:
 
@@ -144,7 +144,7 @@ O environment define a infraestrutura compartilhada onde os Container Apps execu
 
 ### Task 5.3: Configurar Scaling e Revisions
 
-1. No Container App **az104-ca-1**, navegue para **Application** > **Scale and replicas**
+1. No Container App **ca-contoso-api**, navegue para **Application** > **Scale and replicas**
 
 2. Clique em **Edit and deploy**
 
@@ -241,9 +241,9 @@ O environment define a infraestrutura compartilhada onde os Container Apps execu
 
 ## Modo Desafio - Bloco 5
 
-- [ ] Criar Container Apps Environment `az104-cae` no az104-rg10
-- [ ] **Integracao Semana 1:** Configurar VNet Integration com CoreServicesVnet (subnet dedicada /23)
-- [ ] Criar Container App `az104-ca-1` com imagem `containerapps-helloworld`
+- [ ] Criar Container Apps Environment `cae-contoso-prod` no rg-contoso-compute
+- [ ] **Integracao Semana 1:** Configurar VNet Integration com vnet-contoso-hub-brazilsouth (subnet dedicada /23)
+- [ ] Criar Container App `ca-contoso-api` com imagem `containerapps-helloworld`
 - [ ] **Integracao Bloco 1:** Adicionar env var com connection string do Storage Account
 - [ ] Acessar Application URL e confirmar resposta
 - [ ] Configurar scaling: min 0, max 5 (HTTP, 10 concurrent requests)

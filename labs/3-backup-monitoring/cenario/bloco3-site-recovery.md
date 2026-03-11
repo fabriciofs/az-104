@@ -3,7 +3,7 @@
 # Bloco 3 - Site Recovery (DR)
 
 **Origem:** Lab 10 (Site Recovery) + Disaster Recovery Planning
-**Resource Groups utilizados:** `az104-rg-dr` (vault DR na regiao secundaria) + `az104-rg7` (VMs da Semana 2)
+**Resource Groups utilizados:** `rg-contoso-management` (vault DR na regiao secundaria) + `rg-contoso-compute` (VMs da Semana 2)
 
 ## Contexto
 
@@ -16,20 +16,20 @@ O backup (Blocos 1-2) protege contra perda de dados, mas nao garante disponibili
 │          East US (Primaria)           │     │         West US (DR)                   │
 │                                       │     │                                        │
 │  ┌─────────────────────────────────┐  │     │  ┌──────────────────────────────────┐  │
-│  │ az104-rg7 (Semana 2)            │  │     │  │ az104-rg-dr                      │  │
+│  │ rg-contoso-compute (Semana 2)            │  │     │  │ rg-contoso-management                      │  │
 │  │                                 │  │     │  │                                  │  │
 │  │ ┌──────────────┐                │  │     │  │ Recovery Services Vault:         │  │
-│  │ │az104-vm-win  │────replicacao──│──│─────│──│─► az104-rsv-dr                   │  │
+│  │ │vm-web-01  │────replicacao──│──│─────│──│─► rsv-contoso-dr-westus                   │  │
 │  │ │(Windows)     │                │  │     │  │                                  │  │
 │  │ └──────────────┘                │  │     │  │ Replicated Items:                │  │
-│  │                                 │  │     │  │ ├─ az104-vm-win (replicada)      │  │
+│  │                                 │  │     │  │ ├─ vm-web-01 (replicada)      │  │
 │  │ VNet da Semana 1 ◄──────────────│──│─────│──│─► VNet DR (auto-created)         │  │
 │  │                                 │  │     │  │                                  │  │
 │  │ Storage (Semana 2) ◄────────────│──│─────│──│─► Cache Storage (auto-created)   │  │
 │  └─────────────────────────────────┘  │     │  │                                  │  │
 │                                       │     │  │ Recovery Plans:                  │  │
-│  az104-rg-backup (Bloco 1)            │     │  │ └─ contoso-recovery-plan         │  │
-│  └─ az104-rsv (backup local)          │     │  └──────────────────────────────────┘  │
+│  rg-contoso-management (Bloco 1)            │     │  │ └─ contoso-recovery-plan         │  │
+│  └─ rsv-contoso-backup (backup local)          │     │  └──────────────────────────────────┘  │
 │                                       │     │                                        │
 └───────────────────────────────────────┘     └────────────────────────────────────────┘
 ```
@@ -49,23 +49,23 @@ Para Site Recovery, o vault deve estar na **regiao de destino** (DR), diferente 
    | Setting        | Value                              |
    | -------------- | ---------------------------------- |
    | Subscription   | *sua subscription*                 |
-   | Resource group | `az104-rg-dr` (crie se necessario) |
-   | Vault name     | `az104-rsv-dr`                     |
+   | Resource group | `rg-contoso-management` (mesmo RG do Bloco 1) |
+   | Vault name     | `rsv-contoso-dr-westus`                     |
    | Region         | **West US**                        |
 
    > **Conceito:** O vault de Site Recovery deve estar na regiao de **destino** (DR), nao na regiao de origem. Isso garante que o vault permanece acessivel mesmo se a regiao primaria ficar indisponivel.
 
 3. Clique em **Review + create** > **Create** > **Go to resource**
 
-   > **Conexao com Bloco 1:** Note a diferenca: o vault do Bloco 1 (`az104-rsv`, East US) e para backup local. Este vault (`az104-rsv-dr`, West US) e para DR cross-region. Sao propositos diferentes com vaults separados.
+   > **Conexao com Bloco 1:** Note a diferenca: o vault do Bloco 1 (`rsv-contoso-backup`, East US) e para backup local. Este vault (`rsv-contoso-dr-westus`, West US) e para DR cross-region. Sao propositos diferentes com vaults separados.
 
 ---
 
-### Task 3.2: Habilitar replicacao para az104-vm-win
+### Task 3.2: Habilitar replicacao para vm-web-01
 
 > **Cobranca:** A replicacao ASR gera cobranca continua por VM replicada. Nao pode ser pausada — so desabilitada.
 
-1. No vault **az104-rsv-dr** (West US), va para **Getting started** > **Site Recovery**
+1. No vault **rsv-contoso-dr-westus** (West US), va para **Getting started** > **Site Recovery**
 
 2. Em **Azure virtual machines**, clique em **Enable replication**
 
@@ -75,12 +75,12 @@ Para Site Recovery, o vault deve estar na **regiao de destino** (DR), diferente 
    | -------------------------------- | -------------------- |
    | Region                           | **East US**          |
    | Subscription                     | *sua subscription*   |
-   | Resource group                   | `az104-rg7`          |
+   | Resource group                   | `rg-contoso-compute`          |
    | Virtual machine deployment model | **Resource Manager** |
 
 4. Clique em **Next**
 
-5. Aba **Virtual machines**: selecione **az104-vm-win**
+5. Aba **Virtual machines**: selecione **vm-web-01**
 
    > **Conexao com Semana 2:** Voce esta configurando DR para a mesma VM que esta protegida por backup no Bloco 1. Backup e Site Recovery sao complementares: backup protege dados, ASR protege disponibilidade.
 
@@ -91,7 +91,7 @@ Para Site Recovery, o vault deve estar na **regiao de destino** (DR), diferente 
    | Setting                  | Value                                |
    | ------------------------ | ------------------------------------ |
    | Target location          | **West US** (auto)                   |
-   | Target resource group    | `az104-rg7-asr` (auto-created)       |
+   | Target resource group    | `rg-contoso-compute-asr` (auto-created)       |
    | Failover virtual network | auto-created ou selecione uma        |
    | Target availability      | *aceite default*                     |
    | Replication policy       | `24-hour-retention-policy` (default) |
@@ -114,7 +114,7 @@ Para Site Recovery, o vault deve estar na **regiao de destino** (DR), diferente 
 
 Voce cria uma replication policy com retencao e frequencia de snapshot diferentes da default para entender os trade-offs.
 
-1. No vault **az104-rsv-dr** (West US), navegue para **Manage** > **Site Recovery Infrastructure**
+1. No vault **rsv-contoso-dr-westus** (West US), navegue para **Manage** > **Site Recovery Infrastructure**
 
 2. Clique em **Replication policies** > **+ Create**
 
@@ -149,7 +149,7 @@ Voce cria uma replication policy com retencao e frequencia de snapshot diferente
 
 Um Recovery Plan define a ordem e agrupamento de VMs para failover coordenado.
 
-1. No vault **az104-rsv-dr** > **Manage** > **Recovery Plans (Site Recovery)**
+1. No vault **rsv-contoso-dr-westus** > **Manage** > **Recovery Plans (Site Recovery)**
 
 2. Clique em **+ Recovery Plan**
 
@@ -162,7 +162,7 @@ Um Recovery Plan define a ordem e agrupamento de VMs para failover coordenado.
    | Target                            | **West US**             |
    | Allow items with deployment model | **Resource Manager**    |
 
-4. Em **Select items**, selecione **az104-vm-win** > **OK**
+4. Em **Select items**, selecione **vm-web-01** > **OK**
 
 5. Clique em **Create**
 
@@ -170,7 +170,7 @@ Um Recovery Plan define a ordem e agrupamento de VMs para failover coordenado.
 
    ```
    Group 1: Start
-     └─ az104-vm-win
+     └─ vm-web-01
    ```
 
    > **Conceito:** Recovery Plans permitem agrupar VMs em grupos que fazem failover em sequencia (Group 1 primeiro, depois Group 2, etc.). Voce pode adicionar scripts pre/pos cada grupo para automacao (ex: atualizar DNS, notificar equipe).
@@ -183,9 +183,9 @@ Test Failover valida a replicacao sem afetar a producao.
 
 > **Pre-requisito:** A VM deve estar com status **Protected** em Replicated items.
 
-1. No vault **az104-rsv-dr** > **Protected items** > **Replicated items**
+1. No vault **rsv-contoso-dr-westus** > **Protected items** > **Replicated items**
 
-2. Selecione **az104-vm-win**
+2. Selecione **vm-web-01**
 
 3. Clique em **Test Failover**
 
@@ -210,7 +210,7 @@ Test Failover valida a replicacao sem afetar a producao.
 
 ### Task 3.5: Cleanup Test Failover
 
-1. Volte para **Replicated items** > **az104-vm-win**
+1. Volte para **Replicated items** > **vm-web-01**
 
 2. Note o aviso: **"Test failover cleanup pending"**
 
@@ -234,9 +234,9 @@ Test Failover valida a replicacao sem afetar a producao.
 
 Voce explora o dialogo de failover real para entender as diferencas entre os tipos de failover, sem executar.
 
-1. No vault **az104-rsv-dr** > **Protected items** > **Replicated items**
+1. No vault **rsv-contoso-dr-westus** > **Protected items** > **Replicated items**
 
-2. Selecione **az104-vm-win**
+2. Selecione **vm-web-01**
 
 3. Clique em **Failover** (NAO em "Test failover")
 
@@ -262,7 +262,7 @@ Voce explora o dialogo de failover real para entender as diferencas entre os tip
 
 ### Task 3.6: Revisar RPO e metricas de replicacao
 
-1. No vault **az104-rsv-dr** > **Protected items** > **Replicated items** > **az104-vm-win**
+1. No vault **rsv-contoso-dr-westus** > **Protected items** > **Replicated items** > **vm-web-01**
 
 2. Revise o blade **Overview**:
 
@@ -283,8 +283,8 @@ Voce explora o dialogo de failover real para entender as diferencas entre os tip
 
 ## Modo Desafio - Bloco 3
 
-- [ ] Criar vault `az104-rsv-dr` em **West US** (regiao de DR)
-- [ ] Habilitar replicacao de `az104-vm-win` **(Semana 2)** para West US
+- [ ] Criar vault `rsv-contoso-dr-westus` em **West US** (regiao de DR)
+- [ ] Habilitar replicacao de `vm-web-01` **(Semana 2)** para West US
 - [ ] Criar replication policy customizada `contoso-4h-retention` (4h retention, 2h app-consistent)
 - [ ] Aguardar status **Protected**
 - [ ] Criar Recovery Plan `contoso-recovery-plan`

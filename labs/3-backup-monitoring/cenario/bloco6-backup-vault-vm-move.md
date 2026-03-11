@@ -3,7 +3,7 @@
 # Bloco 6 - Backup Vault e VM Move
 
 **Origem:** Azure Backup Vault + VM Resource Move
-**Resource Groups utilizados:** `az104-rg7` (VMs da Semana 2) + `az104-rg-bv` (Backup Vault)
+**Resource Groups utilizados:** `rg-contoso-compute` (VMs da Semana 2) + `rg-contoso-management` (Backup Vault)
 
 ## Contexto
 
@@ -15,25 +15,25 @@ A Contoso Corp ja configurou backup com Recovery Services Vault (Bloco 1) e Site
 ┌─────────────────────────────────────────────────────────────────────┐
 │                                                                     │
 │  ┌──────────────────────────────────────────────────────────────┐   │
-│  │ az104-rg7 (VMs da Semana 2)                                  │   │
+│  │ rg-contoso-compute (VMs da Semana 2)                                  │   │
 │  │                                                              │   │
-│  │  az104-vm-win ──────────────── Move ──→ az104-rg-moved       │   │
-│  │  az104-vm-linux                                              │   │
+│  │  vm-web-01 ──────────────── Move ──→ rg-contoso-moved       │   │
+│  │  vm-api-01                                              │   │
 │  │                                                              │   │
 │  │  (VM Move = mesma regiao, diferente RG)                      │   │
 │  └──────────────────────────────────────────────────────────────┘   │
 │                                                                     │
 │  ┌──────────────────────────────────────────────────────────────┐   │
-│  │ az104-rg-bv (NOVO)                                           │   │
+│  │ rg-contoso-management (NOVO)                                           │   │
 │  │                                                              │   │
 │  │  ┌──────────────────────────────────────────────────────┐    │   │
-│  │  │ Backup Vault: az104-bv                               │    │   │
+│  │  │ Backup Vault: bv-contoso-disks                               │    │   │
 │  │  │ Storage Redundancy: LRS                              │    │   │
 │  │  │                                                      │    │   │
-│  │  │ Backup Policy: az104-bv-policy                       │    │   │
+│  │  │ Backup Policy: bvpol-contoso-disk-daily                       │    │   │
 │  │  │ • Retention: 30 days                                 │    │   │
 │  │  │                                                      │    │   │
-│  │  │ vs Recovery Services Vault (az104-rsv, Bloco 1):     │    │   │
+│  │  │ vs Recovery Services Vault (rsv-contoso-backup, Bloco 1):     │    │   │
 │  │  │ • RSV: VM backup, File Share backup, Site Recovery   │    │   │
 │  │  │ • BV: Azure Disks, Blobs, PostgreSQL, AKS            │    │   │
 │  │  └──────────────────────────────────────────────────────┘    │   │
@@ -51,14 +51,14 @@ Voce move uma VM entre Resource Groups para entender o processo e suas limitacoe
 
    | Setting        | Value            |
    | -------------- | ---------------- |
-   | Resource group | `az104-rg-moved` |
+   | Resource group | `rg-contoso-moved` |
    | Region         | **(US) East US** |
 
 2. Clique em **Review + create** > **Create**
 
 **Mover via Portal:**
 
-3. Navegue para **az104-rg7** > selecione **az104-vm-linux** (ou outra VM de menor impacto)
+3. Navegue para **rg-contoso-compute** > selecione **vm-api-01** (ou outra VM de menor impacto)
 
 4. No Overview da VM, clique em **Move** > **Move to another resource group**
 
@@ -66,7 +66,7 @@ Voce move uma VM entre Resource Groups para entender o processo e suas limitacoe
 
    | Setting               | Value            |
    | --------------------- | ---------------- |
-   | Target resource group | `az104-rg-moved` |
+   | Target resource group | `rg-contoso-moved` |
 
 6. O Azure mostrara os **recursos dependentes** que precisam ser movidos junto:
    - Network Interface (NIC)
@@ -80,19 +80,19 @@ Voce move uma VM entre Resource Groups para entender o processo e suas limitacoe
 
 9. Clique em **Move** > aguarde a validacao e o move (pode levar alguns minutos)
 
-10. **Validacao:** Navegue para `az104-rg-moved` e confirme que a VM e seus recursos dependentes estao la
+10. **Validacao:** Navegue para `rg-contoso-moved` e confirme que a VM e seus recursos dependentes estao la
 
 **Mover via CLI (alternativa):**
 
 11. No Cloud Shell, o comando equivalente seria:
 
     ```bash
-    VM_ID=$(az vm show -g az104-rg7 -n az104-vm-linux --query id -o tsv)
-    NIC_ID=$(az vm show -g az104-rg7 -n az104-vm-linux --query "networkProfile.networkInterfaces[0].id" -o tsv)
-    DISK_ID=$(az vm show -g az104-rg7 -n az104-vm-linux --query "storageProfile.osDisk.managedDisk.id" -o tsv)
+    VM_ID=$(az vm show -g rg-contoso-compute -n vm-api-01 --query id -o tsv)
+    NIC_ID=$(az vm show -g rg-contoso-compute -n vm-api-01 --query "networkProfile.networkInterfaces[0].id" -o tsv)
+    DISK_ID=$(az vm show -g rg-contoso-compute -n vm-api-01 --query "storageProfile.osDisk.managedDisk.id" -o tsv)
 
     az resource move \
-      --destination-group az104-rg-moved \
+      --destination-group rg-contoso-moved \
       --ids $VM_ID $NIC_ID $DISK_ID
     ```
 
@@ -102,7 +102,7 @@ Voce move uma VM entre Resource Groups para entender o processo e suas limitacoe
 
 ### Task 6.2: Entender limitacoes de move entre regioes
 
-1. Navegue para a VM em `az104-rg-moved` > **Move** > **Move to another region**
+1. Navegue para a VM em `rg-contoso-moved` > **Move** > **Move to another region**
 
 2. Observe que o Azure redireciona para o **Azure Resource Mover** ou **Azure Site Recovery**
 
@@ -120,12 +120,12 @@ Voce move uma VM entre Resource Groups para entender o processo e suas limitacoe
 5. Mova a VM de volta para o RG original:
 
    ```bash
-   VM_ID=$(az vm show -g az104-rg-moved -n az104-vm-linux --query id -o tsv)
-   NIC_ID=$(az vm show -g az104-rg-moved -n az104-vm-linux --query "networkProfile.networkInterfaces[0].id" -o tsv)
-   DISK_ID=$(az vm show -g az104-rg-moved -n az104-vm-linux --query "storageProfile.osDisk.managedDisk.id" -o tsv)
+   VM_ID=$(az vm show -g rg-contoso-moved -n vm-api-01 --query id -o tsv)
+   NIC_ID=$(az vm show -g rg-contoso-moved -n vm-api-01 --query "networkProfile.networkInterfaces[0].id" -o tsv)
+   DISK_ID=$(az vm show -g rg-contoso-moved -n vm-api-01 --query "storageProfile.osDisk.managedDisk.id" -o tsv)
 
    az resource move \
-     --destination-group az104-rg7 \
+     --destination-group rg-contoso-compute \
      --ids $VM_ID $NIC_ID $DISK_ID
    ```
 
@@ -175,8 +175,8 @@ O Backup Vault e o servico mais recente de backup do Azure, projetado para workl
 
    | Setting            | Value                              |
    | ------------------ | ---------------------------------- |
-   | Resource group     | `az104-rg-bv` (crie se necessario) |
-   | Backup vault name  | `az104-bv`                         |
+   | Resource group     | `rg-contoso-management` (mesmo RG dos Blocos anteriores) |
+   | Backup vault name  | `bv-contoso-disks`                         |
    | Region             | **(US) East US**                   |
    | Storage redundancy | **Locally-redundant (LRS)**        |
 
@@ -193,7 +193,7 @@ O Backup Vault e o servico mais recente de backup do Azure, projetado para workl
 
 ### Task 6.4: Comparar Backup Vault vs Recovery Services Vault
 
-1. Navegue para o **Recovery Services Vault** `az104-rsv` (do Bloco 1, em az104-rg-backup) — se ainda existir
+1. Navegue para o **Recovery Services Vault** `rsv-contoso-backup` (do Bloco 1, em rg-contoso-management) — se ainda existir
 
 2. Se nao existir, revise as diferencas conceituais:
 
@@ -224,14 +224,14 @@ O Backup Vault e o servico mais recente de backup do Azure, projetado para workl
 
 ### Task 6.5: Configurar politica de backup no Backup Vault
 
-1. No **Backup Vault** `az104-bv`, navegue para **Manage** > **Backup policies**
+1. No **Backup Vault** `bv-contoso-disks`, navegue para **Manage** > **Backup policies**
 
 2. Clique em **+ Add**:
 
    | Setting         | Value                  |
    | --------------- | ---------------------- |
    | Datasource type | **Azure Disks**        |
-   | Policy name     | `az104-bv-disk-policy` |
+   | Policy name     | `bvpol-contoso-disk-daily` |
 
 3. Configure o schedule:
 
@@ -248,10 +248,10 @@ O Backup Vault e o servico mais recente de backup do Azure, projetado para workl
    | Setting         | Value                  |
    | --------------- | ---------------------- |
    | Datasource type | **Azure Disks**        |
-   | Backup vault    | `az104-bv`             |
-   | Backup policy   | `az104-bv-disk-policy` |
+   | Backup vault    | `bv-contoso-disks`             |
+   | Backup policy   | `bvpol-contoso-disk-daily` |
 
-6. Selecione o disco da VM `az104-vm-win` (ou outra VM disponivel)
+6. Selecione o disco da VM `vm-web-01` (ou outra VM disponivel)
 
    > **Nota:** O Backup Vault precisa de permissoes no disco. O portal guiara a atribuicao da role **Disk Backup Reader** na VM/disco e **Disk Snapshot Contributor** no snapshot resource group.
 
@@ -267,12 +267,12 @@ O Backup Vault e o servico mais recente de backup do Azure, projetado para workl
 
 ## Modo Desafio - Bloco 6
 
-- [ ] Criar RG `az104-rg-moved` e mover VM Linux para ele (portal ou CLI)
+- [ ] Criar RG `rg-contoso-moved` e mover VM Linux para ele (portal ou CLI)
 - [ ] Verificar recursos dependentes movidos junto (NIC, Disk)
 - [ ] Entender as diferencas entre move entre RGs vs move entre regioes
 - [ ] Explorar Azure Resource Mover (move collection East US → West US, sem executar)
 - [ ] Mover VM de volta ao RG original
-- [ ] Criar Backup Vault `az104-bv` (LRS) no az104-rg-bv
+- [ ] Criar Backup Vault `bv-contoso-disks` (LRS) no rg-contoso-management
 - [ ] Comparar workloads suportados: RSV vs Backup Vault **(Bloco 1)**
 - [ ] Criar politica de backup para Azure Disks (Daily, 30 dias)
 - [ ] Configurar backup de disco de VM no Backup Vault

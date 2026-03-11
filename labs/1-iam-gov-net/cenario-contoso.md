@@ -34,17 +34,17 @@ Bloco 1 (Identity)
 Bloco 2 (Governance) ──────────────────────────────────────┐
   │                                                        │
   ├─ RBAC: VM Contributor → IT Lab Administrators (MG)     │
-  ├─ RBAC: Reader → Guest user (az104-rg3)                 │
-  ├─ Policy: Require tag (Deny) → az104-rg2 (testada)      │
-  ├─ Policy: Inherit tag (Modify) → az104-rg2 + az104-rg3  │
-  ├─ Policy: Allowed Locations (Deny) → az104-rg3          │
-  ├─ Lock: Delete → az104-rg2                              │
-  └─ Cria az104-rg3 com tag Cost Center = 000              │
+  ├─ RBAC: Reader → Guest user (rg-contoso-identity)                 │
+  ├─ Policy: Require tag (Deny) → rg-contoso-identity (testada)      │
+  ├─ Policy: Inherit tag (Modify) → rg-contoso-identity + rg-contoso-identity  │
+  ├─ Policy: Allowed Locations (Deny) → rg-contoso-identity          │
+  ├─ Lock: Delete → rg-contoso-identity                              │
+  └─ Cria rg-contoso-identity com tag Cost Center = 000              │
                                    │                       │
                                    ▼                       │
 Bloco 3 (IaC) ◄──── Valida governanca ─────────────────────┘
   │
-  ├─ Disks em az104-rg3 → tags herdadas automaticamente ✓
+  ├─ Disks em rg-contoso-identity → tags herdadas automaticamente ✓
   ├─ Deploy West US → bloqueado por Allowed Locations ✓
   ├─ Guest user → Reader, nao pode criar recursos ✓
   ├─ Cloud Shell configurado ────────────────────────┐
@@ -53,17 +53,17 @@ Bloco 3 (IaC) ◄──── Valida governanca ──────────�
                                                      ▼
 Bloco 4 (Networking) ◄──── Reusa Cloud Shell e ARM skills
   │
-  ├─ CoreServicesVnet (10.20.0.0/16) ──────────────┐
-  ├─ ManufacturingVnet (10.30.0.0/16) via ARM ─────┤
-  ├─ NSG + ASG na SharedServicesSubnet             │
+  ├─ vnet-contoso-hub-brazilsouth (10.20.0.0/16) ──────────────┐
+  ├─ vnet-contoso-spoke-brazilsouth (10.30.0.0/16) via ARM ─────┤
+  ├─ NSG + ASG na snet-shared             │
   ├─ DNS publico: contoso.com (nslookup via Shell) │
-  └─ DNS privado: private.contoso.com ─────────────┤
+  └─ DNS privado: contoso.internal ─────────────┤
                                                    │
                                                    ▼
 Bloco 5 (Connectivity) ◄──── VMs nas VNets do Bloco 4
   │
-  ├─ CoreServicesVM na CoreServicesVnet (10.20.0.0/24)
-  ├─ ManufacturingVM na ManufacturingVnet (10.30.0.0/24)
+  ├─ vm-web-01 na vnet-contoso-hub-brazilsouth (10.20.0.0/24)
+  ├─ vm-app-01 na vnet-contoso-spoke-brazilsouth (10.30.0.0/24)
   ├─ Peering entre as VNets do Bloco 4
   ├─ DNS privado resolve nome real da VM ✓
   ├─ az104-user1 gerencia VMs (VM Contributor) ✓
@@ -114,21 +114,21 @@ Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos
 
 ```bash
 # CLI
-az vm deallocate -g az104-rg5 -n CoreServicesVM --no-wait
-az vm deallocate -g az104-rg5 -n ManufacturingVM --no-wait
+az vm deallocate -g rg-contoso-compute -n vm-web-01 --no-wait
+az vm deallocate -g rg-contoso-compute -n vm-app-01 --no-wait
 ```
 
 ```powershell
 # PowerShell
-Stop-AzVM -ResourceGroupName az104-rg5 -Name CoreServicesVM -Force
-Stop-AzVM -ResourceGroupName az104-rg5 -Name ManufacturingVM -Force
+Stop-AzVM -ResourceGroupName rg-contoso-compute -Name vm-web-01 -Force
+Stop-AzVM -ResourceGroupName rg-contoso-compute -Name vm-app-01 -Force
 ```
 
 ### Retomar (quando voltar ao lab)
 
 ```bash
-az vm start -g az104-rg5 -n CoreServicesVM --no-wait
-az vm start -g az104-rg5 -n ManufacturingVM --no-wait
+az vm start -g rg-contoso-compute -n vm-web-01 --no-wait
+az vm start -g rg-contoso-compute -n vm-app-01 --no-wait
 ```
 
 > **Nota:** Desalocar a VM para a cobranca de compute mas discos e IPs publicos continuam gerando cobranca. Para zerar completamente, delete o Resource Group.
@@ -142,23 +142,22 @@ az vm start -g az104-rg5 -n ManufacturingVM --no-wait
 ## Via Azure Portal
 
 1. **Remover Resource Locks primeiro:**
-   - `az104-rg2` > **Settings** > **Locks** > Delete `rg-lock`
+   - `rg-contoso-identity` > **Settings** > **Locks** > Delete `rg-lock`
 
 2. **Deletar Policy Assignments:**
-   - Policy > Assignments > delete todas as atribuicoes criadas (tag inherit rg2, tag inherit rg3, allowed locations rg3)
+   - Policy > Assignments > delete todas as atribuicoes criadas (tag inherit, allowed locations)
 
 3. **Deletar Custom Role:**
-   - Management groups > `az104-mg1` > **Access control (IAM)** > **Roles** > `Custom Support Request` > Delete
+   - Management groups > `mg-contoso-prod` > **Access control (IAM)** > **Roles** > `Custom Support Request` > Delete
 
 4. **Remover subscription do Management Group e deletar MG:**
-   - Management groups > `az104-mg1` > selecione a subscription > **Remove**
-   - Depois: Management groups > `az104-mg1` > **Delete**
+   - Management groups > `mg-contoso-prod` > selecione a subscription > **Remove**
+   - Depois: Management groups > `mg-contoso-prod` > **Delete**
 
 5. **Deletar Resource Groups** (prioridade: VMs primeiro):
-   - `az104-rg5` (VMs — PRIORIDADE por custo)
-   - `az104-rg4` (VNets, DNS, NSG)
-   - `az104-rg3` (Disks, Cloud Shell storage)
-   - `az104-rg2` (Storage)
+   - `rg-contoso-compute` (VMs — PRIORIDADE por custo)
+   - `rg-contoso-network` (VNets, DNS, NSG, LB, Bastion)
+   - `rg-contoso-identity` (Disks, Cloud Shell storage, Policies)
 
 6. **Deletar usuarios e grupos do Entra ID:**
    - Users > delete `az104-user1` e o guest user (por Object ID)
@@ -171,30 +170,25 @@ az vm start -g az104-rg5 -n ManufacturingVM --no-wait
 ```bash
 # Resolver IDs dinamicamente (evita placeholders)
 SUBSCRIPTION_ID=$(az account show --query id -o tsv)
-RG2_SCOPE="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/az104-rg2"
-RG3_SCOPE="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/az104-rg3"
+RG_IDENTITY_SCOPE="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/rg-contoso-identity"
 
 # 1. Deletar policy assignments ANTES dos RGs
 #    Removemos por ID (mais robusto que nome/displayName), filtrando apenas os do lab
-for ASSIGN_ID in $(az policy assignment list --scope "$RG2_SCOPE" --query "[?contains(displayName, 'Cost Center')].id" -o tsv); do
-  az policy assignment delete --ids "$ASSIGN_ID"
-done
-for ASSIGN_ID in $(az policy assignment list --scope "$RG3_SCOPE" --query "[?contains(displayName, 'Cost Center') || contains(displayName, 'East US')].id" -o tsv); do
+for ASSIGN_ID in $(az policy assignment list --scope "$RG_IDENTITY_SCOPE" --query "[?contains(displayName, 'Cost Center') || contains(displayName, 'East US')].id" -o tsv); do
   az policy assignment delete --ids "$ASSIGN_ID"
 done
 
-# 2. Remover lock antes de deletar az104-rg2
-az lock delete --name rg-lock --resource-group az104-rg2
+# 2. Remover lock antes de deletar rg-contoso-identity
+az lock delete --name rg-lock --resource-group rg-contoso-identity
 
 # 3. Deletar RGs (VMs primeiro por custo)
-az group delete --name az104-rg5 --yes --no-wait
-az group delete --name az104-rg4 --yes --no-wait
-az group delete --name az104-rg3 --yes --no-wait
-az group delete --name az104-rg2 --yes --no-wait
+az group delete --name rg-contoso-compute --yes --no-wait
+az group delete --name rg-contoso-network --yes --no-wait
+az group delete --name rg-contoso-identity --yes --no-wait
 
 # 4. Remover subscription do MG antes de deletar
-az account management-group subscription remove --name az104-mg1 --subscription "$SUBSCRIPTION_ID"
-az account management-group delete --name az104-mg1
+az account management-group subscription remove --name mg-contoso-prod --subscription "$SUBSCRIPTION_ID"
+az account management-group delete --name mg-contoso-prod
 
 # 5. Deletar custom role
 az role definition delete --name "Custom Support Request"
@@ -217,33 +211,25 @@ az ad group delete --group "helpdesk"
 ```powershell
 # Resolver IDs dinamicamente (evita placeholders)
 $subscriptionId = (Get-AzContext).Subscription.Id
-$rg2Scope = "/subscriptions/$subscriptionId/resourceGroups/az104-rg2"
-$rg3Scope = "/subscriptions/$subscriptionId/resourceGroups/az104-rg3"
+$rgIdentityScope = "/subscriptions/$subscriptionId/resourceGroups/rg-contoso-identity"
 
 # 1. Deletar policy assignments
-Get-AzPolicyAssignment -Scope $rg2Scope |
-Where-Object {
-    $_.DisplayName -match 'Cost Center' -or $_.Properties.DisplayName -match 'Cost Center'
-} | ForEach-Object {
-    Remove-AzPolicyAssignment -Name $_.Name -Scope $rg2Scope -ErrorAction SilentlyContinue
-}
-Get-AzPolicyAssignment -Scope $rg3Scope |
+Get-AzPolicyAssignment -Scope $rgIdentityScope |
 Where-Object {
     $_.DisplayName -match 'Cost Center|East US' -or $_.Properties.DisplayName -match 'Cost Center|East US'
 } | ForEach-Object {
-    Remove-AzPolicyAssignment -Name $_.Name -Scope $rg3Scope -ErrorAction SilentlyContinue
+    Remove-AzPolicyAssignment -Name $_.Name -Scope $rgIdentityScope -ErrorAction SilentlyContinue
 }
 
 # 2. Remover lock e deletar RGs
-Remove-AzResourceLock -LockName rg-lock -ResourceGroupName az104-rg2 -Force
-Remove-AzResourceGroup -Name az104-rg5 -Force -AsJob
-Remove-AzResourceGroup -Name az104-rg4 -Force -AsJob
-Remove-AzResourceGroup -Name az104-rg3 -Force -AsJob
-Remove-AzResourceGroup -Name az104-rg2 -Force -AsJob
+Remove-AzResourceLock -LockName rg-lock -ResourceGroupName rg-contoso-identity -Force
+Remove-AzResourceGroup -Name rg-contoso-compute -Force -AsJob
+Remove-AzResourceGroup -Name rg-contoso-network -Force -AsJob
+Remove-AzResourceGroup -Name rg-contoso-identity -Force -AsJob
 
 # 3. Remover subscription do MG e deletar
-Remove-AzManagementGroupSubscription -GroupName az104-mg1 -SubscriptionId $subscriptionId
-Remove-AzManagementGroup -GroupName az104-mg1
+Remove-AzManagementGroupSubscription -GroupName mg-contoso-prod -SubscriptionId $subscriptionId
+Remove-AzManagementGroup -GroupName mg-contoso-prod
 
 # 4. Custom role, usuarios e grupos
 Remove-AzRoleDefinition -Name "Custom Support Request" -Force
@@ -255,7 +241,7 @@ Remove-AzADGroup -DisplayName "IT Lab Administrators"
 Remove-AzADGroup -DisplayName "helpdesk"
 ```
 
-> **Nota:** Ao deletar az104-rg3, o storage account do Cloud Shell tambem sera removido. Execute todos os comandos CLI/PowerShell **antes** de deletar az104-rg3, ou use o portal para os passos finais.
+> **Nota:** Ao deletar rg-contoso-identity, o storage account do Cloud Shell tambem sera removido. Execute todos os comandos CLI/PowerShell **antes** de deletar rg-contoso-identity, ou use o portal para os passos finais.
 
 ---
 

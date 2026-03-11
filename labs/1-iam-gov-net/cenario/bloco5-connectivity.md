@@ -3,7 +3,7 @@
 # Bloco 5 - Intersite Connectivity
 
 **Origem:** Lab 05 - Implement Intersite Connectivity + **integracoes com Blocos 1-4**
-**Resource Groups utilizados:** `az104-rg5` (VMs e route tables) + `az104-rg4` (VNets do Bloco 4)
+**Resource Groups utilizados:** `rg-contoso-compute` (VMs e route tables) + `rg-contoso-network` (VNets do Bloco 4)
 
 ## Contexto
 
@@ -13,35 +13,35 @@ Este e o bloco final onde tudo se conecta. As VMs sao implantadas nas **VNets cr
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                az104-rg4 (VNets do Bloco 4)                         │
+│                rg-contoso-network (VNets do Bloco 4)                         │
 │                                                                     │
 │  ┌──────────────────────────────┐  ┌─────────────────────────────┐  │
-│  │  CoreServicesVnet            │  │  ManufacturingVnet          │  │
+│  │  vnet-contoso-hub-brazilsouth            │  │  vnet-contoso-spoke-brazilsouth          │  │
 │  │  10.20.0.0/16                │  │  10.30.0.0/16               │  │
 │  │                              │  │                             │  │
-│  │  SharedServicesSubnet        │  │  SensorSubnet1 (Bloco 4)    │  │
+│  │  snet-shared        │  │  SensorSubnet1 (Bloco 4)    │  │
 │  │  10.20.10.0/24 (← NSG)       │  │  SensorSubnet2 (Bloco 4)    │  │
-│  │  DatabaseSubnet              │  │                             │  │
-│  │  10.20.20.0/24               │  │  Manufacturing (NOVO)       │  │
+│  │  snet-data              │  │                             │  │
+│  │  10.20.20.0/24               │  │  snet-workloads (NOVO)      │  │
 │  │                              │  │  10.30.0.0/24               │  │
-│  │  Core (NOVO) ←──────────── peering ──────────→ ManufacturingVM│  │
-│  │  10.20.0.0/24                │  │  (az104-rg5)                │  │
-│  │  CoreServicesVM              │  └─────────────────────────────┘  │
-│  │  (az104-rg5)                 │                                   │
+│  │  snet-apps (NOVO) ←──────── peering ──────────→ vm-app-01│  │
+│  │  10.20.0.0/24                │  │  (rg-contoso-compute)                │  │
+│  │  vm-web-01              │  └─────────────────────────────┘  │
+│  │  (rg-contoso-compute)                 │                                   │
 │  │                              │                                   │
 │  │  perimeter (NOVO)            │  ┌────────────────────────────┐   │
-│  │  10.20.1.0/24                │  │ DNS: private.contoso.com   │   │
+│  │  10.20.1.0/24                │  │ DNS: contoso.internal   │   │
 │  │  (NVA: 10.20.1.7)            │  │ + corevm → IP real da VM   │   │
-│  └──────────────────────────────┘  │ + Link: CoreServicesVnet   │   │
+│  └──────────────────────────────┘  │ + Link: vnet-contoso-hub-brazilsouth   │   │
 │                                    └────────────────────────────┘   │
 │                                                                     │
 │  ┌──────────────────────────────┐                                   │
-│  │ az104-rg5                    │                                   │
+│  │ rg-contoso-compute                    │                                   │
 │  │ (VMs + Route Table)          │                                   │
 │  │                              │                                   │
-│  │ • CoreServicesVM             │                                   │
-│  │ • ManufacturingVM            │                                   │
-│  │ • rt-CoreServices            │                                   │
+│  │ • vm-web-01             │                                   │
+│  │ • vm-app-01            │                                   │
+│  │ • rt-contoso-spoke            │                                   │
 │  └──────────────────────────────┘                                   │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -54,29 +54,29 @@ Este e o bloco final onde tudo se conecta. As VMs sao implantadas nas **VNets cr
 
 Antes de criar as VMs, adicione subnets dedicadas nas VNets do Bloco 4.
 
-**Core subnet na CoreServicesVnet:**
+**snet-apps subnet na vnet-contoso-hub-brazilsouth:**
 
-1. Pesquise e selecione **Virtual Networks** > **CoreServicesVnet** (em az104-rg4)
+1. Pesquise e selecione **Virtual Networks** > **vnet-contoso-hub-brazilsouth** (em rg-contoso-network)
 
 2. **Subnets** > **+ Subnet**:
 
    | Setting          | Value       |
    | ---------------- | ----------- |
-   | Name             | `Core`      |
+   | Name             | `snet-apps` |
    | Starting address | `10.20.0.0` |
    | Size             | `/24`       |
 
 3. Clique em **Add**
 
-**Manufacturing subnet na ManufacturingVnet:**
+**snet-workloads subnet na vnet-contoso-spoke-brazilsouth:**
 
-4. Navegue para **ManufacturingVnet** (em az104-rg4)
+4. Navegue para **vnet-contoso-spoke-brazilsouth** (em rg-contoso-network)
 
 5. **Subnets** > **+ Subnet**:
 
    | Setting          | Value           |
    | ---------------- | --------------- |
-   | Name             | `Manufacturing` |
+   | Name             | `snet-workloads` |
    | Starting address | `10.30.0.0`     |
    | Size             | `/24`           |
 
@@ -86,7 +86,7 @@ Antes de criar as VMs, adicione subnets dedicadas nas VNets do Bloco 4.
 
 ---
 
-### Task 5.2: Criar CoreServicesVM
+### Task 5.2: Criar vm-web-01
 
 > **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab (veja [Pausar entre Sessoes](#pausar-entre-sessoes)).
 
@@ -97,8 +97,8 @@ Antes de criar as VMs, adicione subnets dedicadas nas VNets do Bloco 4.
    | Setting              | Value                                         |
    | -------------------- | --------------------------------------------- |
    | Subscription         | *sua subscription*                            |
-   | Resource group       | `az104-rg5` (crie se necessario)              |
-   | Virtual machine name | `CoreServicesVM`                              |
+   | Resource group       | `rg-contoso-compute` (crie se necessario)              |
+   | Virtual machine name | `vm-web-01`                              |
    | Region               | **(US) East US**                              |
    | Availability options | No infrastructure redundancy required         |
    | Security type        | **Standard**                                  |
@@ -110,11 +110,11 @@ Antes de criar as VMs, adicione subnets dedicadas nas VNets do Bloco 4.
 
 3. **Next: Disks >** (aceite defaults) > **Next: Networking >**
 
-4. Para Virtual network, selecione **CoreServicesVnet** (de az104-rg4)
+4. Para Virtual network, selecione **vnet-contoso-hub-brazilsouth** (de rg-contoso-network)
 
    > **Nota:** VMs podem referenciar VNets de outros Resource Groups. O dropdown mostra todas as VNets acessiveis na subscription.
 
-5. Para Subnet, selecione **Core (10.20.0.0/24)**
+5. Para Subnet, selecione **snet-apps (10.20.0.0/24)**
 
 6. Aba **Monitoring** > **Disable** Boot diagnostics
 
@@ -124,7 +124,7 @@ Antes de criar as VMs, adicione subnets dedicadas nas VNets do Bloco 4.
 
 ---
 
-### Task 5.3: Criar ManufacturingVM
+### Task 5.3: Criar vm-app-01
 
 > **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab (veja [Pausar entre Sessoes](#pausar-entre-sessoes)).
 
@@ -134,8 +134,8 @@ Antes de criar as VMs, adicione subnets dedicadas nas VNets do Bloco 4.
 
    | Setting              | Value                                         |
    | -------------------- | --------------------------------------------- |
-   | Resource group       | `az104-rg5`                                   |
-   | Virtual machine name | `ManufacturingVM`                             |
+   | Resource group       | `rg-contoso-compute`                                   |
+   | Virtual machine name | `vm-app-01`                             |
    | Region               | **(US) East US**                              |
    | Security type        | **Standard**                                  |
    | Image                | **Windows Server 2025 Datacenter - x64 Gen2** |
@@ -146,9 +146,9 @@ Antes de criar as VMs, adicione subnets dedicadas nas VNets do Bloco 4.
 
 3. **Next: Disks >** > **Next: Networking >**
 
-4. Virtual network: **ManufacturingVnet** (de az104-rg4)
+4. Virtual network: **vnet-contoso-spoke-brazilsouth** (de rg-contoso-network)
 
-5. Subnet: **Manufacturing (10.30.0.0/24)**
+5. Subnet: **snet-workloads (10.30.0.0/24)**
 
 6. **Monitoring** > **Disable** Boot diagnostics
 
@@ -167,9 +167,9 @@ Antes de criar as VMs, adicione subnets dedicadas nas VNets do Bloco 4.
    | Setting              | Value                        |
    | -------------------- | ---------------------------- |
    | Source type          | **Virtual machine**          |
-   | Virtual machine      | **CoreServicesVM**           |
+   | Virtual machine      | **vm-web-01**           |
    | Destination type     | **Select a virtual machine** |
-   | Virtual machine      | **ManufacturingVM**          |
+   | Virtual machine      | **vm-app-01**          |
    | Preferred IP Version | **Both**                     |
    | Protocol             | **TCP**                      |
    | Destination port     | `3389`                       |
@@ -186,21 +186,21 @@ Antes de criar as VMs, adicione subnets dedicadas nas VNets do Bloco 4.
 
 Peering entre as VNets **do Bloco 4** para habilitar comunicacao.
 
-1. Navegue para **CoreServicesVnet** (em az104-rg4)
+1. Navegue para **vnet-contoso-hub-brazilsouth** (em rg-contoso-network)
 
 2. **Settings** > **Peerings** > **+ Add**:
 
    | Setting                                          | Value                                   |
    | ------------------------------------------------ | --------------------------------------- |
    | **This virtual network**                         |                                         |
-   | Peering link name                                | `CoreServicesVnet-to-ManufacturingVnet` |
-   | Allow access to 'ManufacturingVnet'              | **selected**                            |
-   | Allow forwarded traffic from 'ManufacturingVnet' | **selected**                            |
+   | Peering link name                                | `vnet-contoso-hub-brazilsouth-to-vnet-contoso-spoke-brazilsouth` |
+   | Allow access to 'vnet-contoso-spoke-brazilsouth'              | **selected**                            |
+   | Allow forwarded traffic from 'vnet-contoso-spoke-brazilsouth' | **selected**                            |
    | **Remote virtual network**                       |                                         |
-   | Peering link name                                | `ManufacturingVnet-to-CoreServicesVnet` |
-   | Virtual network                                  | **ManufacturingVnet (az104-rg4)**       |
-   | Allow access to 'CoreServicesVnet'               | **selected**                            |
-   | Allow forwarded traffic from 'CoreServicesVnet'  | **selected**                            |
+   | Peering link name                                | `vnet-contoso-spoke-brazilsouth-to-vnet-contoso-hub-brazilsouth` |
+   | Virtual network                                  | **vnet-contoso-spoke-brazilsouth (rg-contoso-network)**       |
+   | Allow access to 'vnet-contoso-hub-brazilsouth'               | **selected**                            |
+   | Allow forwarded traffic from 'vnet-contoso-hub-brazilsouth'  | **selected**                            |
 
 3. Clique em **Add**
 
@@ -212,14 +212,14 @@ Peering entre as VNets **do Bloco 4** para habilitar comunicacao.
 
 ### Task 5.6: Testar conexao via Run Command
 
-1. Navegue para **CoreServicesVM** > **Overview** > anote o **Private IP address**
+1. Navegue para **vm-web-01** > **Overview** > anote o **Private IP address**
 
-2. Navegue para **ManufacturingVM** > **Operations** > **Run command** > **RunPowerShellScript**
+2. Navegue para **vm-app-01** > **Operations** > **Run command** > **RunPowerShellScript**
 
 3. Execute:
 
    ```powershell
-   Test-NetConnection <CoreServicesVM-private-IP> -port 3389
+   Test-NetConnection <vm-web-01-private-IP> -port 3389
    ```
 
 4. **Resultado esperado:** `TcpTestSucceeded: True`
@@ -230,7 +230,7 @@ Peering entre as VNets **do Bloco 4** para habilitar comunicacao.
 
 Voce valida que o peering NAO e transitivo — se VNet A conecta a VNet B, e VNet B conecta a VNet C, A nao alcanca C automaticamente.
 
-1. Navegue para **ManufacturingVM** > **Operations** > **Run command** > **RunPowerShellScript**
+1. Navegue para **vm-app-01** > **Operations** > **Run command** > **RunPowerShellScript**
 
 2. Tente conectar a um IP que estaria em uma terceira VNet hipotetica (fora do range de ambas as VNets):
 
@@ -250,39 +250,39 @@ Voce valida que o peering NAO e transitivo — se VNet A conecta a VNet B, e VNe
 
 ### Task 5.7: Teste de integracao — DNS privado com IP real da VM
 
-Voce atualiza a zona DNS privada do **Bloco 4** com o IP real da CoreServicesVM e testa a resolucao.
+Voce atualiza a zona DNS privada do **Bloco 4** com o IP real da vm-web-01 e testa a resolucao.
 
-1. Navegue para a zona **private.contoso.com** (em az104-rg4)
+1. Navegue para a zona **contoso.internal** (em rg-contoso-network)
 
-2. Primeiro, adicione um **Virtual network link** para CoreServicesVnet:
+2. Primeiro, adicione um **Virtual network link** para vnet-contoso-hub-brazilsouth:
 
    | Setting         | Value               |
    | --------------- | ------------------- |
    | Link name       | `coreservices-link` |
-   | Virtual network | `CoreServicesVnet`  |
+   | Virtual network | `vnet-contoso-hub-brazilsouth`  |
 
 3. Clique em **Create** e aguarde
 
-4. Em **Recordsets**, adicione um novo registro com o IP **real** da CoreServicesVM:
+4. Em **Recordsets**, adicione um novo registro com o IP **real** da vm-web-01:
 
    | Setting    | Value                          |
    | ---------- | ------------------------------ |
    | Name       | `corevm`                       |
    | Type       | **A**                          |
    | TTL        | `1`                            |
-   | IP address | *IP privado da CoreServicesVM* |
+   | IP address | *IP privado da vm-web-01* |
 
 5. Clique em **Add**
 
-6. Agora teste a resolucao a partir da **ManufacturingVM**. Va para **ManufacturingVM** > **Run command** > **RunPowerShellScript**:
+6. Agora teste a resolucao a partir da **vm-app-01**. Va para **vm-app-01** > **Run command** > **RunPowerShellScript**:
 
    ```powershell
-   Resolve-DnsName corevm.private.contoso.com
+   Resolve-DnsName corevm.contoso.internal
    ```
 
-7. **Resultado esperado:** O comando retorna o IP privado da CoreServicesVM
+7. **Resultado esperado:** O comando retorna o IP privado da vm-web-01
 
-   > **Conexao com Bloco 4:** A zona DNS privada criada no Bloco 4 agora resolve nomes reais de VMs do Bloco 5. A ManufacturingVnet (linkada no Bloco 4) e a CoreServicesVnet (linkada agora) podem resolver nomes nesta zona.
+   > **Conexao com Bloco 4:** A zona DNS privada criada no Bloco 4 agora resolve nomes reais de VMs do Bloco 5. A vnet-contoso-spoke-brazilsouth (linkada no Bloco 4) e a vnet-contoso-hub-brazilsouth (linkada agora) podem resolver nomes nesta zona.
 
 ---
 
@@ -290,7 +290,7 @@ Voce atualiza a zona DNS privada do **Bloco 4** com o IP real da CoreServicesVM 
 
 **Criar subnet perimeter:**
 
-1. Navegue para **CoreServicesVnet** (em az104-rg4) > **Subnets** > **+ Subnet**:
+1. Navegue para **vnet-contoso-hub-brazilsouth** (em rg-contoso-network) > **Subnets** > **+ Subnet**:
 
    | Setting          | Value       |
    | ---------------- | ----------- |
@@ -307,16 +307,16 @@ Voce atualiza a zona DNS privada do **Bloco 4** com o IP real da CoreServicesVM 
    | Setting                  | Value              |
    | ------------------------ | ------------------ |
    | Subscription             | *sua subscription* |
-   | Resource group           | `az104-rg5`        |
+   | Resource group           | `rg-contoso-compute`        |
    | Region                   | **East US**        |
-   | Name                     | `rt-CoreServices`  |
+   | Name                     | `rt-contoso-spoke`  |
    | Propagate gateway routes | **No**             |
 
 4. **Review + create** > **Create**
 
 **Criar custom route:**
 
-5. Navegue para **rt-CoreServices** > **Settings** > **Routes** > **+ Add**:
+5. Navegue para **rt-contoso-spoke** > **Settings** > **Routes** > **+ Add**:
 
    | Setting                  | Value                 |
    | ------------------------ | --------------------- |
@@ -334,8 +334,8 @@ Voce atualiza a zona DNS privada do **Bloco 4** com o IP real da CoreServicesVM 
 
    | Setting         | Value                            |
    | --------------- | -------------------------------- |
-   | Virtual network | **CoreServicesVnet (az104-rg4)** |
-   | Subnet          | **Core**                         |
+   | Virtual network | **vnet-contoso-hub-brazilsouth (rg-contoso-network)** |
+   | Subnet          | **snet-apps**                    |
 
 8. Clique em **OK**
 
@@ -347,17 +347,17 @@ Voce atualiza a zona DNS privada do **Bloco 4** com o IP real da CoreServicesVM 
 
 Este teste confirma que o NSG do Bloco 4 afeta apenas a subnet associada.
 
-1. Lembre-se: o NSG **myNSGSecure** esta associado a **SharedServicesSubnet** (Bloco 4)
+1. Lembre-se: o NSG **nsg-snet-shared** esta associado a **snet-shared** (Bloco 4)
 
-2. A CoreServicesVM esta na subnet **Core** (sem NSG associado)
+2. A vm-web-01 esta na subnet **snet-apps** (sem NSG associado)
 
-3. A ManufacturingVM esta na subnet **Manufacturing** (sem NSG associado)
+3. A vm-app-01 esta na subnet **snet-workloads** (sem NSG associado)
 
-4. Verifique: navegue para **myNSGSecure** (az104-rg4) > **Subnets**
+4. Verifique: navegue para **nsg-snet-shared** (rg-contoso-network) > **Subnets**
 
-5. Confirme que apenas **SharedServicesSubnet** esta listada
+5. Confirme que apenas **snet-shared** esta listada
 
-   > **Validacao:** As VMs NAO sao afetadas pelo NSG porque estao em subnets diferentes. NSGs sao associados a **subnets ou NICs**, nao a VNets inteiras. Se voce quisesse proteger as VMs, precisaria associar o NSG (ou outro) as subnets Core e Manufacturing tambem.
+   > **Validacao:** As VMs NAO sao afetadas pelo NSG porque estao em subnets diferentes. NSGs sao associados a **subnets ou NICs**, nao a VNets inteiras. Se voce quisesse proteger as VMs, precisaria associar o NSG (ou outro) as subnets snet-apps e snet-workloads tambem.
 
 ---
 
@@ -371,11 +371,11 @@ Teste final que valida todo o RBAC configurado desde o Bloco 1.
 
 3. Navegue para **Virtual Machines**
 
-4. Voce deve ver **CoreServicesVM** e **ManufacturingVM**
+4. Voce deve ver **vm-web-01** e **vm-app-01**
 
-5. Selecione **CoreServicesVM** > tente **Stop** (desligar) a VM — deve **funcionar** (VM Contributor permite)
+5. Selecione **vm-web-01** > tente **Stop** (desligar) a VM — deve **funcionar** (VM Contributor permite)
 
-6. Tente deletar o resource group **az104-rg2** — deve **falhar** por dois motivos:
+6. Tente deletar o resource group **rg-contoso-identity** — deve **falhar** por dois motivos:
    - az104-user1 nao tem Contributor/Owner no RG
    - O resource lock (Delete) do Bloco 2 impede a exclusao
 
@@ -398,7 +398,7 @@ Teste final que valida todo o RBAC configurado desde o Bloco 1.
 
 **Criar GatewaySubnet:**
 
-1. Navegue para **CoreServicesVnet** (em az104-rg4) > **Subnets** > **+ Subnet**:
+1. Navegue para **vnet-contoso-hub-brazilsouth** (em rg-contoso-network) > **Subnets** > **+ Subnet**:
 
    | Setting          | Value            |
    | ---------------- | ---------------- |
@@ -419,7 +419,7 @@ Teste final que valida todo o RBAC configurado desde o Bloco 1.
    | Name           | `pip-vpngw-core`   |
    | SKU            | **Standard**       |
    | Assignment     | **Static**         |
-   | Resource group | `az104-rg5`        |
+   | Resource group | `rg-contoso-compute`        |
    | Region         | **East US**        |
 
 4. **Review + create** > **Create**
@@ -430,12 +430,12 @@ Teste final que valida todo o RBAC configurado desde o Bloco 1.
 
    | Setting          | Value                            |
    | ---------------- | -------------------------------- |
-   | Name             | `vpngw-CoreServices`             |
+   | Name             | `vgw-contoso-hub`             |
    | Region           | **East US**                      |
    | Gateway type     | **VPN**                          |
    | SKU              | **VpnGw1**                       |
    | Generation       | **Generation1**                  |
-   | Virtual network  | **CoreServicesVnet (az104-rg4)** |
+   | Virtual network  | **vnet-contoso-hub-brazilsouth (rg-contoso-network)** |
    | Public IP        | `pip-vpngw-core`                 |
    | Enable active-active | **Disabled**                 |
 
@@ -490,7 +490,7 @@ Teste final que valida todo o RBAC configurado desde o Bloco 1.
 
 **Configurar P2S no VPN Gateway:**
 
-3. Navegue para **vpngw-CoreServices** > **Settings** > **Point-to-site configuration**
+3. Navegue para **vgw-contoso-hub** > **Settings** > **Point-to-site configuration**
 
 4. Clique em **Configure now**:
 
@@ -516,7 +516,7 @@ Teste final que valida todo o RBAC configurado desde o Bloco 1.
 
 1. No seu computador, va para **Settings** > **Network & Internet** > **VPN**
 
-2. Conecte a VPN **CoreServicesVnet** (aparece automaticamente apos instalar o cliente)
+2. Conecte a VPN **vnet-contoso-hub-brazilsouth** (aparece automaticamente apos instalar o cliente)
 
 3. Apos conectar, abra **PowerShell** e verifique as rotas:
 
@@ -524,11 +524,11 @@ Teste final que valida todo o RBAC configurado desde o Bloco 1.
    Get-NetRoute | Where-Object { $_.DestinationPrefix -like "10.20.*" }
    ```
 
-4. **Resultado esperado:** Voce vera rotas para `10.20.0.0/16` (CoreServicesVnet)
+4. **Resultado esperado:** Voce vera rotas para `10.20.0.0/16` (vnet-contoso-hub-brazilsouth)
 
-5. **Note:** Voce **NAO** vera rotas para `10.30.0.0/16` (ManufacturingVnet), mesmo com peering ativo
+5. **Note:** Voce **NAO** vera rotas para `10.30.0.0/16` (vnet-contoso-spoke-brazilsouth), mesmo com peering ativo
 
-   > **Conceito:** O cliente VPN P2S recebe as rotas no momento do download/instalacao. O peering entre CoreServicesVnet e ManufacturingVnet ja existe (Task 5.5), mas as rotas da ManufacturingVnet nao estao no cliente.
+   > **Conceito:** O cliente VPN P2S recebe as rotas no momento do download/instalacao. O peering entre vnet-contoso-hub-brazilsouth e vnet-contoso-spoke-brazilsouth ja existe (Task 5.5), mas as rotas da vnet-contoso-spoke-brazilsouth nao estao no cliente.
 
 ---
 
@@ -538,11 +538,11 @@ Esta task demonstra a pegadinha classica do AZ-104: **cliente P2S precisa ser re
 
 **Habilitar Gateway Transit no peering:**
 
-1. Navegue para **CoreServicesVnet** > **Peerings** > selecione `CoreServicesVnet-to-ManufacturingVnet`
+1. Navegue para **vnet-contoso-hub-brazilsouth** > **Peerings** > selecione `vnet-contoso-hub-brazilsouth-to-vnet-contoso-spoke-brazilsouth`
 
 2. Marque **Allow gateway transit** > **Save**
 
-3. Navegue para **ManufacturingVnet** > **Peerings** > selecione `ManufacturingVnet-to-CoreServicesVnet`
+3. Navegue para **vnet-contoso-spoke-brazilsouth** > **Peerings** > selecione `vnet-contoso-spoke-brazilsouth-to-vnet-contoso-hub-brazilsouth`
 
 4. Marque **Use remote gateway** > **Save**
 
@@ -562,7 +562,7 @@ Esta task demonstra a pegadinha classica do AZ-104: **cliente P2S precisa ser re
 
 7. Desconecte a VPN
 
-8. No portal, va para **vpngw-CoreServices** > **Point-to-site configuration** > **Download VPN client** novamente
+8. No portal, va para **vgw-contoso-hub** > **Point-to-site configuration** > **Download VPN client** novamente
 
 9. Extraia e **reinstale** o cliente VPN
 
@@ -572,7 +572,7 @@ Esta task demonstra a pegadinha classica do AZ-104: **cliente P2S precisa ser re
     Get-NetRoute | Where-Object { $_.DestinationPrefix -like "10.30.*" }
     ```
 
-11. **Resultado esperado:** Agora voce vera rotas para `10.30.0.0/16` — ManufacturingVnet acessivel via P2S!
+11. **Resultado esperado:** Agora voce vera rotas para `10.30.0.0/16` — vnet-contoso-spoke-brazilsouth acessivel via P2S!
 
     > **PEGADINHA AZ-104:** Sempre que a topologia de rede muda (novo peering, gateway transit, novas subnets), o cliente VPN P2S precisa ser **baixado e reinstalado** para obter as rotas atualizadas. As rotas NAO se atualizam automaticamente no cliente.
 
@@ -582,13 +582,13 @@ Esta task demonstra a pegadinha classica do AZ-104: **cliente P2S precisa ser re
 
 > **Importante:** VPN Gateway gera custo continuo. Faca cleanup ao terminar.
 
-1. Navegue para **Virtual network gateways** > **vpngw-CoreServices** > **Delete** (demora ~15 min)
+1. Navegue para **Virtual network gateways** > **vgw-contoso-hub** > **Delete** (demora ~15 min)
 
 2. Aguarde a exclusao completar
 
 3. Delete o Public IP **pip-vpngw-core**
 
-4. (Opcional) Remova a **GatewaySubnet** da CoreServicesVnet
+4. (Opcional) Remova a **GatewaySubnet** da vnet-contoso-hub-brazilsouth
 
 5. Reverta o peering: remova "Allow Gateway Transit" e "Use Remote Gateways" das configuracoes de peering
 
@@ -598,24 +598,24 @@ Esta task demonstra a pegadinha classica do AZ-104: **cliente P2S precisa ser re
 
 ## Modo Desafio - Bloco 5
 
-- [ ] Adicionar subnet `Core` (10.20.0.0/24) na CoreServicesVnet **(Bloco 4)**
-- [ ] Adicionar subnet `Manufacturing` (10.30.0.0/24) na ManufacturingVnet **(Bloco 4)**
-- [ ] Criar `CoreServicesVM` em az104-rg5, na subnet Core da **VNet do Bloco 4**
-- [ ] Criar `ManufacturingVM` em az104-rg5, na subnet Manufacturing da **VNet do Bloco 4**
+- [ ] Adicionar subnet `snet-apps` (10.20.0.0/24) na vnet-contoso-hub-brazilsouth **(Bloco 4)**
+- [ ] Adicionar subnet `snet-workloads` (10.30.0.0/24) na vnet-contoso-spoke-brazilsouth **(Bloco 4)**
+- [ ] Criar `vm-web-01` em rg-contoso-compute, na subnet snet-apps da **VNet do Bloco 4**
+- [ ] Criar `vm-app-01` em rg-contoso-compute, na subnet snet-workloads da **VNet do Bloco 4**
 - [ ] Network Watcher → Unreachable
 - [ ] Configurar VNet Peering bidirecional entre VNets **do Bloco 4**
 - [ ] Test-NetConnection → Success
 - [ ] Testar nao-transitividade: Test-NetConnection para IP fora das VNets (10.40.0.4) → False
-- [ ] **Integracao:** Adicionar link DNS + registro A com IP real → Resolve-DnsName da ManufacturingVM
+- [ ] **Integracao:** Adicionar link DNS + registro A com IP real → Resolve-DnsName da vm-app-01
 - [ ] Criar subnet `perimeter` + Route Table + custom route (NVA 10.20.1.7)
 - [ ] **Integracao:** Verificar NSG isolado por subnet
 - [ ] **Integracao final:** Login como az104-user1 → gerenciar VM ✓, criar Storage ✗
-- [ ] Criar `GatewaySubnet` (/27) na CoreServicesVnet + Public IP + VPN Gateway (VpnGw1)
+- [ ] Criar `GatewaySubnet` (/27) na vnet-contoso-hub-brazilsouth + Public IP + VPN Gateway (VpnGw1)
 - [ ] Gerar certificados (raiz + cliente) e configurar P2S com Azure certificate
-- [ ] Conectar via P2S e verificar rotas (so CoreServicesVnet)
+- [ ] Conectar via P2S e verificar rotas (so vnet-contoso-hub-brazilsouth)
 - [ ] Habilitar Gateway Transit + Use Remote Gateways no peering
-- [ ] Verificar que cliente P2S **NAO** tem rotas da ManufacturingVnet
-- [ ] Reinstalar cliente P2S → agora tem rotas para ManufacturingVnet ✓
+- [ ] Verificar que cliente P2S **NAO** tem rotas da vnet-contoso-spoke-brazilsouth
+- [ ] Reinstalar cliente P2S → agora tem rotas para vnet-contoso-spoke-brazilsouth ✓
 - [ ] **Cleanup:** Deletar VPN Gateway + Public IP
 
 ---
@@ -623,7 +623,7 @@ Esta task demonstra a pegadinha classica do AZ-104: **cliente P2S precisa ser re
 ## Questoes de Prova - Bloco 5
 
 ### Questao 5.1
-**Uma VM no az104-rg5 usa uma VNet do az104-rg4. E possivel?**
+**Uma VM no rg-contoso-compute usa uma VNet do rg-contoso-network. E possivel?**
 
 A) Nao, VMs e VNets devem estar no mesmo Resource Group
 B) Sim, VMs podem referenciar VNets de qualquer RG na mesma subscription
@@ -674,24 +674,24 @@ UDRs sobrescrevem rotas do sistema. Se o next hop nao for alcancavel, o trafego 
 </details>
 
 ### Questao 5.4
-**Voce configurou VNet Peering entre CoreServicesVnet e ManufacturingVnet. Voce quer que o trafego da ManufacturingVM passe por um NVA na CoreServicesVnet antes de alcançar a CoreServicesVM. O que voce precisa configurar alem do peering?**
+**Voce configurou VNet Peering entre vnet-contoso-hub-brazilsouth e vnet-contoso-spoke-brazilsouth. Voce quer que o trafego da vm-app-01 passe por um NVA na vnet-contoso-hub-brazilsouth antes de alcançar a vm-web-01. O que voce precisa configurar alem do peering?**
 
 A) Apenas um NSG na subnet de destino
-B) Uma User-Defined Route (UDR) na subnet da ManufacturingVM com next hop apontando para o NVA
+B) Uma User-Defined Route (UDR) na subnet da vm-app-01 com next hop apontando para o NVA
 C) Habilitar IP forwarding no NVA e nada mais
 D) Criar um VPN Gateway entre as VNets
 
 <details>
 <summary>Ver resposta</summary>
 
-**Resposta: B) Uma User-Defined Route (UDR) na subnet da ManufacturingVM com next hop apontando para o NVA**
+**Resposta: B) Uma User-Defined Route (UDR) na subnet da vm-app-01 com next hop apontando para o NVA**
 
 Para forcar trafego atraves de um NVA, voce precisa criar uma UDR na subnet de origem com o next hop tipo "Virtual appliance" apontando para o IP do NVA. Alem disso, o NVA precisa ter **IP forwarding** habilitado na NIC. Apenas o peering nao e suficiente — ele habilita conectividade direta, mas nao roteia trafego atraves de intermediarios.
 
 </details>
 
 ### Questao 5.5
-**Voce criou uma Private DNS Zone `private.contoso.com` e vinculou (Virtual Network Link) apenas a VNet A. Uma VM na VNet B (que tem peering com VNet A) tenta resolver `sensorvm.private.contoso.com`. O que acontece?**
+**Voce criou uma Private DNS Zone `contoso.internal` e vinculou (Virtual Network Link) apenas a VNet A. Uma VM na VNet B (que tem peering com VNet A) tenta resolver `sensorvm.contoso.internal`. O que acontece?**
 
 A) A resolucao funciona porque o peering compartilha DNS automaticamente
 B) A resolucao falha porque a VNet B nao tem Virtual Network Link para a zona privada
@@ -725,7 +725,7 @@ O cliente VPN P2S recebe a tabela de rotas no momento do download/instalacao. Mu
 </details>
 
 ### Questao 5.7
-**Voce precisa criar um VPN Gateway na CoreServicesVnet. Qual subnet e obrigatoria e qual o tamanho minimo recomendado?**
+**Voce precisa criar um VPN Gateway na vnet-contoso-hub-brazilsouth. Qual subnet e obrigatoria e qual o tamanho minimo recomendado?**
 
 A) VPNSubnet, /28
 B) GatewaySubnet, /29

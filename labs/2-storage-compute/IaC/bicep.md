@@ -116,27 +116,27 @@ VM_USERNAME="localadmin"
 VM_PASSWORD='SenhaComplexa@2024!'                      # ← ALTERE
 
 # --- Resource Group ---
-RG6="az104-rg6"
+RG6="rg-contoso-storage"
 
 # --- Storage ---
 # Storage Account: 3-24 chars, apenas lowercase + numeros, globalmente unico
-STORAGE_ACCOUNT_NAME="az104sto${RANDOM}"
+STORAGE_ACCOUNT_NAME="stcontosoprod${RANDOM}"
 echo "Storage Account Name: $STORAGE_ACCOUNT_NAME"
 
 # --- Compute ---
-WIN_VM_NAME="az104-winvm"
-LINUX_VM_NAME="az104-linuxvm"
-VMSS_NAME="az104-vmss"
+WIN_VM_NAME="vm-web-01"
+LINUX_VM_NAME="vm-api-01"
+VMSS_NAME="vmss-contoso-web"
 
 # --- Web App ---
-APP_PLAN_NAME="az104-plan"
-WEB_APP_NAME="az104-webapp-${RANDOM}"
+APP_PLAN_NAME="asp-contoso-prod"
+WEB_APP_NAME="app-contoso-web-${RANDOM}"
 echo "Web App Name: $WEB_APP_NAME"
 
 # --- Containers ---
-ACI_NAME="az104-aci"
-CONTAINER_APP_NAME="az104-containerapp"
-CONTAINER_ENV_NAME="az104-containerenv"
+ACI_NAME="ci-contoso-worker"
+CONTAINER_APP_NAME="ca-contoso-api"
+CONTAINER_ENV_NAME="cae-contoso-prod"
 ```
 
 ---
@@ -146,7 +146,7 @@ CONTAINER_ENV_NAME="az104-containerenv"
 ```
 Bloco 1 (Storage)
   │
-  ├─ Storage Account (az104sto*) ────────────────────┐
+  ├─ Storage Account (stcontosoprod*) ────────────────────┐
   │   ├─ Blob Container (contoso-data)               │
   │   ├─ File Share (contoso-share)                   │
   │   ├─ Lifecycle Policy (mover para Cool/Archive)   │
@@ -215,7 +215,7 @@ Salve como **`bloco1-vnet.bicep`**:
 ```bicep
 // ============================================================
 // bloco1-vnet.bicep
-// Scope: resourceGroup (az104-rg6)
+// Scope: resourceGroup (rg-contoso-storage)
 // Cria VNet base para todo o lab (Storage PE + VMs)
 // ============================================================
 
@@ -225,7 +225,7 @@ param location string = resourceGroup().location
 // ==================== VNet ====================
 // Uma unica VNet com multiplas subnets para diferentes workloads
 resource vnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
-  name: 'az104-vnet'
+  name: 'vnet-contoso-hub-brazilsouth'
   location: location
   properties: {
     addressSpace: {
@@ -272,7 +272,7 @@ az deployment group create \
     --resource-group "$RG6" \
     --template-file bloco1-vnet.bicep
 
-echo "VNet az104-vnet criada com 3 subnets"
+echo "VNet vnet-contoso-hub-brazilsouth criada com 3 subnets"
 ```
 
 ---
@@ -284,7 +284,7 @@ Salve como **`bloco1-storage.bicep`**:
 ```bicep
 // ============================================================
 // bloco1-storage.bicep
-// Scope: resourceGroup (az104-rg6)
+// Scope: resourceGroup (rg-contoso-storage)
 // Cria Storage Account + Blob Container + File Share
 // ============================================================
 
@@ -428,7 +428,7 @@ Salve como **`bloco1-lifecycle.bicep`**:
 ```bicep
 // ============================================================
 // bloco1-lifecycle.bicep
-// Scope: resourceGroup (az104-rg6)
+// Scope: resourceGroup (rg-contoso-storage)
 // Cria Lifecycle Management Policy na Storage Account
 // ============================================================
 
@@ -559,7 +559,7 @@ Salve como **`bloco1-private-endpoint.bicep`**:
 ```bicep
 // ============================================================
 // bloco1-private-endpoint.bicep
-// Scope: resourceGroup (az104-rg6)
+// Scope: resourceGroup (rg-contoso-storage)
 // Cria Private Endpoint para Storage + Private DNS Zone
 // ============================================================
 
@@ -575,7 +575,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' existing 
 }
 
 resource vnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
-  name: 'az104-vnet'
+  name: 'vnet-contoso-hub-brazilsouth'
 }
 
 // Referencia a subnet de Private Endpoints
@@ -720,7 +720,7 @@ Salve como **`bloco1-service-endpoint-policy.bicep`**:
 ```bicep
 // ============================================================
 // bloco1-service-endpoint-policy.bicep
-// Scope: resourceGroup (az104-rg6)
+// Scope: resourceGroup (rg-contoso-storage)
 // Cria Service Endpoint Policy e associa a subnet
 // ============================================================
 
@@ -806,7 +806,7 @@ az network vnet subnet show -g "$RG6" --vnet-name "storage-vnet" -n "default" \
 
 ## Modo Desafio - Bloco 1
 
-- [ ] Criar Resource Group `az104-rg6`
+- [ ] Criar Resource Group `rg-contoso-storage`
 - [ ] Deploy `bloco1-vnet.bicep` (VNet + 3 subnets)
 - [ ] Deploy `bloco1-storage.bicep` (Storage Account + Container + File Share)
 - [ ] Deploy `bloco1-lifecycle.bicep` (Cool 30d → Archive 90d → Delete 365d)
@@ -908,7 +908,7 @@ Salve como **`bloco2-windows-vm.bicep`**:
 ```bicep
 // ============================================================
 // bloco2-windows-vm.bicep
-// Scope: resourceGroup (az104-rg6)
+// Scope: resourceGroup (rg-contoso-storage)
 // Cria Windows VM + NIC + Public IP
 // ============================================================
 
@@ -916,7 +916,7 @@ Salve como **`bloco2-windows-vm.bicep`**:
 param location string = resourceGroup().location
 
 @description('Nome da VM')
-param vmName string = 'az104-winvm'
+param vmName string = 'vm-web-01'
 
 @description('Tamanho da VM')
 @allowed([
@@ -935,7 +935,7 @@ param adminPassword string
 
 // ==================== Referencia VNet existente ====================
 resource vnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
-  name: 'az104-vnet'
+  name: 'vnet-contoso-hub-brazilsouth'
 }
 
 resource vmSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' existing = {
@@ -1076,7 +1076,7 @@ Salve como **`bloco2-linux-vm.bicep`**:
 ```bicep
 // ============================================================
 // bloco2-linux-vm.bicep
-// Scope: resourceGroup (az104-rg6)
+// Scope: resourceGroup (rg-contoso-storage)
 // Cria Linux VM com autenticacao SSH (sem senha!)
 // ============================================================
 
@@ -1084,7 +1084,7 @@ Salve como **`bloco2-linux-vm.bicep`**:
 param location string = resourceGroup().location
 
 @description('Nome da VM')
-param vmName string = 'az104-linuxvm'
+param vmName string = 'vm-api-01'
 
 @description('Tamanho da VM')
 param vmSize string = 'Standard_B2s'
@@ -1098,7 +1098,7 @@ param sshPublicKey string
 
 // ==================== Referencia VNet existente ====================
 resource vnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
-  name: 'az104-vnet'
+  name: 'vnet-contoso-hub-brazilsouth'
 }
 
 resource vmSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' existing = {
@@ -1233,7 +1233,7 @@ Salve como **`bloco2-data-disk.bicep`**:
 ```bicep
 // ============================================================
 // bloco2-data-disk.bicep
-// Scope: resourceGroup (az104-rg6)
+// Scope: resourceGroup (rg-contoso-storage)
 // Cria Data Disk e anexa a Windows VM
 // ============================================================
 
@@ -1241,7 +1241,7 @@ Salve como **`bloco2-data-disk.bicep`**:
 param location string = resourceGroup().location
 
 @description('Nome da VM Windows existente')
-param vmName string = 'az104-winvm'
+param vmName string = 'vm-web-01'
 
 @description('Tamanho do disco em GiB')
 @minValue(4)
@@ -1394,12 +1394,12 @@ CLOUDINIT
 # Criar VM com cloud-init
 az vm create \
     --resource-group "$RG7" \
-    --name az104-vm-cloudinit \
+    --name vm-api-01 \
     --image Ubuntu2204 \
     --size Standard_B1s \
     --admin-username localadmin \
     --admin-password "$ADMIN_PASSWORD" \
-    --vnet-name ManufacturingVnet \
+    --vnet-name vnet-contoso-spoke-brazilsouth \
     --subnet Manufacturing \
     --custom-data cloud-init.yaml \
     --public-ip-sku Standard \
@@ -1408,17 +1408,17 @@ az vm create \
 # Abrir porta 80
 az vm open-port \
     --resource-group "$RG7" \
-    --name az104-vm-cloudinit \
+    --name vm-api-01 \
     --port 80
 
 # Verificar - Nginx ja deve estar rodando
-CLOUDINIT_PIP=$(az vm show -g "$RG7" -n az104-vm-cloudinit -d --query publicIps -o tsv)
+CLOUDINIT_PIP=$(az vm show -g "$RG7" -n vm-api-01 -d --query publicIps -o tsv)
 echo "Teste: curl http://$CLOUDINIT_PIP"
 
 # Verificar log do cloud-init
 az vm run-command invoke \
     --resource-group "$RG7" \
-    --name az104-vm-cloudinit \
+    --name vm-api-01 \
     --command-id RunShellScript \
     --scripts "cloud-init status --long"
 ```
@@ -1426,12 +1426,12 @@ az vm run-command invoke \
 > **Equivalente Bicep (educativo):**
 > ```bicep
 > resource linuxVmCloudInit 'Microsoft.Compute/virtualMachines@2024-03-01' = {
->   name: 'az104-vm-cloudinit'
+>   name: 'vm-api-01'
 >   location: location
 >   properties: {
 >     hardwareProfile: { vmSize: 'Standard_B1s' }
 >     osProfile: {
->       computerName: 'az104-vm-cloudinit'
+>       computerName: 'vm-api-01'
 >       adminUsername: adminUsername
 >       adminPassword: adminPassword
 >       // customData aceita conteudo em base64
@@ -1471,7 +1471,7 @@ Salve como **`bloco2-vmss.bicep`**:
 ```bicep
 // ============================================================
 // bloco2-vmss.bicep
-// Scope: resourceGroup (az104-rg6)
+// Scope: resourceGroup (rg-contoso-storage)
 // Cria VM Scale Set + regras de Autoscale
 // ============================================================
 
@@ -1479,7 +1479,7 @@ Salve como **`bloco2-vmss.bicep`**:
 param location string = resourceGroup().location
 
 @description('Nome do VMSS')
-param vmssName string = 'az104-vmss'
+param vmssName string = 'vmss-contoso-web'
 
 @description('Tamanho das VMs no VMSS')
 param vmSize string = 'Standard_B2s'
@@ -1498,7 +1498,7 @@ param instanceCount int = 2
 
 // ==================== Referencia VNet existente ====================
 resource vnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
-  name: 'az104-vnet'
+  name: 'vnet-contoso-hub-brazilsouth'
 }
 
 resource vmssSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' existing = {
@@ -1856,7 +1856,7 @@ Salve como **`bloco3-webapp.bicep`**:
 ```bicep
 // ============================================================
 // bloco3-webapp.bicep
-// Scope: resourceGroup (az104-rg6)
+// Scope: resourceGroup (rg-contoso-storage)
 // Cria App Service Plan + Web App + Deployment Slot
 // ============================================================
 
@@ -2006,7 +2006,7 @@ Salve como **`bloco3-webapp-autoscale.bicep`**:
 ```bicep
 // ============================================================
 // bloco3-webapp-autoscale.bicep
-// Scope: resourceGroup (az104-rg6)
+// Scope: resourceGroup (rg-contoso-storage)
 // Cria Autoscale para App Service Plan
 // ============================================================
 
@@ -2191,7 +2191,7 @@ Salve como **`bloco4-aci.bicep`**:
 ```bicep
 // ============================================================
 // bloco4-aci.bicep
-// Scope: resourceGroup (az104-rg6)
+// Scope: resourceGroup (rg-contoso-storage)
 // Cria Container Group (ACI) com nginx
 // ============================================================
 
@@ -2199,7 +2199,7 @@ Salve como **`bloco4-aci.bicep`**:
 param location string = resourceGroup().location
 
 @description('Nome do container group')
-param containerGroupName string = 'az104-aci'
+param containerGroupName string = 'ci-contoso-worker'
 
 @description('Imagem do container')
 param containerImage string = 'mcr.microsoft.com/oss/nginx/nginx:latest'
@@ -2372,7 +2372,7 @@ Salve como **`bloco5-container-apps.bicep`**:
 ```bicep
 // ============================================================
 // bloco5-container-apps.bicep
-// Scope: resourceGroup (az104-rg6)
+// Scope: resourceGroup (rg-contoso-storage)
 // Cria Container Apps Environment + Container App
 // ============================================================
 
@@ -2380,10 +2380,10 @@ Salve como **`bloco5-container-apps.bicep`**:
 param location string = resourceGroup().location
 
 @description('Nome do ambiente')
-param environmentName string = 'az104-containerenv'
+param environmentName string = 'cae-contoso-prod'
 
 @description('Nome do Container App')
-param containerAppName string = 'az104-containerapp'
+param containerAppName string = 'ca-contoso-api'
 
 // ==================== Log Analytics Workspace ====================
 // Container Apps Environment REQUER Log Analytics para logs
@@ -2615,7 +2615,7 @@ Container Apps oferece autoscale baseado em regras, revisions, ingress, e scale 
 
 **Tecnologia:** Bicep + CLI
 **Recursos criados:** 1 Storage Account (destino AzCopy), 1 Key Vault com 2 chaves RSA, Object Replication, CMK, ADE
-**Resource Groups:** `az104-rg6` (existente), `az104-rg7` (existente), `az104-rg6adv` (novo)
+**Resource Groups:** `rg-contoso-storage` (existente), `rg-contoso-compute` (existente), `rg-contoso-storage` (novo)
 
 > **Pre-requisito:** Blocos 1 e 2 devem estar completos (Storage Account + VMs criadas).
 
@@ -2630,7 +2630,7 @@ Salve como **`bloco6-storage2.bicep`**:
 ```bicep
 // ============================================================
 // bloco6-storage2.bicep
-// Scope: resourceGroup (az104-rg6adv)
+// Scope: resourceGroup (rg-contoso-storage)
 // Cria segunda Storage Account para destino de AzCopy e
 // Object Replication
 // ============================================================
@@ -2701,15 +2701,15 @@ output primaryBlobEndpoint string = storageAccount.properties.primaryEndpoints.b
 
 ```bash
 # Criar Resource Group para recursos avancados
-az group create --name az104-rg6adv --location eastus
+az group create --name rg-contoso-storage --location eastus
 
 # Gerar nome unico para a segunda Storage Account
-STORAGE2_NAME="contosostore2$(openssl rand -hex 3)"
+STORAGE2_NAME="stcontosoprod01$(openssl rand -hex 3)"
 echo "Storage Account 2: $STORAGE2_NAME"
 
 # Deploy via Bicep
 az deployment group create \
-  -g az104-rg6adv \
+  -g rg-contoso-storage \
   --template-file bloco6-storage2.bicep \
   --parameters storageAccountName="$STORAGE2_NAME"
 ```
@@ -2726,7 +2726,7 @@ az deployment group create \
 # Suporta: SAS tokens, Azure AD auth, access keys
 
 # 1. Obter nome da Storage Account de origem (Bloco 1)
-STORAGE1_NAME=$(az storage account list -g az104-rg6 \
+STORAGE1_NAME=$(az storage account list -g rg-contoso-storage \
   --query "[0].name" -o tsv)
 echo "Origem: $STORAGE1_NAME"
 
@@ -2875,7 +2875,7 @@ Salve como **`bloco6-keyvault.bicep`**:
 ```bicep
 // ============================================================
 // bloco6-keyvault.bicep
-// Scope: resourceGroup (az104-rg6adv)
+// Scope: resourceGroup (rg-contoso-storage)
 // Cria Key Vault com purge protection + 2 chaves RSA
 // ============================================================
 
@@ -2982,12 +2982,12 @@ output diskEncryptionKeyUri string = diskEncryptionKey.properties.keyUriWithVers
 ADMIN_OID=$(az ad signed-in-user show --query id -o tsv)
 
 # Gerar nome unico para Key Vault
-KV_NAME="az104-kv-$(openssl rand -hex 3)"
+KV_NAME="kv-contoso-prod-$(openssl rand -hex 3)"
 echo "Key Vault: $KV_NAME"
 
 # Deploy do Key Vault + chaves
 az deployment group create \
-  -g az104-rg6adv \
+  -g rg-contoso-storage \
   --template-file bloco6-keyvault.bicep \
   --parameters keyVaultName="$KV_NAME" adminObjectId="$ADMIN_OID"
 
@@ -3009,13 +3009,13 @@ az keyvault key list --vault-name "$KV_NAME" -o table
 # 1. Habilitar System-assigned Managed Identity na Storage Account de origem
 az storage account update \
   --name "$STORAGE1_NAME" \
-  --resource-group az104-rg6 \
+  --resource-group rg-contoso-storage \
   --identity-type SystemAssigned
 
 # 2. Obter o Principal ID da Managed Identity
 STORAGE_IDENTITY=$(az storage account show \
   --name "$STORAGE1_NAME" \
-  --resource-group az104-rg6 \
+  --resource-group rg-contoso-storage \
   --query identity.principalId -o tsv)
 echo "Storage Account Identity: $STORAGE_IDENTITY"
 
@@ -3031,7 +3031,7 @@ az role assignment create \
 # 4. Configurar CMK na Storage Account
 az storage account update \
   --name "$STORAGE1_NAME" \
-  --resource-group az104-rg6 \
+  --resource-group rg-contoso-storage \
   --encryption-key-source Microsoft.Keyvault \
   --encryption-key-vault "https://${KV_NAME}.vault.azure.net" \
   --encryption-key-name storage-cmk
@@ -3039,7 +3039,7 @@ az storage account update \
 # 5. Verificar configuracao
 az storage account show \
   --name "$STORAGE1_NAME" \
-  --resource-group az104-rg6 \
+  --resource-group rg-contoso-storage \
   --query "encryption.{keySource: keySource, keyVault: keyVaultProperties.keyVaultUri, keyName: keyVaultProperties.keyName}" \
   -o table
 ```
@@ -3070,7 +3070,7 @@ az storage account show \
 # 1. Verificar status atual de identity-based access
 az storage account show \
   --name "$STORAGE1_NAME" \
-  --resource-group az104-rg6 \
+  --resource-group rg-contoso-storage \
   --query "azureFilesIdentityBasedAuthentication" \
   -o json
 
@@ -3093,7 +3093,7 @@ echo "ACLs NTFS controlam acesso GRANULAR (arquivo/diretorio)."
 # az role assignment create \
 #   --role "Storage File Data SMB Share Contributor" \
 #   --assignee "<user-or-group-object-id>" \
-#   --scope "/subscriptions/<sub-id>/resourceGroups/az104-rg6/providers/Microsoft.Storage/storageAccounts/$STORAGE1_NAME/fileServices/default/fileshares/contoso-files"
+#   --scope "/subscriptions/<sub-id>/resourceGroups/rg-contoso-storage/providers/Microsoft.Storage/storageAccounts/$STORAGE1_NAME/fileServices/default/fileshares/contoso-files"
 ```
 
 ---
@@ -3116,15 +3116,15 @@ echo "ACLs NTFS controlam acesso GRANULAR (arquivo/diretorio)."
 # - Nao suportado em Basic VMs ou VMs com < 2 GB RAM
 
 # 1. Verificar que a VM esta running
-az vm show -g az104-rg7 -n az104-vm-win \
+az vm show -g rg-contoso-compute -n vm-web-01 \
   --query "powerState" -o tsv --show-details
 
 # 2. Habilitar ADE com Key Encryption Key (KEK)
 # CONCEITO AZ-104: KEK adiciona camada extra — a chave do BitLocker
 # e encriptada pela KEK no Key Vault
 az vm encryption enable \
-  --resource-group az104-rg7 \
-  --name az104-vm-win \
+  --resource-group rg-contoso-compute \
+  --name vm-web-01 \
   --disk-encryption-keyvault "$KV_NAME" \
   --key-encryption-key disk-encryption \
   --volume-type All
@@ -3133,14 +3133,14 @@ az vm encryption enable \
 
 # 3. Verificar status da criptografia
 az vm encryption show \
-  --resource-group az104-rg7 \
-  --name az104-vm-win \
+  --resource-group rg-contoso-compute \
+  --name vm-web-01 \
   -o table
 
 # 4. Verificar no detalhe
 az vm encryption show \
-  --resource-group az104-rg7 \
-  --name az104-vm-win \
+  --resource-group rg-contoso-compute \
+  --name vm-web-01 \
   --query "{osDisk: disks[0].statuses[0].code, dataDisk: disks[1].statuses[0].code}" \
   -o json
 ```
@@ -3255,7 +3255,7 @@ As roles especificas para Azure Files via SMB sao: Reader (leitura), Contributor
 
 **Tecnologia:** Bicep + CLI
 **Recursos criados:** 1 Azure Container Registry (Basic), 1 ACI from ACR, App Service configs (custom domain, TLS, backup, VNet integration)
-**Resource Groups:** `az104-rg8` (existente), `az104-rg7acr` (novo)
+**Resource Groups:** `rg-contoso-compute` (existente), `rg-contoso-computeacr` (novo)
 
 > **Pre-requisito:** Blocos 1 e 3 devem estar completos (Storage Account + App Service criados).
 
@@ -3268,7 +3268,7 @@ Salve como **`bloco7-acr.bicep`**:
 ```bicep
 // ============================================================
 // bloco7-acr.bicep
-// Scope: resourceGroup (az104-rg7acr)
+// Scope: resourceGroup (rg-contoso-computeacr)
 // Cria Azure Container Registry (Basic) com admin user
 // ============================================================
 
@@ -3321,15 +3321,15 @@ output loginServer string = acr.properties.loginServer
 
 ```bash
 # Criar Resource Group para ACR
-az group create --name az104-rg7acr --location eastus
+az group create --name rg-contoso-computeacr --location eastus
 
 # Gerar nome unico para ACR (apenas alfanumerico, sem hifens)
-ACR_NAME="az104acr$(openssl rand -hex 3)"
+ACR_NAME="acrcontosoprod$(openssl rand -hex 3)"
 echo "ACR: $ACR_NAME"
 
 # Deploy via Bicep
 az deployment group create \
-  -g az104-rg7acr \
+  -g rg-contoso-computeacr \
   --template-file bloco7-acr.bicep \
   --parameters acrName="$ACR_NAME"
 
@@ -3377,7 +3377,7 @@ Salve como **`bloco7-aci-from-acr.bicep`**:
 ```bicep
 // ============================================================
 // bloco7-aci-from-acr.bicep
-// Scope: resourceGroup (az104-rg7acr)
+// Scope: resourceGroup (rg-contoso-computeacr)
 // Cria ACI puxando imagem de um ACR privado
 // ============================================================
 
@@ -3385,9 +3385,9 @@ Salve como **`bloco7-aci-from-acr.bicep`**:
 param location string = resourceGroup().location
 
 @description('Nome do container instance')
-param containerName string = 'az104-acr-aci'
+param containerName string = 'ci-contoso-worker'
 
-@description('Login server do ACR (ex: az104acr123.azurecr.io)')
+@description('Login server do ACR (ex: acrcontosoprod123.azurecr.io)')
 param acrLoginServer string
 
 @description('Username do ACR (admin user)')
@@ -3467,7 +3467,7 @@ ACR_PASS=$(az acr credential show --name "$ACR_NAME" --query "passwords[0].value
 
 # Deploy ACI from ACR
 az deployment group create \
-  -g az104-rg7acr \
+  -g rg-contoso-computeacr \
   --template-file bloco7-aci-from-acr.bicep \
   --parameters \
     acrLoginServer="$ACR_LOGIN" \
@@ -3476,11 +3476,11 @@ az deployment group create \
     imageName="sample-app:v1"
 
 # Verificar status
-az container show -g az104-rg7acr -n az104-acr-aci \
+az container show -g rg-contoso-computeacr -n ci-contoso-worker \
   --query "{status: instanceView.state, ip: ipAddress.ip}" -o table
 
 # Ver logs do container
-az container logs -g az104-rg7acr -n az104-acr-aci
+az container logs -g rg-contoso-computeacr -n ci-contoso-worker
 ```
 
 ---
@@ -3503,12 +3503,12 @@ az container logs -g az104-rg7acr -n az104-acr-aci
 # Requer Basic ou superior
 
 # Obter nome do App Service (Bloco 3)
-APP_NAME=$(az webapp list -g az104-rg8 --query "[0].name" -o tsv)
+APP_NAME=$(az webapp list -g rg-contoso-compute --query "[0].name" -o tsv)
 echo "App Service: $APP_NAME"
 echo "Default FQDN: $APP_NAME.azurewebsites.net"
 
 # Verificar Custom Domain Verification ID
-az webapp show -g az104-rg8 -n "$APP_NAME" \
+az webapp show -g rg-contoso-compute -n "$APP_NAME" \
   --query "hostNames" -o json
 
 # Processo de mapeamento (documentacao):
@@ -3548,19 +3548,19 @@ echo "   TXT asuid → [Verification ID]"
 
 # 1. Configurar HTTPS Only
 az webapp update \
-  --resource-group az104-rg8 \
+  --resource-group rg-contoso-compute \
   --name "$APP_NAME" \
   --https-only true
 
 # 2. Configurar TLS minimo 1.2
 az webapp config set \
-  --resource-group az104-rg8 \
+  --resource-group rg-contoso-compute \
   --name "$APP_NAME" \
   --min-tls-version 1.2
 
 # 3. Verificar configuracao
 az webapp show \
-  --resource-group az104-rg8 \
+  --resource-group rg-contoso-compute \
   --name "$APP_NAME" \
   --query "{httpsOnly: httpsOnly, minTls: siteConfig.minTlsVersion}" \
   -o table
@@ -3569,7 +3569,7 @@ az webapp show \
 ```bash
 # TASK 7.5 (validacao) - Testar redirect HTTP → HTTPS
 # HTTPS Only forca redirect 301 de HTTP para HTTPS
-WEBAPP_URL=$(az webapp show -g az104-rg8 -n "$APP_NAME" --query "defaultHostName" -o tsv)
+WEBAPP_URL=$(az webapp show -g rg-contoso-compute -n "$APP_NAME" --query "defaultHostName" -o tsv)
 curl -I http://$WEBAPP_URL 2>/dev/null | head -5
 # Resultado esperado:
 # HTTP/1.1 301 Moved Permanently
@@ -3614,7 +3614,7 @@ BACKUP_URL="https://${STORAGE1_NAME}.blob.core.windows.net/webapp-backups?${BACK
 
 # 3. Configurar backup agendado (diario, 30 dias de retencao)
 az webapp config backup update \
-  --resource-group az104-rg8 \
+  --resource-group rg-contoso-compute \
   --webapp-name "$APP_NAME" \
   --container-url "$BACKUP_URL" \
   --frequency 1d \
@@ -3623,13 +3623,13 @@ az webapp config backup update \
 
 # 4. Executar backup imediato
 az webapp config backup create \
-  --resource-group az104-rg8 \
+  --resource-group rg-contoso-compute \
   --webapp-name "$APP_NAME" \
   --container-url "$BACKUP_URL"
 
 # 5. Verificar status do backup
 az webapp config backup list \
-  --resource-group az104-rg8 \
+  --resource-group rg-contoso-compute \
   --webapp-name "$APP_NAME" \
   -o table
 
@@ -3653,15 +3653,15 @@ echo "Verifique o arquivo .zip no container webapp-backups da conta $STORAGE1_NA
 # Requer subnet DEDICADA (/28 minimo), sem outros recursos
 # Funciona com peering e ExpressRoute
 
-# 1. Verificar VNets disponiveis (CoreServicesVnet da Semana 1)
+# 1. Verificar VNets disponiveis (vnet-contoso-hub-brazilsouth da Semana 1)
 az network vnet list \
   --query "[?contains(name, 'CoreServices')].{name:name, rg:resourceGroup, addressSpace:addressSpace.addressPrefixes[0]}" \
   -o table
 
 # 2. Criar subnet dedicada para App Service (se necessario)
 # A subnet precisa ser delegada ao Microsoft.Web/serverFarms
-VNET_RG="az104-rg4"  # RG da VNet da Semana 1
-VNET_NAME="CoreServicesVnet"
+VNET_RG="rg-contoso-network"  # RG da VNet da Semana 1
+VNET_NAME="vnet-contoso-hub-brazilsouth"
 
 az network vnet subnet create \
   --resource-group "$VNET_RG" \
@@ -3673,14 +3673,14 @@ az network vnet subnet create \
 
 # 3. Configurar VNet Integration
 az webapp vnet-integration add \
-  --resource-group az104-rg8 \
+  --resource-group rg-contoso-compute \
   --name "$APP_NAME" \
   --vnet "$VNET_NAME" \
   --subnet WebAppSubnet
 
 # 4. Verificar integracao
 az webapp vnet-integration list \
-  --resource-group az104-rg8 \
+  --resource-group rg-contoso-compute \
   --name "$APP_NAME" \
   -o table
 
@@ -3691,7 +3691,7 @@ echo "  - VMs em subnets da mesma VNet"
 echo "  - Recursos em VNets peered"
 ```
 
-> **Conexao com Semana 1:** O App Service agora pode acessar o Storage Account via Private Endpoint pela CoreServicesVnet, garantindo trafego privado.
+> **Conexao com Semana 1:** O App Service agora pode acessar o Storage Account via Private Endpoint pela vnet-contoso-hub-brazilsouth, garantindo trafego privado.
 
 ---
 
@@ -3703,7 +3703,7 @@ echo "  - Recursos em VNets peered"
 - [ ] Explorar Custom Domain no App Service **(Bloco 3)** — CNAME + TXT verification
 - [ ] Configurar HTTPS Only + TLS 1.2 no App Service
 - [ ] Configurar backup do App Service para Storage Account **(Bloco 1)** com schedule diario
-- [ ] Configurar VNet Integration no App Service com CoreServicesVnet **(Semana 1)**
+- [ ] Configurar VNet Integration no App Service com vnet-contoso-hub-brazilsouth **(Semana 1)**
 
 ---
 
@@ -3799,20 +3799,20 @@ Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos
 
 ```bash
 # Pausar
-az vm deallocate -g az104-rg7 -n az104-vm-win --no-wait
-az vm deallocate -g az104-rg7 -n az104-vm-linux --no-wait
-az vmss scale -g az104-rg7 -n az104-vmss --new-capacity 0
-az container stop -g az104-rg9 -n az104-container-1
-az container stop -g az104-rg9 -n az104-container-2
-az container stop -g az104-rg7acr -n az104-acr-aci
+az vm deallocate -g rg-contoso-compute -n vm-web-01 --no-wait
+az vm deallocate -g rg-contoso-compute -n vm-api-01 --no-wait
+az vmss scale -g rg-contoso-compute -n vmss-contoso-web --new-capacity 0
+az container stop -g rg-contoso-compute -n ci-contoso-worker
+az container stop -g rg-contoso-compute -n ci-contoso-worker
+az container stop -g rg-contoso-computeacr -n ci-contoso-worker
 
 # Retomar
-az vm start -g az104-rg7 -n az104-vm-win --no-wait
-az vm start -g az104-rg7 -n az104-vm-linux --no-wait
-az vmss scale -g az104-rg7 -n az104-vmss --new-capacity 1
-az container start -g az104-rg9 -n az104-container-1
-az container start -g az104-rg9 -n az104-container-2
-az container start -g az104-rg7acr -n az104-acr-aci
+az vm start -g rg-contoso-compute -n vm-web-01 --no-wait
+az vm start -g rg-contoso-compute -n vm-api-01 --no-wait
+az vmss scale -g rg-contoso-compute -n vmss-contoso-web --new-capacity 1
+az container start -g rg-contoso-compute -n ci-contoso-worker
+az container start -g rg-contoso-compute -n ci-contoso-worker
+az container start -g rg-contoso-computeacr -n ci-contoso-worker
 ```
 
 > **Nota:** Desalocar VMs para cobranca de compute, mas discos e IPs publicos continuam cobrando. O App Service Plan (Standard S1) cobra enquanto existir — para parar, delete o plano ou rebaixe para Free F1. Container Apps com scale-to-zero nao geram custo quando ociosas. Key Vault cobra por operacao (muito baixo custo).
@@ -3832,13 +3832,13 @@ read -p "Confirmar? (y/n): " CONFIRM
 
 if [ "$CONFIRM" = "y" ]; then
     # Deletar Resource Groups (remove TODOS os recursos dentro deles)
-    az group delete --name az104-rg6 --yes --no-wait
-    az group delete --name az104-rg6adv --yes --no-wait
-    az group delete --name az104-rg7 --yes --no-wait
-    az group delete --name az104-rg7acr --yes --no-wait
-    az group delete --name az104-rg8 --yes --no-wait
-    az group delete --name az104-rg9 --yes --no-wait
-    az group delete --name az104-rg10 --yes --no-wait
+    az group delete --name rg-contoso-storage --yes --no-wait
+    az group delete --name rg-contoso-storage --yes --no-wait
+    az group delete --name rg-contoso-compute --yes --no-wait
+    az group delete --name rg-contoso-computeacr --yes --no-wait
+    az group delete --name rg-contoso-compute --yes --no-wait
+    az group delete --name rg-contoso-compute --yes --no-wait
+    az group delete --name rg-contoso-compute --yes --no-wait
 
     # Purge Key Vault (necessario porque tem purge protection habilitado)
     # Sem purge, o nome fica reservado por 90 dias
@@ -3850,7 +3850,7 @@ if [ "$CONFIRM" = "y" ]; then
     echo ""
     echo "=== CLEANUP INICIADO ==="
     echo "Todos os RGs sendo deletados em background."
-    echo "Use 'az group list --query \"[?starts_with(name, 'az104-rg')]\" -o table' para verificar."
+    echo "Use 'az group list --query \"[?starts_with(name, 'rg-contoso')]\" -o table' para verificar."
 else
     echo "Cleanup cancelado."
 fi
@@ -3932,7 +3932,7 @@ fi
 ## Hierarquia de Storage
 
 ```
-Storage Account (az104sto*)
+Storage Account (stcontosoprod*)
 ├── Blob Service
 │   ├── Container (contoso-data)
 │   │   └── Blobs (arquivos)

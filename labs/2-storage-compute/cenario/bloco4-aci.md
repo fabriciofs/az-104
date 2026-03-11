@@ -3,7 +3,7 @@
 # Bloco 4 - Azure Container Instances
 
 **Origem:** Lab 09b - Implement Azure Container Instances
-**Resource Groups utilizados:** `az104-rg9`
+**Resource Groups utilizados:** `rg-contoso-compute`
 
 ## Contexto
 
@@ -13,13 +13,13 @@ A Contoso Corp precisa executar cargas de trabalho em containers para processos 
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
-│                          az104-rg9                             │
+│                          rg-contoso-compute                             │
 │                                                                │
 │  ┌──────────────────────────────────────────────────────────┐  │
-│  │  Container Group: az104-aci-1                            │  │
+│  │  Container Group: ci-contoso-worker                            │  │
 │  │                                                          │  │
 │  │  ┌────────────────────────────────────────────────────┐  │  │
-│  │  │  Container: az104-container-1                      │  │  │
+│  │  │  Container: ci-contoso-worker                      │  │  │
 │  │  │  Image: mcr.microsoft.com/azuredocs/aci-helloworld │  │  │
 │  │  │                                                    │  │  │
 │  │  │  Resources: 1 CPU, 1.5 GiB memory                  │  │  │
@@ -30,7 +30,7 @@ A Contoso Corp precisa executar cargas de trabalho em containers para processos 
 │  │  │  ┌──────────────────────────────────────────┐      │  │  │
 │  │  │  │  /mnt/fileshare → contoso-files          │      │  │  │
 │  │  │  │  (Azure File Share do Bloco 1)           │      │  │  │
-│  │  │  │  Storage: contosostore<id>               │      │  │  │
+│  │  │  │  Storage: stcontosoprod01               │      │  │  │
 │  │  │  └──────────────────────────────────────────┘      │  │  │
 │  │  └────────────────────────────────────────────────────┘  │  │
 │  └──────────────────────────────────────────────────────────┘  │
@@ -53,8 +53,8 @@ A Contoso Corp precisa executar cargas de trabalho em containers para processos 
    | Setting        | Value                                        |
    | -------------- | -------------------------------------------- |
    | Subscription   | *sua subscription*                           |
-   | Resource group | `az104-rg9` (crie se necessario)             |
-   | Container name | `az104-container-1`                          |
+   | Resource group | `rg-contoso-compute` (ja existe do Modulo 1)             |
+   | Container name | `ci-contoso-worker`                          |
    | Region         | **East US**                                  |
    | SKU            | **Standard**                                 |
    | Image source   | **Other registry**                           |
@@ -68,7 +68,7 @@ A Contoso Corp precisa executar cargas de trabalho em containers para processos 
    | Setting         | Value                                      |
    | --------------- | ------------------------------------------ |
    | Networking type | **Public**                                 |
-   | DNS name label  | `az104-aci-<uniqueid>` (globalmente unico) |
+   | DNS name label  | `ci-contoso-<uniqueid>` (globalmente unico) |
    | Ports           | `80`                                       |
    | Port protocol   | **TCP**                                    |
 
@@ -82,7 +82,7 @@ A Contoso Corp precisa executar cargas de trabalho em containers para processos 
 
 6. Aguarde o deployment > **Go to resource**
 
-7. No blade **Overview**, copie o **FQDN** (ex: `az104-aci-<uniqueid>.eastus.azurecontainer.io`)
+7. No blade **Overview**, copie o **FQDN** (ex: `ci-contoso-<uniqueid>.eastus.azurecontainer.io`)
 
 8. Acesse o FQDN no navegador — voce deve ver a pagina "Welcome to Azure Container Instances!"
 
@@ -102,7 +102,7 @@ A Contoso Corp precisa executar cargas de trabalho em containers para processos 
 Voce cria um novo container que monta o file share `contoso-files` do Bloco 1, demonstrando persistencia de dados entre containers e VMs.
 
 1. Primeiro, obtenha a **storage account key** do Bloco 1:
-   - Navegue para Storage Account **contosostore\<uniqueid\>** > **Security + networking** > **Access keys**
+   - Navegue para Storage Account **stcontosoprod01** > **Security + networking** > **Access keys**
    - Copie **key1**
 
 2. Pesquise **Container instances** > **+ Create**
@@ -111,8 +111,8 @@ Voce cria um novo container que monta o file share `contoso-files` do Bloco 1, d
 
    | Setting        | Value                                        |
    | -------------- | -------------------------------------------- |
-   | Resource group | `az104-rg9`                                  |
-   | Container name | `az104-container-2`                          |
+   | Resource group | `rg-contoso-compute`                                  |
+   | Container name | `ci-contoso-worker-2`                          |
    | Region         | **East US**                                  |
    | Image source   | **Other registry**                           |
    | Image type     | **Public**                                   |
@@ -125,7 +125,7 @@ Voce cria um novo container que monta o file share `contoso-files` do Bloco 1, d
    | Setting         | Value                   |
    | --------------- | ----------------------- |
    | Networking type | **Public**              |
-   | DNS name label  | `az104-aci2-<uniqueid>` |
+   | DNS name label  | `ci-contoso2-<uniqueid>` |
    | Ports           | `80`                    |
 
 5. Aba **Advanced**:
@@ -140,7 +140,7 @@ Voce cria um novo container que monta o file share `contoso-files` do Bloco 1, d
    | -------------------- | ---------------------------------- |
    | Volume name          | `filesharevolume`                  |
    | Volume type          | **Azure file share**               |
-   | Storage account name | `contosostore<uniqueid>` (Bloco 1) |
+   | Storage account name | `stcontosoprod01` (Bloco 1) |
    | Storage account key  | *cole key1 copiada acima*          |
    | File share name      | `contoso-files`                    |
    | Mount path           | `/mnt/fileshare`                   |
@@ -176,7 +176,7 @@ Voce cria um novo container que monta o file share `contoso-files` do Bloco 1, d
 
 ### Task 4.3: Revisar logs e eventos do container
 
-1. Na container instance **az104-container-1**, navegue para **Settings** > **Containers**
+1. Na container instance **ci-contoso-worker**, navegue para **Settings** > **Containers**
 
 2. Selecione o container e explore as abas:
    - **Events**: mostra eventos de lifecycle (Pull, Start, etc.)
@@ -198,7 +198,7 @@ Voce cria um novo container que monta o file share `contoso-files` do Bloco 1, d
 
 ### Task 4.4: Testar restart e lifecycle do container
 
-1. Na container instance **az104-container-1**, clique em **Restart** no blade **Overview**
+1. Na container instance **ci-contoso-worker**, clique em **Restart** no blade **Overview**
 
 2. Observe os **Events** durante o restart
 
@@ -218,9 +218,9 @@ Voce cria um novo container que monta o file share `contoso-files` do Bloco 1, d
 
 ## Modo Desafio - Bloco 4
 
-- [ ] Criar container `az104-container-1` com imagem `aci-helloworld` e acesso publico
+- [ ] Criar container `ci-contoso-worker` com imagem `aci-helloworld` e acesso publico
 - [ ] Acessar FQDN e confirmar que o container esta respondendo
-- [ ] **Integracao Bloco 1:** Criar `az104-container-2` com volume montando file share `contoso-files`
+- [ ] **Integracao Bloco 1:** Criar `ci-contoso-worker-2` com volume montando file share `contoso-files`
 - [ ] **Integracao Bloco 2:** Via terminal do container, ler arquivo criado pela VM (`vm-test.txt`)
 - [ ] Criar arquivo no container → confirmar no portal do Storage Account
 - [ ] Revisar logs e eventos do container

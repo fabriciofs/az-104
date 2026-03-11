@@ -3,37 +3,36 @@
 # Bloco 3 - Azure Resources & IaC
 
 **Origem:** Lab 03b - Manage Azure Resources by Using ARM Templates + **testes de integracao com governanca**
-**Resource Groups utilizados:** `az104-rg3` (preparado no Bloco 2 com policies)
+**Resource Groups utilizados:** `rg-contoso-identity` (preparado no Bloco 2 com policies)
 
 ## Contexto
 
-Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial desta versao: todos os discos sao criados no **az104-rg3** que ja tem policies ativas do Bloco 2 (Modify tag + Allowed Locations). A cada deploy, voce **valida que a governanca funciona**: tags herdadas e restricao de regiao.
+Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial desta versao: todos os discos sao criados no **rg-contoso-identity** que ja tem policies ativas do Bloco 2 (Modify tag + Allowed Locations). A cada deploy, voce **valida que a governanca funciona**: tags herdadas e restricao de regiao.
 
 ## Diagrama
 
 ```
 ┌───────────────────────────────────────────────────────────┐
-│                    az104-rg3                              │
+│                    rg-contoso-identity                              │
 │               Tag: Cost Center = 000                      │
 │          Policy: Modify (inherit tag) ← Bloco 2           │
 │          Policy: Allowed Locations (East US) ← Bloco 2    │
 │          RBAC: Reader → Guest user ← Bloco 2              │
 │                                                           │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐      │
-│  │az104-    │ │az104-    │ │az104-    │ │az104-    │      │
-│  │disk1     │ │disk2     │ │disk3     │ │disk4     │      │
-│  │(Portal)  │ │(ARM      │ │(ARM +    │ │(ARM +    │      │
-│  │          │ │ Portal)  │ │PowerShell│ │ CLI)     │      │
-│  │Tag: ✓    │ │Tag: ✓    │ │Tag: ✓    │ │Tag: ✓    │      │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘      │
-│                                                           │
-│  ┌──────────┐ ┌──────────────────────────────────────┐    │
-│  │az104-    │ │ Testes de integracao:                │    │
-│  │disk5     │ │ • Tags herdadas em cada disco ✓      │    │
-│  │(Bicep +  │ │ • Deploy West US → bloqueado ✓       │    │
-│  │ CLI)     │ │ • Guest user → somente leitura ✓     │    │
-│  │Tag: ✓    │ └──────────────────────────────────────┘    │
-│  └──────────┘                                             │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ │
+│  │disk-iac-    │ │disk-iac-    │ │disk-iac-    │ │disk-iac-    │ │
+│  │test-01      │ │test-02      │ │test-03      │ │test-04      │ │
+│  │(Portal)     │ │(ARM Portal) │ │(ARM + PS)   │ │(ARM + CLI)  │ │
+│  │Tag: ✓       │ │Tag: ✓       │ │Tag: ✓       │ │Tag: ✓       │ │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘ │
+│                                                                   │
+│  ┌─────────────┐ ┌──────────────────────────────────────┐         │
+│  │disk-iac-    │ │ Testes de integracao:                │         │
+│  │test-05      │ │ • Tags herdadas em cada disco ✓      │         │
+│  │(Bicep +     │ │ • Deploy West US → bloqueado ✓       │         │
+│  │ CLI)        │ │ • Guest user → somente leitura ✓     │         │
+│  │Tag: ✓       │ └──────────────────────────────────────┘         │
+│  └─────────────┘                                                  │
 │                                                           │
 │  → Cloud Shell configurado aqui → reusado nos Blocos 4/5  │
 │  → ARM/Bicep skills → usadas no Bloco 4                   │
@@ -49,8 +48,8 @@ Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial de
    | Setting           | Value                                     |
    | ----------------- | ----------------------------------------- |
    | Subscription      | *sua subscription*                        |
-   | Resource Group    | `az104-rg3`                               |
-   | Disk name         | `az104-disk1`                             |
+   | Resource Group    | `rg-contoso-identity`                               |
+   | Disk name         | `disk-iac-test-01`                             |
    | Region            | **East US**                               |
    | Availability zone | **No infrastructure redundancy required** |
    | Source type       | **None**                                  |
@@ -63,7 +62,7 @@ Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial de
 
 4. **Validacao de governanca:** No blade **Tags**, verifique que a tag **Cost Center = 000** foi automaticamente atribuida pela policy Modify do Bloco 2.
 
-   > **Conexao com Bloco 2:** A policy "Inherit tag from resource group if missing" esta funcionando! O disco herdou a tag do az104-rg3 sem voce precisar configura-la manualmente.
+   > **Conexao com Bloco 2:** A policy "Inherit tag from resource group if missing" esta funcionando! O disco herdou a tag do rg-contoso-identity sem voce precisar configura-la manualmente.
 
 5. No blade **Automation**, selecione **Export template**
 
@@ -73,21 +72,21 @@ Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial de
 
 ---
 
-### Task 3.2: Editar template e fazer deploy de az104-disk2 via portal
+### Task 3.2: Editar template e fazer deploy de disk-iac-test-02 via portal
 
 1. Pesquise **Deploy a custom template** > **Build your own template in the editor**
 
 2. **Load file** > carregue **template.json**
 
 3. No editor, altere:
-   - `disks_az104_disk1_name` → `disk_name` (dois locais)
-   - `az104-disk1` → `az104-disk2` (um local)
+   - `disks_disk_iac_test_01_name` → `disk_name` (dois locais)
+   - `disk-iac-test-01` → `disk-iac-test-02` (um local)
 
 4. Clique em **Save**
 
 5. **Edit parameters** > **Load file** > carregue **parameters.json**
 
-6. Altere `disks_az104_disk1_name` → `disk_name`
+6. Altere `disks_disk_iac_test_01_name` → `disk_name`
 
 7. Clique em **Save**
 
@@ -95,9 +94,9 @@ Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial de
 
    | Setting        | Value         |
    | -------------- | ------------- |
-   | Resource Group | `az104-rg3`   |
+   | Resource Group | `rg-contoso-identity`   |
    | Region         | **East US**   |
-   | Disk_name      | `az104-disk2` |
+   | Disk_name      | `disk-iac-test-02` |
 
 9. Clique em **Review + Create** > **Create**
 
@@ -107,7 +106,7 @@ Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial de
 
 ---
 
-### Task 3.3: Configurar Cloud Shell e deploy de az104-disk3 via PowerShell
+### Task 3.3: Configurar Cloud Shell e deploy de disk-iac-test-03 via PowerShell
 
 1. Clique no icone do **Cloud Shell** no canto superior direito
 
@@ -119,7 +118,7 @@ Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial de
 
    | Setting         | Value                                                      |
    | --------------- | ---------------------------------------------------------- |
-   | Resource Group  | **az104-rg3**                                              |
+   | Resource Group  | **rg-contoso-identity**                                              |
    | Region          | *sua regiao*                                               |
    | Storage account | *nome unico globalmente (3-24 chars, lowercase + numeros)* |
    | File share      | `fs-cloudshell`                                            |
@@ -132,12 +131,12 @@ Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial de
 
 7. **Upload** os arquivos template.json e parameters.json
 
-8. No **Editor**, altere o nome do disco para `az104-disk3`. Salve com **Ctrl+S**
+8. No **Editor**, altere o nome do disco para `disk-iac-test-03`. Salve com **Ctrl+S**
 
 9. Execute o deploy:
 
     ```powershell
-    New-AzResourceGroupDeployment -ResourceGroupName az104-rg3 -TemplateFile template.json -TemplateParameterFile parameters.json
+    New-AzResourceGroupDeployment -ResourceGroupName rg-contoso-identity -TemplateFile template.json -TemplateParameterFile parameters.json
     ```
 
 10. Verifique que o ProvisioningState e **Succeeded**
@@ -145,25 +144,25 @@ Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial de
 11. **Validacao de governanca:** Verifique a tag:
 
     ```powershell
-    Get-AzDisk -ResourceGroupName az104-rg3 -DiskName az104-disk3 | Select-Object Name, Tags
+    Get-AzDisk -ResourceGroupName rg-contoso-identity -DiskName disk-iac-test-03 | Select-Object Name, Tags
     ```
 
     A tag `Cost Center: 000` deve aparecer.
 
 ---
 
-### Task 3.4: Deploy via CLI (Bash) de az104-disk4
+### Task 3.4: Deploy via CLI (Bash) de disk-iac-test-04
 
 1. No Cloud Shell, selecione **Bash** e **confirme**
 
 2. Verifique os arquivos: `ls`
 
-3. No **Editor**, altere o nome do disco para `az104-disk4`. Salve com **Ctrl+S**
+3. No **Editor**, altere o nome do disco para `disk-iac-test-04`. Salve com **Ctrl+S**
 
 4. Execute o deploy:
 
    ```sh
-   az deployment group create --resource-group az104-rg3 --template-file template.json --parameters parameters.json
+   az deployment group create --resource-group rg-contoso-identity --template-file template.json --parameters parameters.json
    ```
 
 5. Verifique o ProvisioningState: **Succeeded**
@@ -171,14 +170,14 @@ Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial de
 6. **Validacao de governanca:**
 
    ```sh
-   az disk show --resource-group az104-rg3 --name az104-disk4 --query tags
+   az disk show --resource-group rg-contoso-identity --name disk-iac-test-04 --query tags
    ```
 
    Resultado esperado: `{"Cost Center": "000"}`
 
 ---
 
-### Task 3.5: Deploy via Bicep de az104-disk5
+### Task 3.5: Deploy via Bicep de disk-iac-test-05
 
 1. Continue no **Cloud Shell** (Bash)
 
@@ -226,7 +225,7 @@ Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial de
    ```
 
 3. No **Editor**, faca as alteracoes:
-   - Linha 2: `managedDiskName` default → `az104-disk5`
+   - Linha 2: `managedDiskName` default → `disk-iac-test-05`
    - Linha 27 (dentro do bloco `sku`): name → `StandardSSD_LRS`
    - Linha 7: `diskSizeinGiB` default → `32`
 
@@ -235,19 +234,19 @@ Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial de
 5. Execute o deploy:
 
    ```sh
-   az deployment group create --resource-group az104-rg3 --template-file azuredeploydisk.bicep
+   az deployment group create --resource-group rg-contoso-identity --template-file azuredeploydisk.bicep
    ```
 
 6. **Validacao de governanca:**
 
    ```sh
-   az disk show --resource-group az104-rg3 --name az104-disk5 --query tags
+   az disk show --resource-group rg-contoso-identity --name disk-iac-test-05 --query tags
    ```
 
 7. Liste todos os 5 discos:
 
    ```sh
-   az disk list --resource-group az104-rg3 --output table
+   az disk list --resource-group rg-contoso-identity --output table
    ```
 
 ---
@@ -259,7 +258,7 @@ Voce testa a policy do Bloco 2 que restringe recursos ao East US.
 1. No Cloud Shell (Bash), tente criar um disco em **West US**:
 
    ```sh
-   az deployment group create --resource-group az104-rg3 \
+   az deployment group create --resource-group rg-contoso-identity \
      --template-file azuredeploydisk.bicep \
      --parameters managedDiskName=az104-disk-test location=westus
    ```
@@ -275,7 +274,7 @@ Voce testa a policy do Bloco 2 que restringe recursos ao East US.
 3. Confirme que o disco de teste NAO foi criado:
 
    ```sh
-   az disk list --resource-group az104-rg3 --output table
+   az disk list --resource-group rg-contoso-identity --output table
    ```
 
    Devem aparecer apenas os 5 discos originais.
@@ -294,7 +293,7 @@ Este teste valida o RBAC configurado no Bloco 2 (Reader para o guest user).
 
 3. Faca login com as credenciais do **guest user** (seu email pessoal)
 
-4. Pesquise e selecione **Resource groups** > **az104-rg3**
+4. Pesquise e selecione **Resource groups** > **rg-contoso-identity**
 
 5. Voce deve conseguir **ver** os discos criados
 
@@ -308,11 +307,11 @@ Este teste valida o RBAC configurado no Bloco 2 (Reader para o guest user).
 
 ## Modo Desafio - Bloco 3
 
-- [ ] Criar `az104-disk1` via Portal em az104-rg3 → **verificar tag herdada**
-- [ ] Deploy `az104-disk2` via ARM Portal → **verificar tag herdada**
-- [ ] Configurar Cloud Shell (PowerShell) → deploy `az104-disk3` → **verificar tag**
-- [ ] Trocar para Bash → deploy `az104-disk4` → **verificar tag**
-- [ ] Deploy `az104-disk5` via Bicep → **verificar tag**
+- [ ] Criar `disk-iac-test-01` via Portal em rg-contoso-identity → **verificar tag herdada**
+- [ ] Deploy `disk-iac-test-02` via ARM Portal → **verificar tag herdada**
+- [ ] Configurar Cloud Shell (PowerShell) → deploy `disk-iac-test-03` → **verificar tag**
+- [ ] Trocar para Bash → deploy `disk-iac-test-04` → **verificar tag**
+- [ ] Deploy `disk-iac-test-05` via Bicep → **verificar tag**
 - [ ] **Integracao:** Tentar deploy em West US → bloqueado por policy
 - [ ] **Integracao (opcional):** Login como guest → Reader somente leitura
 
@@ -321,7 +320,7 @@ Este teste valida o RBAC configurado no Bloco 2 (Reader para o guest user).
 ## Questoes de Prova - Bloco 3
 
 ### Questao 3.1
-**Voce aplicou uma policy Modify "Inherit tag from resource group" no az104-rg3. Voce cria um managed disk via ARM template sem tags. O que acontece com as tags do disco?**
+**Voce aplicou uma policy Modify "Inherit tag from resource group" no rg-contoso-identity. Voce cria um managed disk via ARM template sem tags. O que acontece com as tags do disco?**
 
 A) O disco e criado sem tags
 B) O disco herda a tag Cost Center = 000 do resource group automaticamente

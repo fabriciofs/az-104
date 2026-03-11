@@ -76,31 +76,31 @@ $groupITLab      = "IT Lab Administrators"
 $groupHelpdesk   = "helpdesk"
 
 # --- Management Group (Bloco 2) ---
-$mgName = "az104-mg1"
+$mgName = "mg-contoso-prod"
 
 # --- Resource Groups (Blocos 2-5) ---
-$rg2 = "az104-rg2"
-$rg3 = "az104-rg3"
-$rg4 = "az104-rg4"
-$rg5 = "az104-rg5"
+$rg2 = "rg-contoso-identity"
+$rg3 = "rg-contoso-identity"
+$rg4 = "rg-contoso-network"
+$rg5 = "rg-contoso-compute"
 
 # --- Tags ---
 $tags = @{ "Cost Center" = "000" }
 
 # --- Discos (Bloco 3) ---
-$diskNames = @("az104-disk1", "az104-disk2", "az104-disk3", "az104-disk4", "az104-disk5")
+$diskNames = @("disk-iac-test-01", "disk-iac-test-02", "disk-iac-test-03", "disk-iac-test-04", "disk-iac-test-05")
 $diskSizeGB = 32
 $diskSku    = "Standard_LRS"    # Standard HDD
 
 # --- Networking (Bloco 4) ---
-$vnetCore         = "CoreServicesVnet"
+$vnetCore         = "vnet-contoso-hub-brazilsouth"
 $vnetCorePrefix   = "10.20.0.0/16"
-$vnetMfg          = "ManufacturingVnet"
+$vnetMfg          = "vnet-contoso-spoke-brazilsouth"
 $vnetMfgPrefix    = "10.30.0.0/16"
 
-$subnetShared     = "SharedServicesSubnet"
+$subnetShared     = "snet-shared"
 $subnetSharedPfx  = "10.20.10.0/24"
-$subnetDB         = "DatabaseSubnet"
+$subnetDB         = "snet-data"
 $subnetDBPfx      = "10.20.20.0/24"
 $subnetSensor1    = "SensorSubnet1"
 $subnetSensor1Pfx = "10.30.20.0/24"
@@ -108,27 +108,27 @@ $subnetSensor2    = "SensorSubnet2"
 $subnetSensor2Pfx = "10.30.21.0/24"
 
 $asgName  = "asg-web"
-$nsgName  = "myNSGSecure"
+$nsgName  = "nsg-snet-shared"
 
 $dnsPublic  = "contoso.com"
-$dnsPrivate = "private.contoso.com"
+$dnsPrivate = "contoso.internal"
 
 # --- Subnets adicionais (Bloco 5) ---
-$subnetCore       = "Core"
+$subnetCore       = "snet-apps"
 $subnetCorePfx    = "10.20.0.0/24"
-$subnetMfg        = "Manufacturing"
+$subnetMfg        = "snet-workloads"
 $subnetMfgPfx     = "10.30.0.0/24"
 $subnetPerimeter  = "perimeter"
 $subnetPerimPfx   = "10.20.1.0/24"
 
 # --- VMs (Bloco 5) ---
-$vmCore    = "CoreServicesVM"
-$vmMfg     = "ManufacturingVM"
+$vmCore    = "vm-web-01"
+$vmMfg     = "vm-app-01"
 $vmSize    = "Standard_D2s_v3"
 $vmImage   = "MicrosoftWindowsServer:WindowsServer:2025-datacenter-azure-edition:latest"
 
 # --- Route Table (Bloco 5) ---
-$rtName    = "rt-CoreServices"
+$rtName    = "rt-contoso-spoke"
 $nvaIP     = "10.20.1.7"
 ```
 
@@ -148,34 +148,34 @@ Bloco 1 (Identity)
 Bloco 2 (Governance) ──────────────────────────────────────┐
   │                                                        │
   ├─ RBAC: VM Contributor → IT Lab Administrators (MG)     │
-  ├─ RBAC: Reader → Guest user (az104-rg3)                 │
-  ├─ Policy: Require tag (Deny) → az104-rg2 (testada)      │
-  ├─ Policy: Inherit tag (Modify) → az104-rg2 + az104-rg3  │
-  ├─ Policy: Allowed Locations (Deny) → az104-rg3          │
-  ├─ Lock: Delete → az104-rg2                              │
-  └─ Cria az104-rg3 com tag Cost Center = 000              │
+  ├─ RBAC: Reader → Guest user (rg-contoso-identity)                 │
+  ├─ Policy: Require tag (Deny) → rg-contoso-identity (testada)      │
+  ├─ Policy: Inherit tag (Modify) → rg-contoso-identity + rg-contoso-identity  │
+  ├─ Policy: Allowed Locations (Deny) → rg-contoso-identity          │
+  ├─ Lock: Delete → rg-contoso-identity                              │
+  └─ Cria rg-contoso-identity com tag Cost Center = 000              │
                                    │                       │
                                    ▼                       │
 Bloco 3 (IaC) ◄──── Valida governanca ─────────────────────┘
   │
-  ├─ Disks em az104-rg3 → tags herdadas automaticamente ✓
+  ├─ Disks em rg-contoso-identity → tags herdadas automaticamente ✓
   ├─ Deploy West US → bloqueado por Allowed Locations ✓
   └─ Guest user → Reader, nao pode criar recursos ✓
 
                                                      ▼
 Bloco 4 (Networking) ◄──── Cria infraestrutura de rede
   │
-  ├─ CoreServicesVnet (10.20.0.0/16) ──────────────┐
-  ├─ ManufacturingVnet (10.30.0.0/16) ─────────────┤
-  ├─ NSG + ASG na SharedServicesSubnet             │
+  ├─ vnet-contoso-hub-brazilsouth (10.20.0.0/16) ──────────────┐
+  ├─ vnet-contoso-spoke-brazilsouth (10.30.0.0/16) ─────────────┤
+  ├─ NSG + ASG na snet-shared             │
   ├─ DNS publico: contoso.com                      │
-  └─ DNS privado: private.contoso.com ─────────────┤
+  └─ DNS privado: contoso.internal ─────────────┤
                                                    │
                                                    ▼
 Bloco 5 (Connectivity) ◄──── VMs nas VNets do Bloco 4
   │
-  ├─ CoreServicesVM na CoreServicesVnet (10.20.0.0/24)
-  ├─ ManufacturingVM na ManufacturingVnet (10.30.0.0/24)
+  ├─ vm-web-01 na vnet-contoso-hub-brazilsouth (10.20.0.0/24)
+  ├─ vm-app-01 na vnet-contoso-spoke-brazilsouth (10.30.0.0/24)
   ├─ Peering entre as VNets do Bloco 4
   ├─ DNS privado resolve nome real da VM ✓
   ├─ az104-user1 gerencia VMs (VM Contributor) ✓
@@ -618,18 +618,18 @@ Get-AzActivityLog `
 
 ```powershell
 # ============================================================
-# TASK 2.5 - Criar Resource Groups az104-rg2 e az104-rg3
+# TASK 2.5 - Criar Resource Groups rg-contoso-identity e rg-contoso-identity
 # ============================================================
 
 # New-AzResourceGroup: cria Resource Group
 # -Tag: hashtable de tags (key-value pairs)
 # Tags sao metadados para organizacao, billing e automacao
 
-# Criar az104-rg2 (usado para testes de governanca)
+# Criar rg-contoso-identity (usado para testes de governanca)
 New-AzResourceGroup -Name $rg2 -Location $location -Tag $tags
 Write-Host "Criado $rg2 com tag Cost Center = 000"
 
-# Criar az104-rg3 (usado no Bloco 3 para IaC)
+# Criar rg-contoso-identity (usado no Bloco 3 para IaC)
 New-AzResourceGroup -Name $rg3 -Location $location -Tag $tags
 Write-Host "Criado $rg3 com tag Cost Center = 000"
 
@@ -638,16 +638,16 @@ Get-AzResourceGroup -Name $rg2 | Select-Object ResourceGroupName, Location, Tags
 Get-AzResourceGroup -Name $rg3 | Select-Object ResourceGroupName, Location, Tags
 ```
 
-> **Conexao com Bloco 3:** O `az104-rg3` sera usado para deploy de managed disks.
+> **Conexao com Bloco 3:** O `rg-contoso-identity` sera usado para deploy de managed disks.
 > As policies aplicadas aqui serao validadas quando os discos forem criados.
 
 ---
 
-### Task 2.6: Aplicar Azure Policy (Deny) - Require tag no az104-rg2
+### Task 2.6: Aplicar Azure Policy (Deny) - Require tag no rg-contoso-identity
 
 ```powershell
 # ============================================================
-# TASK 2.6 - Aplicar policy Deny: Require tag no az104-rg2
+# TASK 2.6 - Aplicar policy Deny: Require tag no rg-contoso-identity
 # ============================================================
 
 # Obter a definicao da policy built-in
@@ -658,7 +658,7 @@ $policyDeny = Get-AzPolicyDefinition |
 Write-Host "Policy encontrada: $($policyDeny.DisplayName)"
 Write-Host "Efeito: Deny (bloqueia criacao de recursos sem a tag)"
 
-# Definir o scope: RG az104-rg2
+# Definir o scope: RG rg-contoso-identity
 $scopeRg2 = "/subscriptions/$subscriptionId/resourceGroups/$rg2"
 
 # Parametros da policy: qual tag e qual valor exigir
@@ -714,11 +714,11 @@ Write-Host "`nPolicy Deny removida do $rg2"
 
 ---
 
-### Task 2.7: Aplicar Modify policy (Inherit tag) no az104-rg2
+### Task 2.7: Aplicar Modify policy (Inherit tag) no rg-contoso-identity
 
 ```powershell
 # ============================================================
-# TASK 2.7 - Aplicar policy Modify: Inherit tag no az104-rg2
+# TASK 2.7 - Aplicar policy Modify: Inherit tag no rg-contoso-identity
 # ============================================================
 
 # Obter a policy "Inherit a tag from the resource group if missing"
@@ -769,18 +769,18 @@ Write-Host "`nPolicy Modify atribuida ao $rg2"
 
 ---
 
-### Task 2.8: Aplicar Modify policy (Inherit tag) no az104-rg3
+### Task 2.8: Aplicar Modify policy (Inherit tag) no rg-contoso-identity
 
 ```powershell
 # ============================================================
-# TASK 2.8 - Aplicar policy Modify: Inherit tag no az104-rg3
+# TASK 2.8 - Aplicar policy Modify: Inherit tag no rg-contoso-identity
 # ============================================================
 
 $scopeRg3 = "/subscriptions/$subscriptionId/resourceGroups/$rg3"
 
 New-AzPolicyAssignment `
     -Name "InheritCostCenter-rg3" `
-    -DisplayName "Inherit Cost Center tag on az104-rg3 resources" `
+    -DisplayName "Inherit Cost Center tag on rg-contoso-identity resources" `
     -PolicyDefinition $policyModify `
     -Scope $scopeRg3 `
     -PolicyParameterObject $modifyParams `
@@ -802,16 +802,16 @@ if ($principalIdRg3) {
 Write-Host "Policy Modify atribuida ao $rg3"
 ```
 
-> **Conexao com Bloco 3:** Quando criar managed disks no `az104-rg3`, eles receberao
+> **Conexao com Bloco 3:** Quando criar managed disks no `rg-contoso-identity`, eles receberao
 > automaticamente a tag `Cost Center: 000`. Verificaremos em cada deploy.
 
 ---
 
-### Task 2.9: Aplicar Allowed Locations policy no az104-rg3
+### Task 2.9: Aplicar Allowed Locations policy no rg-contoso-identity
 
 ```powershell
 # ============================================================
-# TASK 2.9 - Aplicar policy Deny: Allowed Locations no az104-rg3
+# TASK 2.9 - Aplicar policy Deny: Allowed Locations no rg-contoso-identity
 # ============================================================
 
 # "Allowed locations" restringe onde recursos podem ser criados
@@ -840,14 +840,14 @@ Write-Host ">>> Aguarde 5-15 minutos para as policies entrarem em vigor <<<" -Fo
 
 ---
 
-### Task 2.10: Atribuir Reader role ao Guest user no az104-rg3
+### Task 2.10: Atribuir Reader role ao Guest user no rg-contoso-identity
 
 ```powershell
 # ============================================================
-# TASK 2.10 - Atribuir Reader ao guest user no az104-rg3
+# TASK 2.10 - Atribuir Reader ao guest user no rg-contoso-identity
 # ============================================================
 
-# O guest user recebe permissao somente-leitura no az104-rg3
+# O guest user recebe permissao somente-leitura no rg-contoso-identity
 # Sera testado no Bloco 3 (pode ver mas nao criar recursos)
 New-AzRoleAssignment `
     -ObjectId $guestUserId `
@@ -868,7 +868,7 @@ Get-AzRoleAssignment -ResourceGroupName $rg3 |
 
 ```powershell
 # ============================================================
-# TASK 2.11 - Criar Delete Lock no az104-rg2
+# TASK 2.11 - Criar Delete Lock no rg-contoso-identity
 # ============================================================
 
 # New-AzResourceLock: cria lock em recurso ou RG
@@ -996,7 +996,7 @@ Get-AzPolicySetDefinition -Name "az104-governance-initiative" |
 #
 # New-AzPolicyAssignment `
 #     -Name "governance-initiative-rg3" `
-#     -DisplayName "Governance Initiative no az104-rg3" `
+#     -DisplayName "Governance Initiative no rg-contoso-identity" `
 #     -PolicySetDefinition (Get-AzPolicySetDefinition -Name "az104-governance-initiative") `
 #     -Scope "/subscriptions/$subscriptionId/resourceGroups/$rg3" `
 #     -PolicyParameterObject @{
@@ -1037,12 +1037,12 @@ $roles | Select-Object RoleDefinitionName, Scope | Format-Table
 # O que az104-user1 PODE fazer:
 Write-Host "O que az104-user1 PODE fazer:"
 Write-Host "  ✓ Gerenciar VMs (VM Contributor no MG)"
-Write-Host "  ✓ Ver recursos no az104-rg3 (heranca do MG)"
+Write-Host "  ✓ Ver recursos no rg-contoso-identity (heranca do MG)"
 
 # O que az104-user1 NAO PODE fazer:
 Write-Host "`nO que az104-user1 NAO PODE fazer:"
 Write-Host "  ✗ Criar Storage Accounts (VM Contributor nao inclui Storage)"
-Write-Host "  ✗ Deletar az104-rg2 (Lock impede + sem permissao)"
+Write-Host "  ✗ Deletar rg-contoso-identity (Lock impede + sem permissao)"
 
 Write-Host "`n>>> Para teste manual: login como $userUPN em InPrivate <<<" -ForegroundColor Cyan
 ```
@@ -1051,11 +1051,11 @@ Write-Host "`n>>> Para teste manual: login como $userUPN em InPrivate <<<" -Fore
 
 ## Modo Desafio - Bloco 2
 
-- [ ] Criar Management Group `az104-mg1` e **mover subscription** com `New-AzManagementGroupSubscription`
+- [ ] Criar Management Group `mg-contoso-prod` e **mover subscription** com `New-AzManagementGroupSubscription`
 - [ ] Atribuir **VM Contributor** ao grupo `IT Lab Administrators` no MG
 - [ ] Criar custom role **Custom Support Request** com `New-AzRoleDefinition`
 - [ ] Verificar no Activity Log com `Get-AzActivityLog`
-- [ ] Criar RGs `az104-rg2` e `az104-rg3` com tag `Cost Center: 000`
+- [ ] Criar RGs `rg-contoso-identity` e `rg-contoso-identity` com tag `Cost Center: 000`
 - [ ] Aplicar Deny policy (Require tag) no rg2 → testar → remover
 - [ ] Aplicar Modify policy (Inherit tag) no rg2 e rg3 com `-IdentityType SystemAssigned`
 - [ ] Atribuir **Tag Contributor** as Managed Identities das policies
@@ -1180,7 +1180,7 @@ O role **Reader** permite apenas visualizar. Guest users podem receber qualquer 
 # Bloco 3 - Azure Resources & IaC
 
 **Tecnologia:** Az PowerShell module (New-AzDisk)
-**Recursos criados:** 5 managed disks em az104-rg3
+**Recursos criados:** 5 managed disks em rg-contoso-identity
 
 > Neste bloco, TODOS os discos sao criados via PowerShell puro (New-AzDiskConfig + New-AzDisk).
 > No lab v2 original, diferentes metodos (Portal, ARM, CLI, Bicep) eram usados.
@@ -1188,11 +1188,11 @@ O role **Reader** permite apenas visualizar. Guest users podem receber qualquer 
 
 ---
 
-### Task 3.1: Criar az104-disk1
+### Task 3.1: Criar disk-iac-test-01
 
 ```powershell
 # ============================================================
-# TASK 3.1 - Criar az104-disk1 via PowerShell
+# TASK 3.1 - Criar disk-iac-test-01 via PowerShell
 # ============================================================
 
 # New-AzDiskConfig: cria CONFIGURACAO do disco (nao cria o recurso ainda)
@@ -1232,15 +1232,15 @@ if ($disk1Tags["Cost Center"] -eq "000") {
 ```
 
 > **Conexao com Bloco 2:** A policy "Inherit tag from resource group if missing"
-> esta funcionando! O disco herdou a tag do `az104-rg3` sem configuracao manual.
+> esta funcionando! O disco herdou a tag do `rg-contoso-identity` sem configuracao manual.
 
 ---
 
-### Task 3.2: Criar az104-disk2
+### Task 3.2: Criar disk-iac-test-02
 
 ```powershell
 # ============================================================
-# TASK 3.2 - Criar az104-disk2
+# TASK 3.2 - Criar disk-iac-test-02
 # ============================================================
 
 # Reutiliza a mesma configuracao (o objeto $diskConfig pode ser reusado)
@@ -1253,11 +1253,11 @@ Write-Host "$($diskNames[1]) criado - Tag Cost Center: $($disk2Tags['Cost Center
 
 ---
 
-### Task 3.3: Criar az104-disk3
+### Task 3.3: Criar disk-iac-test-03
 
 ```powershell
 # ============================================================
-# TASK 3.3 - Criar az104-disk3
+# TASK 3.3 - Criar disk-iac-test-03
 # ============================================================
 
 $disk3 = New-AzDisk -ResourceGroupName $rg3 -DiskName $diskNames[2] -Disk $diskConfig
@@ -1268,11 +1268,11 @@ Write-Host "$($diskNames[2]) criado - Tag Cost Center: $($disk3Tags['Cost Center
 
 ---
 
-### Task 3.4: Criar az104-disk4
+### Task 3.4: Criar disk-iac-test-04
 
 ```powershell
 # ============================================================
-# TASK 3.4 - Criar az104-disk4
+# TASK 3.4 - Criar disk-iac-test-04
 # ============================================================
 
 $disk4 = New-AzDisk -ResourceGroupName $rg3 -DiskName $diskNames[3] -Disk $diskConfig
@@ -1283,11 +1283,11 @@ Write-Host "$($diskNames[3]) criado - Tag Cost Center: $($disk4Tags['Cost Center
 
 ---
 
-### Task 3.5: Criar az104-disk5 (StandardSSD)
+### Task 3.5: Criar disk-iac-test-05 (StandardSSD)
 
 ```powershell
 # ============================================================
-# TASK 3.5 - Criar az104-disk5 (StandardSSD para variar)
+# TASK 3.5 - Criar disk-iac-test-05 (StandardSSD para variar)
 # ============================================================
 
 # Usar SKU diferente para demonstrar flexibilidade
@@ -1326,7 +1326,7 @@ $diskConfigWest = New-AzDiskConfig `
     -SkuName "Standard_LRS"
 
 try {
-    New-AzDisk -ResourceGroupName $rg3 -DiskName "az104-disk-test" -Disk $diskConfigWest -ErrorAction Stop
+    New-AzDisk -ResourceGroupName $rg3 -DiskName "disk-iac-test-region" -Disk $diskConfigWest -ErrorAction Stop
     Write-Host "ERRO: disco criado em West US (policy nao funcionou!)" -ForegroundColor Red
 }
 catch {
@@ -1350,7 +1350,7 @@ Write-Host "`nDiscos no $rg3 : $diskCount (esperado: 5)"
 # TASK 3.7 - Verificar RBAC do guest user (informativo)
 # ============================================================
 
-# O guest user tem Reader no az104-rg3 (atribuido no Bloco 2)
+# O guest user tem Reader no rg-contoso-identity (atribuido no Bloco 2)
 # Para testar: login como guest em InPrivate/Incognito
 
 # Verificacao programatica:
@@ -1369,9 +1369,9 @@ Write-Host "`n>>> Para teste manual: login como guest em InPrivate <<<" -Foregro
 
 ## Modo Desafio - Bloco 3
 
-- [ ] Criar `az104-disk1` via `New-AzDisk` em az104-rg3 → **verificar tag herdada**
-- [ ] Criar `az104-disk2` a `az104-disk4` reutilizando `$diskConfig` → **verificar tags**
-- [ ] Criar `az104-disk5` com SKU `StandardSSD_LRS` → **verificar tag**
+- [ ] Criar `disk-iac-test-01` via `New-AzDisk` em rg-contoso-identity → **verificar tag herdada**
+- [ ] Criar `disk-iac-test-02` a `disk-iac-test-04` reutilizando `$diskConfig` → **verificar tags**
+- [ ] Criar `disk-iac-test-05` com SKU `StandardSSD_LRS` → **verificar tag**
 - [ ] **Integracao:** Tentar deploy em West US → bloqueado por policy
 - [ ] Listar todos os discos com `Get-AzDisk` e verificar tags
 - [ ] **Integracao (opcional):** Verificar RBAC do guest user
@@ -1381,7 +1381,7 @@ Write-Host "`n>>> Para teste manual: login como guest em InPrivate <<<" -Foregro
 ## Questoes de Prova - Bloco 3
 
 ### Questao 3.1
-**Voce aplicou uma policy Modify "Inherit tag from resource group" no az104-rg3. Voce cria um managed disk via `New-AzDisk` sem tags. O que acontece com as tags do disco?**
+**Voce aplicou uma policy Modify "Inherit tag from resource group" no rg-contoso-identity. Voce cria um managed disk via `New-AzDisk` sem tags. O que acontece com as tags do disco?**
 
 A) O disco e criado sem tags
 B) O disco herda a tag Cost Center = 000 do resource group automaticamente
@@ -1443,11 +1443,11 @@ D) `New-AzManagedDisk`
 
 ---
 
-### Task 4.1: Criar VNet CoreServicesVnet
+### Task 4.1: Criar VNet vnet-contoso-hub-brazilsouth
 
 ```powershell
 # ============================================================
-# TASK 4.1 - Criar CoreServicesVnet com 2 subnets
+# TASK 4.1 - Criar vnet-contoso-hub-brazilsouth com 2 subnets
 # ============================================================
 
 # Criar RG para networking
@@ -1484,15 +1484,15 @@ $vnetCoreObj.Subnets | ForEach-Object {
 > **Conceito:** 5 IPs sao reservados em cada subnet Azure (.0, .1, .2, .3, .255).
 > Uma /24 tem 251 IPs utilizaveis.
 
-> **Conexao com Bloco 5:** Esta VNet sera usada para implantar a CoreServicesVM.
+> **Conexao com Bloco 5:** Esta VNet sera usada para implantar a vm-web-01.
 
 ---
 
-### Task 4.2: Criar VNet ManufacturingVnet
+### Task 4.2: Criar VNet vnet-contoso-spoke-brazilsouth
 
 ```powershell
 # ============================================================
-# TASK 4.2 - Criar ManufacturingVnet com 2 subnets
+# TASK 4.2 - Criar vnet-contoso-spoke-brazilsouth com 2 subnets
 # ============================================================
 
 $subSensor1 = New-AzVirtualNetworkSubnetConfig `
@@ -1522,7 +1522,7 @@ $vnetMfgObj.Subnets | ForEach-Object {
 
 ```powershell
 # ============================================================
-# TASK 4.3 - Criar ASG (asg-web) e NSG (myNSGSecure)
+# TASK 4.3 - Criar ASG (asg-web) e NSG (nsg-snet-shared)
 # ============================================================
 
 # Application Security Group: agrupa VMs logicamente para regras NSG
@@ -1550,7 +1550,7 @@ Write-Host "NSG criado: $($nsg.Name)"
 
 ```powershell
 # ============================================================
-# TASK 4.4 - Associar NSG a SharedServicesSubnet + regras
+# TASK 4.4 - Associar NSG a snet-shared + regras
 # ============================================================
 
 # 1. Associar NSG a subnet
@@ -1614,7 +1614,7 @@ Get-AzNetworkSecurityGroup -Name $nsgName -ResourceGroupName $rg4 |
 > **Conceito:** NSG rules sao processadas por priority (menor numero = maior prioridade).
 > DenyInternetOutbound (4096) tem prioridade sobre AllowInternetOutBound (65001, rule default).
 
-> **Conexao com Bloco 5:** O NSG esta na SharedServicesSubnet. VMs no Bloco 5 ficarao
+> **Conexao com Bloco 5:** O NSG esta na snet-shared. VMs no Bloco 5 ficarao
 > em subnets diferentes e NAO serao afetadas — NSGs sao por subnet, nao por VNet.
 
 ---
@@ -1676,7 +1676,7 @@ $privateDns = New-AzPrivateDnsZone `
 Write-Host "DNS Zone privada criada: $($privateDns.Name)"
 Write-Host "Nota: zonas privadas NAO tem name servers publicos."
 
-# Criar Virtual Network Link para ManufacturingVnet
+# Criar Virtual Network Link para vnet-contoso-spoke-brazilsouth
 # New-AzPrivateDnsVirtualNetworkLink: vincula VNet a zona privada
 # -EnableRegistration $false: nao registra VMs automaticamente
 $link = New-AzPrivateDnsVirtualNetworkLink `
@@ -1686,9 +1686,9 @@ $link = New-AzPrivateDnsVirtualNetworkLink `
     -VirtualNetworkId $vnetMfgObj.Id `
     -EnableRegistration $false
 
-Write-Host "Link criado: ManufacturingVnet → $dnsPrivate"
+Write-Host "Link criado: vnet-contoso-spoke-brazilsouth → $dnsPrivate"
 
-# Criar registro A placeholder: sensorvm.private.contoso.com → 10.1.1.4
+# Criar registro A placeholder: sensorvm.contoso.internal → 10.1.1.4
 $privateRecord = New-AzPrivateDnsRecordSet `
     -ResourceGroupName $rg4 `
     -ZoneName $dnsPrivate `
@@ -1703,25 +1703,25 @@ Write-Host "Registro A placeholder: sensorvm.$dnsPrivate → 10.1.1.4"
 ```
 
 > **Conexao com Bloco 5:** No Bloco 5, adicionaremos registro com IP **real** da
-> CoreServicesVM e link para CoreServicesVnet.
+> vm-web-01 e link para vnet-contoso-hub-brazilsouth.
 
 ---
 
 ## Modo Desafio - Bloco 4
 
-- [ ] Criar `CoreServicesVnet` (10.20.0.0/16) com `New-AzVirtualNetwork` + 2 subnets
-- [ ] Criar `ManufacturingVnet` (10.30.0.0/16) com 2 subnets
-- [ ] Criar ASG `asg-web` e NSG `myNSGSecure`
-- [ ] Associar NSG a SharedServicesSubnet + regras AllowASG e DenyInternetOutbound
+- [ ] Criar `vnet-contoso-hub-brazilsouth` (10.20.0.0/16) com `New-AzVirtualNetwork` + 2 subnets
+- [ ] Criar `vnet-contoso-spoke-brazilsouth` (10.30.0.0/16) com 2 subnets
+- [ ] Criar ASG `asg-web` e NSG `nsg-snet-shared`
+- [ ] Associar NSG a snet-shared + regras AllowASG e DenyInternetOutbound
 - [ ] Criar DNS publica `contoso.com` + registro A `www`
-- [ ] Criar DNS privada `private.contoso.com` + link para ManufacturingVnet
+- [ ] Criar DNS privada `contoso.internal` + link para vnet-contoso-spoke-brazilsouth
 
 ---
 
 ## Questoes de Prova - Bloco 4
 
 ### Questao 4.1
-**Um NSG esta associado a SharedServicesSubnet. Voce cria uma VM em DatabaseSubnet (mesma VNet). A VM e afetada pelas regras do NSG?**
+**Um NSG esta associado a snet-shared. Voce cria uma VM em snet-data (mesma VNet). A VM e afetada pelas regras do NSG?**
 
 A) Sim, o NSG se aplica a toda a VNet
 B) Nao, o NSG se aplica apenas a subnet associada
@@ -1823,7 +1823,7 @@ Peering entre VNets NAO implica resolucao DNS automatica — o link precisa ser 
 # TASK 5.1 - Adicionar subnets Core e Manufacturing
 # ============================================================
 
-# Adicionar subnet "Core" na CoreServicesVnet
+# Adicionar subnet "snet-apps" na vnet-contoso-hub-brazilsouth
 $vnetCoreObj = Get-AzVirtualNetwork -Name $vnetCore -ResourceGroupName $rg4
 
 # Add-AzVirtualNetworkSubnetConfig: adiciona subnet a VNet existente
@@ -1836,7 +1836,7 @@ Add-AzVirtualNetworkSubnetConfig `
 $vnetCoreObj | Set-AzVirtualNetwork | Out-Null
 Write-Host "Subnet '$subnetCore' ($subnetCorePfx) adicionada a $vnetCore"
 
-# Adicionar subnet "Manufacturing" na ManufacturingVnet
+# Adicionar subnet "snet-workloads" na vnet-contoso-spoke-brazilsouth
 $vnetMfgObj = Get-AzVirtualNetwork -Name $vnetMfg -ResourceGroupName $rg4
 
 Add-AzVirtualNetworkSubnetConfig `
@@ -1861,25 +1861,25 @@ Write-Host "=== Subnets de $vnetMfg ==="
 
 ---
 
-### Task 5.2: Criar CoreServicesVM
+### Task 5.2: Criar vm-web-01
 
 > **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab.
 
 ```powershell
 # ============================================================
-# TASK 5.2 - Criar CoreServicesVM
+# TASK 5.2 - Criar vm-web-01
 # ============================================================
 
 # Criar RG para VMs
 New-AzResourceGroup -Name $rg5 -Location $location
 
-# Buscar a subnet Core na CoreServicesVnet (que esta em rg4!)
+# Buscar a subnet Core na vnet-contoso-hub-brazilsouth (que esta em rg4!)
 # Esta e uma referencia CROSS-RESOURCE-GROUP: VM no rg5, VNet no rg4
 $vnetCoreObj = Get-AzVirtualNetwork -Name $vnetCore -ResourceGroupName $rg4
 $subnetCoreObj = $vnetCoreObj.Subnets | Where-Object { $_.Name -eq $subnetCore }
 
 # Criar NIC (Network Interface Card) referenciando subnet de outro RG
-# O ID da subnet contem o RG da VNet (/resourceGroups/az104-rg4/...)
+# O ID da subnet contem o RG da VNet (/resourceGroups/rg-contoso-network/...)
 $nicCore = New-AzNetworkInterface `
     -ResourceGroupName $rg5 `
     -Name "$vmCore-nic" `
@@ -1912,21 +1912,21 @@ New-AzVM -ResourceGroupName $rg5 -Location $location -VM $vmConfig -AsJob
 Write-Host "$vmCore sendo criada em background. Continue para a proxima task."
 ```
 
-> **Nota importante:** A VM esta no `az104-rg5` mas usa VNet do `az104-rg4`.
+> **Nota importante:** A VM esta no `rg-contoso-compute` mas usa VNet do `rg-contoso-network`.
 > No PowerShell, a referencia cross-RG e feita pelo ID completo da subnet.
 
 ---
 
-### Task 5.3: Criar ManufacturingVM
+### Task 5.3: Criar vm-app-01
 
 > **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab.
 
 ```powershell
 # ============================================================
-# TASK 5.3 - Criar ManufacturingVM
+# TASK 5.3 - Criar vm-app-01
 # ============================================================
 
-# Buscar subnet Manufacturing na ManufacturingVnet (rg4)
+# Buscar subnet Manufacturing na vnet-contoso-spoke-brazilsouth (rg4)
 $vnetMfgObj = Get-AzVirtualNetwork -Name $vnetMfg -ResourceGroupName $rg4
 $subnetMfgObj = $vnetMfgObj.Subnets | Where-Object { $_.Name -eq $subnetMfg }
 
@@ -2017,14 +2017,14 @@ $vnetMfgObj  = Get-AzVirtualNetwork -Name $vnetMfg -ResourceGroupName $rg4
 # Add-AzVirtualNetworkPeering: cria peering unidirecional
 # -AllowForwardedTraffic: permite trafego encaminhado (ex: NVA)
 Add-AzVirtualNetworkPeering `
-    -Name "CoreServicesVnet-to-ManufacturingVnet" `
+    -Name "vnet-contoso-hub-brazilsouth-to-vnet-contoso-spoke-brazilsouth" `
     -VirtualNetwork $vnetCoreObj `
     -RemoteVirtualNetworkId $vnetMfgObj.Id `
     -AllowForwardedTraffic
 
 # Peering 2: Manufacturing → Core
 Add-AzVirtualNetworkPeering `
-    -Name "ManufacturingVnet-to-CoreServicesVnet" `
+    -Name "vnet-contoso-spoke-brazilsouth-to-vnet-contoso-hub-brazilsouth" `
     -VirtualNetwork $vnetMfgObj `
     -RemoteVirtualNetworkId $vnetCoreObj.Id `
     -AllowForwardedTraffic
@@ -2048,9 +2048,9 @@ Get-AzVirtualNetworkPeering -VirtualNetworkName $vnetMfg -ResourceGroupName $rg4
 # TASK 5.6 - Testar conectividade APOS peering via Run Command
 # ============================================================
 
-# Obter IP privado da CoreServicesVM
+# Obter IP privado da vm-web-01
 $coreIP = (Get-AzNetworkInterface -Name "$vmCore-nic" -ResourceGroupName $rg5).IpConfigurations[0].PrivateIpAddress
-Write-Host "IP privado da CoreServicesVM: $coreIP"
+Write-Host "IP privado da vm-web-01: $coreIP"
 
 # Invoke-AzVMRunCommand: executa comando dentro da VM
 # -CommandId RunPowerShellScript: executa PowerShell na VM
@@ -2075,9 +2075,9 @@ $result.Value[0].Message
 # TASK 5.6b - Testar nao-transitividade do peering
 # ============================================================
 # CONCEITO AZ-104: Peering e NAO transitivo!
-# Se CoreServicesVnet ↔ ManufacturingVnet e
-# ManufacturingVnet ↔ ResearchVnet,
-# CoreServicesVnet NAO fala com ResearchVnet automaticamente.
+# Se vnet-contoso-hub-brazilsouth ↔ vnet-contoso-spoke-brazilsouth e
+# vnet-contoso-spoke-brazilsouth ↔ ResearchVnet,
+# vnet-contoso-hub-brazilsouth NAO fala com ResearchVnet automaticamente.
 # Para transitividade: hub-spoke com NVA ou Azure Virtual WAN.
 
 # Testar conectividade para um IP de uma terceira VNet inexistente
@@ -2101,10 +2101,10 @@ $result.Value[0].Message
 
 ```powershell
 # ============================================================
-# TASK 5.7 - Atualizar DNS privado com IP real da CoreServicesVM
+# TASK 5.7 - Atualizar DNS privado com IP real da vm-web-01
 # ============================================================
 
-# 1. Adicionar Virtual Network Link para CoreServicesVnet
+# 1. Adicionar Virtual Network Link para vnet-contoso-hub-brazilsouth
 $vnetCoreObj = Get-AzVirtualNetwork -Name $vnetCore -ResourceGroupName $rg4
 
 New-AzPrivateDnsVirtualNetworkLink `
@@ -2114,9 +2114,9 @@ New-AzPrivateDnsVirtualNetworkLink `
     -VirtualNetworkId $vnetCoreObj.Id `
     -EnableRegistration $false
 
-Write-Host "Link adicionado: CoreServicesVnet → $dnsPrivate"
+Write-Host "Link adicionado: vnet-contoso-hub-brazilsouth → $dnsPrivate"
 
-# 2. Criar registro A com IP REAL da CoreServicesVM
+# 2. Criar registro A com IP REAL da vm-web-01
 $coreIP = (Get-AzNetworkInterface -Name "$vmCore-nic" -ResourceGroupName $rg5).IpConfigurations[0].PrivateIpAddress
 
 $coreRecord = New-AzPrivateDnsRecordSet `
@@ -2131,7 +2131,7 @@ Set-AzPrivateDnsRecordSet -RecordSet $coreRecord | Out-Null
 
 Write-Host "Registro A: corevm.$dnsPrivate → $coreIP"
 
-# 3. Testar resolucao DNS a partir da ManufacturingVM
+# 3. Testar resolucao DNS a partir da vm-app-01
 $dnsResult = Invoke-AzVMRunCommand `
     -ResourceGroupName $rg5 `
     -VMName $vmMfg `
@@ -2139,11 +2139,11 @@ $dnsResult = Invoke-AzVMRunCommand `
     -ScriptString "Resolve-DnsName corevm.$dnsPrivate"
 
 $dnsResult.Value[0].Message
-# Esperado: retorna o IP privado da CoreServicesVM
+# Esperado: retorna o IP privado da vm-web-01
 ```
 
 > **Conexao com Bloco 4:** A zona DNS privada agora resolve nomes reais de VMs.
-> ManufacturingVnet (linkada no Bloco 4) e CoreServicesVnet (linkada agora)
+> vnet-contoso-spoke-brazilsouth (linkada no Bloco 4) e vnet-contoso-hub-brazilsouth (linkada agora)
 > podem resolver nomes nesta zona.
 
 ---
@@ -2155,7 +2155,7 @@ $dnsResult.Value[0].Message
 # TASK 5.8 - Criar subnet perimeter + Route Table + UDR
 # ============================================================
 
-# 1. Adicionar subnet "perimeter" na CoreServicesVnet
+# 1. Adicionar subnet "perimeter" na vnet-contoso-hub-brazilsouth
 $vnetCoreObj = Get-AzVirtualNetwork -Name $vnetCore -ResourceGroupName $rg4
 
 Add-AzVirtualNetworkSubnetConfig `
@@ -2214,7 +2214,7 @@ Write-Host "Route table associada a subnet $subnetCore"
 
 ```powershell
 # ============================================================
-# TASK 5.9 - Verificar que o NSG afeta apenas SharedServicesSubnet
+# TASK 5.9 - Verificar que o NSG afeta apenas snet-shared
 # ============================================================
 
 # Listar associacoes do NSG
@@ -2230,9 +2230,9 @@ $nsg.Subnets | ForEach-Object {
 }
 
 Write-Host "`n=== Validacao ==="
-Write-Host "CoreServicesVM (subnet Core): NAO afetada pelo NSG ✓"
-Write-Host "ManufacturingVM (subnet Manufacturing): NAO afetada pelo NSG ✓"
-Write-Host "Apenas SharedServicesSubnet e protegida pelo NSG."
+Write-Host "vm-web-01 (subnet Core): NAO afetada pelo NSG ✓"
+Write-Host "vm-app-01 (subnet Manufacturing): NAO afetada pelo NSG ✓"
+Write-Host "Apenas snet-shared e protegida pelo NSG."
 Write-Host "NSGs sao associados a subnets ou NICs, NAO a VNets inteiras."
 ```
 
@@ -2252,9 +2252,9 @@ Write-Host "  UPN: $userUPN"
 Write-Host "  Senha: (salva no Bloco 1)"
 Write-Host ""
 Write-Host "Verificacoes:"
-Write-Host "  1. Virtual Machines → deve ver CoreServicesVM e ManufacturingVM"
-Write-Host "  2. Stop CoreServicesVM → deve funcionar (VM Contributor)"
-Write-Host "  3. Deletar az104-rg2 → deve falhar (sem permissao + Lock)"
+Write-Host "  1. Virtual Machines → deve ver vm-web-01 e vm-app-01"
+Write-Host "  2. Stop vm-web-01 → deve funcionar (VM Contributor)"
+Write-Host "  3. Deletar rg-contoso-identity → deve falhar (sem permissao + Lock)"
 Write-Host "  4. Criar Storage Account → deve falhar (VM Contributor nao inclui Storage)"
 
 # Verificacao programatica dos roles
@@ -2277,10 +2277,10 @@ Write-Host "  ✓ Bloco 5: VMs comunicando via peering + DNS resolvendo"
 
 ## Modo Desafio - Bloco 5
 
-- [ ] Adicionar subnet `Core` (10.20.0.0/24) na CoreServicesVnet
-- [ ] Adicionar subnet `Manufacturing` (10.30.0.0/24) na ManufacturingVnet
-- [ ] Criar NIC cross-RG + `CoreServicesVM` em az104-rg5
-- [ ] Criar NIC cross-RG + `ManufacturingVM` em az104-rg5
+- [ ] Adicionar subnet `Core` (10.20.0.0/24) na vnet-contoso-hub-brazilsouth
+- [ ] Adicionar subnet `Manufacturing` (10.30.0.0/24) na vnet-contoso-spoke-brazilsouth
+- [ ] Criar NIC cross-RG + `vm-web-01` em rg-contoso-compute
+- [ ] Criar NIC cross-RG + `vm-app-01` em rg-contoso-compute
 - [ ] `Test-AzNetworkWatcherConnectivity` → Unreachable
 - [ ] `Add-AzVirtualNetworkPeering` bidirecional
 - [ ] `Invoke-AzVMRunCommand` → Test-NetConnection → Success
@@ -2294,7 +2294,7 @@ Write-Host "  ✓ Bloco 5: VMs comunicando via peering + DNS resolvendo"
 ## Questoes de Prova - Bloco 5
 
 ### Questao 5.1
-**Uma VM no az104-rg5 usa uma VNet do az104-rg4. E possivel?**
+**Uma VM no rg-contoso-compute usa uma VNet do rg-contoso-network. E possivel?**
 
 A) Nao, VMs e VNets devem estar no mesmo Resource Group
 B) Sim, VMs podem referenciar VNets de qualquer RG na mesma subscription
@@ -2385,8 +2385,8 @@ Private DNS Zones resolvem nomes apenas para VNets com Virtual Network Link conf
 # Bloco 6 - Load Balancer e Azure Bastion
 
 **Tecnologia:** PowerShell (Az module)
-**Recursos criados:** Subnet LBSubnet, Availability Set, 2 VMs (IIS), Public LB, Internal LB, NSG, Bastion
-**Resource Group:** `az104-rg6lb` (VMs e LBs) + `az104-rg4` (VNet existente)
+**Recursos criados:** Subnet snet-lb, Availability Set, 2 VMs (IIS), Public LB, Internal LB, NSG, Bastion
+**Resource Group:** `rg-contoso-network` (VMs e LBs) + `rg-contoso-network` (VNet existente)
 
 > **Nota:** Este bloco cria VMs, Public IPs e Bastion que geram custo. Faca cleanup assim que terminar.
 
@@ -2396,20 +2396,20 @@ Private DNS Zones resolvem nomes apenas para VNets com Virtual Network Link conf
 
 ```powershell
 # ============================================================
-# TASK 6.1a - Criar RG e subnet LBSubnet
+# TASK 6.1a - Criar RG e subnet snet-lb
 # ============================================================
 
-$rg6 = "az104-rg6lb"
+$rg6 = "rg-contoso-network"
 New-AzResourceGroup -Name $rg6 -Location $location -Tag @{"Cost Center" = "000"}
 
-# Adicionar subnet LBSubnet na CoreServicesVnet (az104-rg4)
-$coreVnet = Get-AzVirtualNetwork -Name "CoreServicesVnet" -ResourceGroupName $rg4
-Add-AzVirtualNetworkSubnetConfig -Name "LBSubnet" `
+# Adicionar subnet snet-lb na vnet-contoso-hub-brazilsouth (rg-contoso-network)
+$coreVnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub-brazilsouth" -ResourceGroupName $rg4
+Add-AzVirtualNetworkSubnetConfig -Name "snet-lb" `
     -VirtualNetwork $coreVnet `
     -AddressPrefix "10.20.40.0/24"
 $coreVnet | Set-AzVirtualNetwork   # IMPORTANTE: Set-Az* aplica a mudanca!
 
-Write-Host "RG az104-rg6lb e subnet LBSubnet criados" -ForegroundColor Green
+Write-Host "RG rg-contoso-network e subnet snet-lb criados" -ForegroundColor Green
 ```
 
 ---
@@ -2427,7 +2427,7 @@ Write-Host "RG az104-rg6lb e subnet LBSubnet criados" -ForegroundColor Green
 
 # Criar Availability Set
 $avSet = New-AzAvailabilitySet -ResourceGroupName $rg6 `
-    -Name "az104-avset-lb" `
+    -Name "avail-contoso-lb" `
     -Location $location `
     -PlatformFaultDomainCount 2 `
     -PlatformUpdateDomainCount 5 `
@@ -2435,24 +2435,24 @@ $avSet = New-AzAvailabilitySet -ResourceGroupName $rg6 `
 
 Write-Host "Availability Set criado: $($avSet.Name)" -ForegroundColor Green
 
-# Obter subnet LBSubnet (cross-RG: VNet em rg4, VM em rg6)
-$coreVnet = Get-AzVirtualNetwork -Name "CoreServicesVnet" -ResourceGroupName $rg4
-$lbSubnet = $coreVnet.Subnets | Where-Object { $_.Name -eq "LBSubnet" }
+# Obter subnet snet-lb (cross-RG: VNet em rg4, VM em rg6)
+$coreVnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub-brazilsouth" -ResourceGroupName $rg4
+$lbSubnet = $coreVnet.Subnets | Where-Object { $_.Name -eq "snet-lb" }
 
-# ==================== Criar LB-VM1 ====================
+# ==================== Criar vm-lb-01 ====================
 # NIC cross-RG: NIC no rg6, subnet no rg4
-$nic1 = New-AzNetworkInterface -Name "LB-VM1-nic" `
+$nic1 = New-AzNetworkInterface -Name "nic-vm-lb-01" `
     -ResourceGroupName $rg6 `
     -Location $location `
     -SubnetId $lbSubnet.Id   # Cross-RG pelo ID completo
 
 # Configuracao da VM
-$vmConfig1 = New-AzVMConfig -VMName "LB-VM1" `
+$vmConfig1 = New-AzVMConfig -VMName "vm-lb-01" `
     -VMSize "Standard_D2s_v3" `
     -AvailabilitySetId $avSet.Id   # Associa ao Availability Set
 
 $vmConfig1 = Set-AzVMOperatingSystem -VM $vmConfig1 `
-    -Windows -ComputerName "LB-VM1" `
+    -Windows -ComputerName "vm-lb-01" `
     -Credential $vmCredential
 
 $vmConfig1 = Set-AzVMSourceImage -VM $vmConfig1 `
@@ -2466,20 +2466,20 @@ $vmConfig1 = Add-AzVMNetworkInterface -VM $vmConfig1 -Id $nic1.Id
 $vmConfig1 = Set-AzVMBootDiagnostic -VM $vmConfig1 -Disable
 
 New-AzVM -ResourceGroupName $rg6 -Location $location -VM $vmConfig1
-Write-Host "LB-VM1 criada" -ForegroundColor Green
+Write-Host "vm-lb-01 criada" -ForegroundColor Green
 
-# ==================== Criar LB-VM2 ====================
-$nic2 = New-AzNetworkInterface -Name "LB-VM2-nic" `
+# ==================== Criar vm-lb-02 ====================
+$nic2 = New-AzNetworkInterface -Name "nic-vm-lb-02" `
     -ResourceGroupName $rg6 `
     -Location $location `
     -SubnetId $lbSubnet.Id
 
-$vmConfig2 = New-AzVMConfig -VMName "LB-VM2" `
+$vmConfig2 = New-AzVMConfig -VMName "vm-lb-02" `
     -VMSize "Standard_D2s_v3" `
     -AvailabilitySetId $avSet.Id
 
 $vmConfig2 = Set-AzVMOperatingSystem -VM $vmConfig2 `
-    -Windows -ComputerName "LB-VM2" `
+    -Windows -ComputerName "vm-lb-02" `
     -Credential $vmCredential
 
 $vmConfig2 = Set-AzVMSourceImage -VM $vmConfig2 `
@@ -2493,7 +2493,7 @@ $vmConfig2 = Add-AzVMNetworkInterface -VM $vmConfig2 -Id $nic2.Id
 $vmConfig2 = Set-AzVMBootDiagnostic -VM $vmConfig2 -Disable
 
 New-AzVM -ResourceGroupName $rg6 -Location $location -VM $vmConfig2
-Write-Host "LB-VM2 criada" -ForegroundColor Green
+Write-Host "vm-lb-02 criada" -ForegroundColor Green
 ```
 
 ---
@@ -2513,13 +2513,13 @@ Remove-Item 'C:\inetpub\wwwroot\iisstart.htm'
 Add-Content -Path 'C:\inetpub\wwwroot\iisstart.htm' -Value `$('Hello from ' + `$env:computername)
 "@
 
-Invoke-AzVMRunCommand -ResourceGroupName $rg6 -VMName "LB-VM1" `
+Invoke-AzVMRunCommand -ResourceGroupName $rg6 -VMName "vm-lb-01" `
     -CommandId "RunPowerShellScript" -ScriptString $iisScript
-Write-Host "IIS instalado em LB-VM1" -ForegroundColor Green
+Write-Host "IIS instalado em vm-lb-01" -ForegroundColor Green
 
-Invoke-AzVMRunCommand -ResourceGroupName $rg6 -VMName "LB-VM2" `
+Invoke-AzVMRunCommand -ResourceGroupName $rg6 -VMName "vm-lb-02" `
     -CommandId "RunPowerShellScript" -ScriptString $iisScript
-Write-Host "IIS instalado em LB-VM2" -ForegroundColor Green
+Write-Host "IIS instalado em vm-lb-02" -ForegroundColor Green
 ```
 
 ---
@@ -2537,7 +2537,7 @@ Write-Host "IIS instalado em LB-VM2" -ForegroundColor Green
 #   - Zone-aware, suporta Availability Zones
 
 # 1. Public IP (Standard SKU, Static)
-$lbPip = New-AzPublicIpAddress -Name "az104-lb-pip" `
+$lbPip = New-AzPublicIpAddress -Name "pip-lbe-contoso-web" `
     -ResourceGroupName $rg6 `
     -Location $location `
     -Sku "Standard" `
@@ -2545,11 +2545,11 @@ $lbPip = New-AzPublicIpAddress -Name "az104-lb-pip" `
     -Zone 1,2,3   # Zone-redundant
 
 # 2. Frontend IP Configuration
-$frontendConfig = New-AzLoadBalancerFrontendIpConfig -Name "lb-frontend" `
+$frontendConfig = New-AzLoadBalancerFrontendIpConfig -Name "fe-lbe-web" `
     -PublicIpAddressId $lbPip.Id
 
 # 3. Backend Address Pool
-$backendPool = New-AzLoadBalancerBackendAddressPoolConfig -Name "lb-backend-pool"
+$backendPool = New-AzLoadBalancerBackendAddressPoolConfig -Name "bp-lbe-web"
 
 # 4. Health Probe (HTTP na porta 80)
 # CONCEITO: Probe HTTP verifica a APLICACAO, nao apenas a VM
@@ -2574,7 +2574,7 @@ $lbRule = New-AzLoadBalancerRuleConfig -Name "http-rule" `
     -LoadDistribution "Default"   # 5-tuple hash
 
 # 6. Criar Load Balancer
-$publicLb = New-AzLoadBalancer -Name "az104-pub-lb" `
+$publicLb = New-AzLoadBalancer -Name "lbe-contoso-web" `
     -ResourceGroupName $rg6 `
     -Location $location `
     -Sku "Standard" `
@@ -2586,14 +2586,14 @@ $publicLb = New-AzLoadBalancer -Name "az104-pub-lb" `
 Write-Host "Public Load Balancer criado: $($publicLb.Name)" -ForegroundColor Green
 
 # 7. Adicionar VMs ao Backend Pool
-$publicLb = Get-AzLoadBalancer -Name "az104-pub-lb" -ResourceGroupName $rg6
+$publicLb = Get-AzLoadBalancer -Name "lbe-contoso-web" -ResourceGroupName $rg6
 $backendPool = $publicLb.BackendAddressPools[0]
 
-$nic1 = Get-AzNetworkInterface -Name "LB-VM1-nic" -ResourceGroupName $rg6
+$nic1 = Get-AzNetworkInterface -Name "nic-vm-lb-01" -ResourceGroupName $rg6
 $nic1.IpConfigurations[0].LoadBalancerBackendAddressPools = $backendPool
 $nic1 | Set-AzNetworkInterface
 
-$nic2 = Get-AzNetworkInterface -Name "LB-VM2-nic" -ResourceGroupName $rg6
+$nic2 = Get-AzNetworkInterface -Name "nic-vm-lb-02" -ResourceGroupName $rg6
 $nic2.IpConfigurations[0].LoadBalancerBackendAddressPools = $backendPool
 $nic2 | Set-AzNetworkInterface
 
@@ -2603,11 +2603,11 @@ Write-Host "Teste: http://$($lbPip.IpAddress)" -ForegroundColor Cyan
 
 ---
 
-### Task 6.3: Criar NSG e associar a LBSubnet
+### Task 6.3: Criar NSG e associar a snet-lb
 
 ```powershell
 # ============================================================
-# TASK 6.3 - NSG para LBSubnet
+# TASK 6.3 - NSG para snet-lb
 # ============================================================
 # CONCEITO: Standard LB BLOQUEIA todo trafego por padrao!
 # Sem NSG com AllowHTTP, as VMs nao respondem
@@ -2624,18 +2624,18 @@ $httpRule = New-AzNetworkSecurityRuleConfig -Name "AllowHTTP" `
     -DestinationAddressPrefix "*"
 
 # Criar NSG
-$nsgLb = New-AzNetworkSecurityGroup -Name "nsg-lb" `
+$nsgLb = New-AzNetworkSecurityGroup -Name "nsg-snet-lb" `
     -ResourceGroupName $rg6 `
     -Location $location `
     -SecurityRules $httpRule
 
-# Associar NSG a LBSubnet (cross-RG: NSG em rg6, subnet em rg4)
-$coreVnet = Get-AzVirtualNetwork -Name "CoreServicesVnet" -ResourceGroupName $rg4
-$lbSubnetConfig = $coreVnet.Subnets | Where-Object { $_.Name -eq "LBSubnet" }
+# Associar NSG a snet-lb (cross-RG: NSG em rg6, subnet em rg4)
+$coreVnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub-brazilsouth" -ResourceGroupName $rg4
+$lbSubnetConfig = $coreVnet.Subnets | Where-Object { $_.Name -eq "snet-lb" }
 $lbSubnetConfig.NetworkSecurityGroup = $nsgLb
 $coreVnet | Set-AzVirtualNetwork
 
-Write-Host "NSG nsg-lb associado a LBSubnet" -ForegroundColor Green
+Write-Host "NSG nsg-snet-lb associado a snet-lb" -ForegroundColor Green
 Write-Host "Teste: http://$($lbPip.IpAddress) + hard refresh (Ctrl+Shift+R)" -ForegroundColor Cyan
 ```
 
@@ -2656,7 +2656,7 @@ Write-Host "Teste: http://$($lbPip.IpAddress) + hard refresh (Ctrl+Shift+R)" -Fo
 # None = melhor distribuicao | SourceIP = sticky sessions
 
 # Obter LB e regra atual
-$lb = Get-AzLoadBalancer -Name "az104-pub-lb" -ResourceGroupName $rg6
+$lb = Get-AzLoadBalancer -Name "lbe-contoso-web" -ResourceGroupName $rg6
 $rule = $lb.LoadBalancingRules[0]
 
 # Modo 1: None (5-tuple hash) - padrao, ja testado
@@ -2689,12 +2689,12 @@ Write-Host "Revertido para Default (5-tuple)" -ForegroundColor Green
 # ============================================================
 # CONCEITO: Quando VM falha no probe, LB remove da rotacao automaticamente
 
-Stop-AzVM -ResourceGroupName $rg6 -Name "LB-VM1" -Force
-Write-Host "LB-VM1 parada. Apenas LB-VM2 deve responder." -ForegroundColor Yellow
+Stop-AzVM -ResourceGroupName $rg6 -Name "vm-lb-01" -Force
+Write-Host "vm-lb-01 parada. Apenas vm-lb-02 deve responder." -ForegroundColor Yellow
 
 # Reiniciar
-Start-AzVM -ResourceGroupName $rg6 -Name "LB-VM1"
-Write-Host "LB-VM1 reiniciada. Aguarde probe re-detectar (~30s)." -ForegroundColor Green
+Start-AzVM -ResourceGroupName $rg6 -Name "vm-lb-01"
+Write-Host "vm-lb-01 reiniciada. Aguarde probe re-detectar (~30s)." -ForegroundColor Green
 ```
 
 ---
@@ -2709,15 +2709,15 @@ Write-Host "LB-VM1 reiniciada. Aguarde probe re-detectar (~30s)." -ForegroundCol
 # Ideal para comunicacao entre tiers (ex: frontend → backend)
 # Public e Internal LBs podem compartilhar o MESMO backend pool
 
-$coreVnet = Get-AzVirtualNetwork -Name "CoreServicesVnet" -ResourceGroupName $rg4
-$lbSubnet = $coreVnet.Subnets | Where-Object { $_.Name -eq "LBSubnet" }
+$coreVnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub-brazilsouth" -ResourceGroupName $rg4
+$lbSubnet = $coreVnet.Subnets | Where-Object { $_.Name -eq "snet-lb" }
 
 # Frontend com IP privado estatico
-$intFrontend = New-AzLoadBalancerFrontendIpConfig -Name "int-lb-frontend" `
+$intFrontend = New-AzLoadBalancerFrontendIpConfig -Name "int-fe-lbe-web" `
     -PrivateIpAddress "10.20.40.100" `
     -SubnetId $lbSubnet.Id
 
-$intBackend = New-AzLoadBalancerBackendAddressPoolConfig -Name "int-lb-backend"
+$intBackend = New-AzLoadBalancerBackendAddressPoolConfig -Name "bp-lbi-apps"
 
 $intProbe = New-AzLoadBalancerProbeConfig -Name "int-http-probe" `
     -Protocol "Http" -Port 80 -RequestPath "/" `
@@ -2730,7 +2730,7 @@ $intRule = New-AzLoadBalancerRuleConfig -Name "int-http-rule" `
     -Protocol "Tcp" -FrontendPort 80 -BackendPort 80 `
     -IdleTimeoutInMinutes 4 -LoadDistribution "Default"
 
-$intLb = New-AzLoadBalancer -Name "az104-int-lb" `
+$intLb = New-AzLoadBalancer -Name "lbi-contoso-apps" `
     -ResourceGroupName $rg6 `
     -Location $location `
     -Sku "Standard" `
@@ -2740,14 +2740,14 @@ $intLb = New-AzLoadBalancer -Name "az104-int-lb" `
     -LoadBalancingRule $intRule
 
 # Adicionar VMs ao backend pool do Internal LB
-$intLb = Get-AzLoadBalancer -Name "az104-int-lb" -ResourceGroupName $rg6
+$intLb = Get-AzLoadBalancer -Name "lbi-contoso-apps" -ResourceGroupName $rg6
 $intPool = $intLb.BackendAddressPools[0]
 
-$nic1 = Get-AzNetworkInterface -Name "LB-VM1-nic" -ResourceGroupName $rg6
+$nic1 = Get-AzNetworkInterface -Name "nic-vm-lb-01" -ResourceGroupName $rg6
 $nic1.IpConfigurations[0].LoadBalancerBackendAddressPools += $intPool
 $nic1 | Set-AzNetworkInterface
 
-$nic2 = Get-AzNetworkInterface -Name "LB-VM2-nic" -ResourceGroupName $rg6
+$nic2 = Get-AzNetworkInterface -Name "nic-vm-lb-02" -ResourceGroupName $rg6
 $nic2.IpConfigurations[0].LoadBalancerBackendAddressPools += $intPool
 $nic2 | Set-AzNetworkInterface
 
@@ -2766,18 +2766,18 @@ Write-Host "Internal LB criado com frontend IP 10.20.40.100" -ForegroundColor Gr
 # VM running + IIS parado = probe unhealthy → VM removida do pool
 
 # Parar IIS
-Invoke-AzVMRunCommand -ResourceGroupName $rg6 -VMName "LB-VM1" `
+Invoke-AzVMRunCommand -ResourceGroupName $rg6 -VMName "vm-lb-01" `
     -CommandId "RunPowerShellScript" `
     -ScriptString "Stop-Service -Name W3SVC -Force"
 
-Write-Host "IIS parado em LB-VM1. Verifique Health Probe Status no portal." -ForegroundColor Yellow
+Write-Host "IIS parado em vm-lb-01. Verifique Health Probe Status no portal." -ForegroundColor Yellow
 
 # Corrigir: reiniciar IIS
-Invoke-AzVMRunCommand -ResourceGroupName $rg6 -VMName "LB-VM1" `
+Invoke-AzVMRunCommand -ResourceGroupName $rg6 -VMName "vm-lb-01" `
     -CommandId "RunPowerShellScript" `
     -ScriptString "Start-Service -Name W3SVC"
 
-Write-Host "IIS reiniciado em LB-VM1." -ForegroundColor Green
+Write-Host "IIS reiniciado em vm-lb-01." -ForegroundColor Green
 ```
 
 ---
@@ -2796,14 +2796,14 @@ Write-Host "IIS reiniciado em LB-VM1." -ForegroundColor Green
 #   - Standard: + native client, IP-based connection
 
 # Criar AzureBastionSubnet
-$coreVnet = Get-AzVirtualNetwork -Name "CoreServicesVnet" -ResourceGroupName $rg4
+$coreVnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub-brazilsouth" -ResourceGroupName $rg4
 Add-AzVirtualNetworkSubnetConfig -Name "AzureBastionSubnet" `
     -VirtualNetwork $coreVnet `
     -AddressPrefix "10.20.30.0/26"   # /26 minimo!
 $coreVnet | Set-AzVirtualNetwork
 
 # Public IP para Bastion
-$bastionPip = New-AzPublicIpAddress -Name "az104-bastion-pip" `
+$bastionPip = New-AzPublicIpAddress -Name "bas-contoso-hub-pip" `
     -ResourceGroupName $rg6 `
     -Location $location `
     -Sku "Standard" `
@@ -2811,30 +2811,30 @@ $bastionPip = New-AzPublicIpAddress -Name "az104-bastion-pip" `
 
 # Criar Bastion
 # NOTA: O deploy pode levar 5-10 minutos
-$coreVnet = Get-AzVirtualNetwork -Name "CoreServicesVnet" -ResourceGroupName $rg4
+$coreVnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub-brazilsouth" -ResourceGroupName $rg4
 
 New-AzBastion -ResourceGroupName $rg6 `
-    -Name "az104-bastion" `
+    -Name "bas-contoso-hub" `
     -PublicIpAddressRgName $rg6 `
-    -PublicIpAddressName "az104-bastion-pip" `
+    -PublicIpAddressName "bas-contoso-hub-pip" `
     -VirtualNetworkRgName $rg4 `
-    -VirtualNetworkName "CoreServicesVnet" `
+    -VirtualNetworkName "vnet-contoso-hub-brazilsouth" `
     -Sku "Basic"
 
 Write-Host "Azure Bastion implantado" -ForegroundColor Green
-Write-Host "Acesse: LB-VM1 > Connect > Bastion (sem IP publico!)" -ForegroundColor Cyan
+Write-Host "Acesse: vm-lb-01 > Connect > Bastion (sem IP publico!)" -ForegroundColor Cyan
 ```
 
 ---
 
 ## Modo Desafio - Bloco 6
 
-- [ ] Criar RG `az104-rg6lb` e subnet `LBSubnet`
+- [ ] Criar RG `rg-contoso-network` e subnet `snet-lb`
 - [ ] `New-AzAvailabilitySet` (2 FD, 5 UD, Aligned)
 - [ ] Criar 2 VMs (`New-AzVM`) no Availability Set, cross-RG NIC
 - [ ] `Invoke-AzVMRunCommand` para instalar IIS
 - [ ] `New-AzLoadBalancer` (Standard, Public) com frontend, backend, probe, rule
-- [ ] `New-AzNetworkSecurityGroup` com AllowHTTP, associar a LBSubnet
+- [ ] `New-AzNetworkSecurityGroup` com AllowHTTP, associar a snet-lb
 - [ ] Testar balanceamento + failover
 - [ ] `New-AzLoadBalancer` (Standard, Internal) com IP 10.20.40.100
 - [ ] Troubleshoot: parar IIS → unhealthy → reiniciar IIS
@@ -2886,7 +2886,7 @@ A) Enfileirado  B) Redistribuido para healthy  C) LB para  D) Descartado
 
 **Tecnologia:** PowerShell (Microsoft.Graph + Az module) + Portal
 **Recursos:** SSPR config, Budget, Advisor, Network Watcher diagnostics
-**Resource Groups utilizados:** `az104-rg4`, `az104-rg5`, `az104-rg6lb`
+**Resource Groups utilizados:** `rg-contoso-network`, `rg-contoso-compute`, `rg-contoso-network`
 
 > **Nota:** Bloco majoritariamente portal/PowerShell. SSPR usa Microsoft.Graph,
 > Cost Management e Advisor usam cmdlets Az, Network Watcher usa cmdlets de diagnostico.
@@ -3053,13 +3053,13 @@ Write-Host "Category: Cost, Impact: High, Name: az104-advisor-cost-alert"
 #   - Inbound: subnet NSG → NIC NSG (AMBOS devem permitir)
 #   - Outbound: NIC NSG → subnet NSG
 
-# Obter NIC da LB-VM1
-$vm1 = Get-AzVM -ResourceGroupName $rg6 -Name "LB-VM1"
+# Obter NIC da vm-lb-01
+$vm1 = Get-AzVM -ResourceGroupName $rg6 -Name "vm-lb-01"
 $nicId = $vm1.NetworkProfile.NetworkInterfaces[0].Id
 $nicName = ($nicId -split "/")[-1]
 
 # Effective Security Rules
-Write-Host "=== Effective Security Rules - LB-VM1 ===" -ForegroundColor Cyan
+Write-Host "=== Effective Security Rules - vm-lb-01 ===" -ForegroundColor Cyan
 $nic1Obj = Get-AzNetworkInterface -Name $nicName -ResourceGroupName $rg6
 Get-AzEffectiveNetworkSecurityGroup -NetworkInterfaceId $nic1Obj.Id |
     Select-Object -ExpandProperty EffectiveSecurityRules |
@@ -3105,7 +3105,7 @@ Test-AzNetworkWatcherIPFlow -NetworkWatcher $nw `
 #   Se QUALQUER um bloquear, o trafego e negado.
 
 # 1. Criar NSG para associar a NIC
-$nsgNicTest = New-AzNetworkSecurityGroup -Name "nsg-nic-test" `
+$nsgNicTest = New-AzNetworkSecurityGroup -Name "nsg-nic-vm-web-01" `
     -ResourceGroupName $rg6 `
     -Location $location
 
@@ -3121,10 +3121,10 @@ $nsgNicTest | Add-AzNetworkSecurityRuleConfig `
     -SourceAddressPrefix "*" `
     -DestinationAddressPrefix "*" | Set-AzNetworkSecurityGroup | Out-Null
 
-Write-Host "NSG nsg-nic-test criado com regra DenyHTTP" -ForegroundColor Yellow
+Write-Host "NSG nsg-nic-vm-web-01 criado com regra DenyHTTP" -ForegroundColor Yellow
 
-# 3. Associar NSG a NIC da LB-VM1
-$vm1 = Get-AzVM -ResourceGroupName $rg6 -Name "LB-VM1"
+# 3. Associar NSG a NIC da vm-lb-01
+$vm1 = Get-AzVM -ResourceGroupName $rg6 -Name "vm-lb-01"
 $nicId = $vm1.NetworkProfile.NetworkInterfaces[0].Id
 $nicName = ($nicId -split "/")[-1]
 $nic = Get-AzNetworkInterface -Name $nicName -ResourceGroupName $rg6
@@ -3148,8 +3148,8 @@ Test-AzNetworkWatcherIPFlow -NetworkWatcher $nw `
 # 5. Cleanup: remover NSG da NIC
 $nic.NetworkSecurityGroup = $null
 $nic | Set-AzNetworkInterface | Out-Null
-Remove-AzNetworkSecurityGroup -Name "nsg-nic-test" -ResourceGroupName $rg6 -Force
-Write-Host "Cleanup: NSG nsg-nic-test removido" -ForegroundColor Green
+Remove-AzNetworkSecurityGroup -Name "nsg-nic-vm-web-01" -ResourceGroupName $rg6 -Force
+Write-Host "Cleanup: NSG nsg-nic-vm-web-01 removido" -ForegroundColor Green
 ```
 
 ---
@@ -3163,7 +3163,7 @@ Write-Host "Cleanup: NSG nsg-nic-test removido" -ForegroundColor Green
 - [ ] Criar Budget $50/mes (portal ou CLI)
 - [ ] Alertas 80%, 100%, 120%
 - [ ] `Get-AzAdvisorRecommendation` + criar alerta Cost/High
-- [ ] `Get-AzEffectiveNetworkSecurityGroup` em LB-VM1
+- [ ] `Get-AzEffectiveNetworkSecurityGroup` em vm-lb-01
 - [ ] `Test-AzNetworkWatcherIPFlow` HTTP (Allow) e SSH (Deny)
 
 ---
@@ -3206,16 +3206,16 @@ Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos
 
 ```powershell
 # Pausar
-Stop-AzVM -ResourceGroupName az104-rg5 -Name CoreServicesVM -Force
-Stop-AzVM -ResourceGroupName az104-rg5 -Name ManufacturingVM -Force
-Stop-AzVM -ResourceGroupName az104-rg6lb -Name LB-VM1 -Force
-Stop-AzVM -ResourceGroupName az104-rg6lb -Name LB-VM2 -Force
+Stop-AzVM -ResourceGroupName rg-contoso-compute -Name vm-web-01 -Force
+Stop-AzVM -ResourceGroupName rg-contoso-compute -Name vm-app-01 -Force
+Stop-AzVM -ResourceGroupName rg-contoso-network -Name vm-lb-01 -Force
+Stop-AzVM -ResourceGroupName rg-contoso-network -Name vm-lb-02 -Force
 
 # Retomar
-Start-AzVM -ResourceGroupName az104-rg5 -Name CoreServicesVM
-Start-AzVM -ResourceGroupName az104-rg5 -Name ManufacturingVM
-Start-AzVM -ResourceGroupName az104-rg6lb -Name LB-VM1
-Start-AzVM -ResourceGroupName az104-rg6lb -Name LB-VM2
+Start-AzVM -ResourceGroupName rg-contoso-compute -Name vm-web-01
+Start-AzVM -ResourceGroupName rg-contoso-compute -Name vm-app-01
+Start-AzVM -ResourceGroupName rg-contoso-network -Name vm-lb-01
+Start-AzVM -ResourceGroupName rg-contoso-network -Name vm-lb-02
 ```
 
 > **Nota:** Desalocar para cobranca de compute. Discos, IPs publicos e Bastion continuam gerando custo.
@@ -3243,14 +3243,14 @@ Remove-AzPolicyAssignment -Name "AllowedLocations-rg3" -Scope $scopeRg3 -ErrorAc
 Remove-AzPolicySetDefinition -Name "az104-governance-initiative" -Force -ErrorAction SilentlyContinue
 Write-Host "  Policies e Initiative removidas"
 
-# 2. Remover Resource Lock ANTES de deletar az104-rg2
+# 2. Remover Resource Lock ANTES de deletar rg-contoso-identity
 Write-Host "2. Removendo Resource Lock..." -ForegroundColor Yellow
 Remove-AzResourceLock -LockName "rg-lock" -ResourceGroupName $rg2 -Force -ErrorAction SilentlyContinue
 Write-Host "  Lock removido"
 
 # 3. Deletar Resource Groups (VMs primeiro por custo)
 Write-Host "3. Deletando Resource Groups..." -ForegroundColor Yellow
-Remove-AzResourceGroup -Name "az104-rg6lb" -Force -AsJob   # LB VMs + Bastion
+Remove-AzResourceGroup -Name "rg-contoso-network" -Force -AsJob   # LB VMs + Bastion
 Remove-AzResourceGroup -Name $rg5 -Force -AsJob   # VMs
 Remove-AzResourceGroup -Name $rg4 -Force -AsJob   # VNets, DNS, NSG
 Remove-AzResourceGroup -Name $rg3 -Force -AsJob   # Discos

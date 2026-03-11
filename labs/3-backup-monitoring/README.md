@@ -73,25 +73,25 @@ Labs e simulado cobrindo principalmente o dominio de **monitoramento/backup/reco
 
 ```bash
 # CLI — VMs (da Semana 2)
-az vm deallocate -g az104-rg7 -n az104-vm-win --no-wait
-az vm deallocate -g az104-rg7 -n az104-vm-linux --no-wait
+az vm deallocate -g rg-contoso-compute -n vm-web-01 --no-wait
+az vm deallocate -g rg-contoso-compute -n vm-api-01 --no-wait
 
 # CLI — Desabilitar alertas (evita avaliacoes desnecessarias)
-az monitor metrics alert update -g az104-rg-monitor -n az104-vm-win-cpu-alert --enabled false
+az monitor metrics alert update -g rg-contoso-management -n alert-vm-web-01-cpu --enabled false
 ```
 
 ```powershell
 # PowerShell — VMs
-Stop-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-win -Force
-Stop-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-linux -Force
+Stop-AzVM -ResourceGroupName rg-contoso-compute -Name vm-web-01 -Force
+Stop-AzVM -ResourceGroupName rg-contoso-compute -Name vm-api-01 -Force
 ```
 
 ### Retomar (quando voltar ao lab)
 
 ```bash
-az vm start -g az104-rg7 -n az104-vm-win --no-wait
-az vm start -g az104-rg7 -n az104-vm-linux --no-wait
-az monitor metrics alert update -g az104-rg-monitor -n az104-vm-win-cpu-alert --enabled true
+az vm start -g rg-contoso-compute -n vm-web-01 --no-wait
+az vm start -g rg-contoso-compute -n vm-api-01 --no-wait
+az monitor metrics alert update -g rg-contoso-management -n alert-vm-web-01-cpu --enabled true
 ```
 
 > **Nota:** Desalocar VMs para cobranca de compute, mas discos continuam cobrando. Site Recovery cobra continuamente por VM replicada — desabilite a replicacao via Portal se nao for continuar no mesmo dia. Recovery Services Vault cobra por instancia protegida — desabilite a protecao se necessario.
@@ -110,6 +110,4 @@ az monitor metrics alert update -g az104-rg-monitor -n az104-vm-win-cpu-alert --
 
 | RG           | Conteudo                                                |
 | ------------ | ------------------------------------------------------- |
-| `az104-rg11` | Recovery Services Vault (VM backup + File Share backup) |
-| `az104-rg12` | Azure Site Recovery (replicacao cross-region)           |
-| `az104-rg13` | Azure Monitor, Log Analytics Workspace, Network Watcher |
+| `rg-contoso-management` | Recovery Services Vault, Site Recovery, Azure Monitor, Log Analytics, Backup Vault |

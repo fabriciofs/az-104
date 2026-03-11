@@ -45,7 +45,7 @@ Get-Module -ListAvailable Az.OperationalInsights | Select-Object Name, Version
 
 # 5. Verificar recursos da Semana 2
 #    VM Windows e Storage Account devem existir
-Get-AzVM -ResourceGroupName "az104-rg7" -Name "az104-vm-win" -ErrorAction SilentlyContinue |
+Get-AzVM -ResourceGroupName "rg-contoso-compute" -Name "vm-web-01" -ErrorAction SilentlyContinue |
     Select-Object Name, Location, ProvisioningState
 ```
 
@@ -67,26 +67,26 @@ $location       = "eastus"
 $locationDR     = "westus"                               # Regiao de DR para Site Recovery
 
 # --- Backup (Blocos 1-2) ---
-$rg11       = "az104-rg11"
-$vaultName  = "az104-rsv"
-$policyName = "az104-backup-policy"
+$rg11       = "rg-contoso-management"
+$vaultName  = "rsv-contoso-backup"
+$policyName = "rsvpol-contoso-12h"
 
 # --- Site Recovery (Bloco 3) ---
-$rg12          = "az104-rg12"
-$vaultNameDR   = "az104-rsv-dr"
-$fabricSource  = "az104-fabric-source"
-$fabricTarget  = "az104-fabric-target"
+$rg12          = "rg-contoso-management"
+$vaultNameDR   = "rsv-contoso-dr-westus"
+$fabricSource  = "fabric-contoso-source"
+$fabricTarget  = "fabric-contoso-target"
 
 # --- Monitor (Blocos 4-5) ---
-$rg13             = "az104-rg13"
-$workspaceName    = "az104-law"
-$actionGroupName  = "az104-ag"
-$alertRuleName    = "az104-cpu-alert"
+$rg13             = "rg-contoso-management"
+$workspaceName    = "law-contoso-prod"
+$actionGroupName  = "ag-contoso-ops"
+$alertRuleName    = "alert-vm-web-01-cpu"
 
 # --- Referencia a recursos existentes (Semana 2) ---
-$vmRg       = "az104-rg7"                                # RG das VMs da Semana 2
-$vmName     = "az104-vm-win"                              # VM Windows da Semana 2
-$storageRg  = "az104-rg6"                                 # RG do Storage da Semana 2
+$vmRg       = "rg-contoso-compute"                                # RG das VMs da Semana 2
+$vmName     = "vm-web-01"                              # VM Windows da Semana 2
+$storageRg  = "rg-contoso-storage"                                 # RG do Storage da Semana 2
 
 # --- Email para alertas (ALTERE) ---
 $alertEmail = "seuemail@exemplo.com"                      # ← ALTERE: email para receber alertas
@@ -99,10 +99,10 @@ $alertEmail = "seuemail@exemplo.com"                      # ← ALTERE: email pa
 ```
 Bloco 1 (VM Backup) ←── Depende de VM da Semana 2
   │
-  ├─ az104-rg11 ─────────────────────────────────┐
-  ├─ az104-rsv (Recovery Services Vault) ─────────┤
-  ├─ az104-backup-policy (Custom Policy) ─────────┤
-  ├─ Enable backup na VM az104-vm-win ────────────┤
+  ├─ rg-contoso-management ─────────────────────────────────┐
+  ├─ rsv-contoso-backup (Recovery Services Vault) ─────────┤
+  ├─ rsvpol-contoso-12h (Custom Policy) ─────────┤
+  ├─ Enable backup na VM vm-web-01 ────────────┤
   ├─ Backup on-demand ────────────────────────────┤
   └─ Restore VM (listar pontos de recuperacao) ───┤
                                                   │
@@ -117,8 +117,8 @@ Bloco 2 (File/Blob Protection) ←── Depende de Storage da Semana 2
                                                   ▼
 Bloco 3 (Site Recovery) ←── Depende de VM da Semana 2
   │
-  ├─ az104-rg12 ─────────────────────────────────┐
-  ├─ az104-rsv-dr (Vault na regiao DR) ──────────┤
+  ├─ rg-contoso-management ─────────────────────────────────┐
+  ├─ rsv-contoso-dr-westus (Vault na regiao DR) ──────────┤
   ├─ ASR Fabric (source + target) ───────────────┤
   ├─ Protection Container ───────────────────────┤
   ├─ Replication Protected Item ─────────────────┤
@@ -128,7 +128,7 @@ Bloco 3 (Site Recovery) ←── Depende de VM da Semana 2
                                                   ▼
 Bloco 4 (Azure Monitor & Alerts) ←── Depende de VM da Semana 2
   │
-  ├─ az104-rg13 ─────────────────────────────────┐
+  ├─ rg-contoso-management ─────────────────────────────────┐
   ├─ Action Group (email) ───────────────────────┤
   ├─ Metric Alert (CPU > 80%) ───────────────────┤
   ├─ Diagnostic Settings ────────────────────────┤
@@ -137,7 +137,7 @@ Bloco 4 (Azure Monitor & Alerts) ←── Depende de VM da Semana 2
                                                   ▼
 Bloco 5 (Log Analytics & Insights) ←── Depende de Blocos 4
   │
-  ├─ az104-law (Log Analytics Workspace) ────────┤
+  ├─ law-contoso-prod (Log Analytics Workspace) ────────┤
   ├─ AMA Agent na VM ────────────────────────────┤
   ├─ KQL queries ────────────────────────────────┤
   ├─ VM Insights ────────────────────────────────┤
@@ -310,7 +310,7 @@ Get-AzRecoveryServicesBackupProtectionPolicy -Name $policyName -VaultId $vault.I
 
 ```powershell
 # ============================================================
-# TASK 1.4 - Habilitar backup na VM az104-vm-win
+# TASK 1.4 - Habilitar backup na VM vm-web-01
 # ============================================================
 
 # Obter a policy criada
@@ -351,7 +351,7 @@ Write-Host "Policy: $($backupItem.ProtectionPolicyName)"
 Write-Host "Health: $($backupItem.HealthStatus)"
 ```
 
-> **Conexao com Semana 2:** A VM `az104-vm-win` foi criada na Semana 2 (storage-compute).
+> **Conexao com Semana 2:** A VM `vm-web-01` foi criada na Semana 2 (storage-compute).
 > O backup protege a VM inteira, incluindo OS disk e data disks.
 
 ---
@@ -523,7 +523,7 @@ Write-Host "Dados serao replicados para a regiao pareada"
 - [ ] Criar Recovery Services Vault no mesmo RG e regiao da VM
 - [ ] Configurar redundancia do vault como LocallyRedundant
 - [ ] Criar custom backup policy com retencao: 30 dias, 4 semanas, 6 meses
-- [ ] Habilitar backup na VM `az104-vm-win` com a policy customizada
+- [ ] Habilitar backup na VM `vm-web-01` com a policy customizada
 - [ ] Executar backup on-demand com expiracao de 30 dias
 - [ ] Listar recovery points com `Get-AzRecoveryServicesBackupRecoveryPoint`
 - [ ] Entender as opcoes de restore: CreateVirtualMachine vs RestoreDisks
@@ -656,7 +656,7 @@ if (-not $filePolicy) {
         -BackupManagementType "AzureStorage"
 
     $filePolicy = New-AzRecoveryServicesBackupProtectionPolicy `
-        -Name "az104-fileshare-policy" `
+        -Name "fspol-contoso-daily" `
         -WorkloadType "AzureFiles" `
         -SchedulePolicy $schedPolicy `
         -RetentionPolicy $retPolicy `
@@ -1116,7 +1116,7 @@ Write-Host "Target Container: $($targetContainer.FriendlyName)"
 # -ApplicationConsistentSnapshotFrequencyInHours: frequencia de snapshot consistente
 # -RPOWarningThresholdInMinutes: alerta se RPO exceder (0 = desabilitado)
 $replicationPolicy = New-AzRecoveryServicesAsrPolicy `
-    -Name "az104-repl-policy" `
+    -Name "repl-contoso-policy" `
     -ReplicationProvider "A2A" `
     -RecoveryPointRetentionInHours 24 `
     -ApplicationConsistentSnapshotFrequencyInHours 4
@@ -1130,7 +1130,7 @@ while ($policyJob.State -eq "InProgress") {
     $policyJob = Get-AzRecoveryServicesAsrJob -Name $policyJob.Name
 }
 
-$policy = Get-AzRecoveryServicesAsrPolicy -Name "az104-repl-policy"
+$policy = Get-AzRecoveryServicesAsrPolicy -Name "repl-contoso-policy"
 
 # Container Mapping: associa source container ao target container com a policy
 # New-AzRecoveryServicesAsrProtectionContainerMapping: cria mapeamento
@@ -1230,7 +1230,7 @@ Write-Host "OS Disk: $osDiskId"
 
 # Criar cache storage account na regiao source (necessario para replicacao)
 # A cache storage account armazena dados temporarios durante a replicacao
-$cacheSaName = "az104cache$(Get-Random -Minimum 1000 -Maximum 9999)"
+$cacheSaName = "stcontosocache$(Get-Random -Minimum 1000 -Maximum 9999)"
 $cacheSa = New-AzStorageAccount `
     -ResourceGroupName $rg11 `
     -Name $cacheSaName `
@@ -1300,12 +1300,12 @@ if ($replicatedItem -and $replicatedItem.ReplicationHealth -ne "None") {
     # -RecoveryFabric: fabric de destino
     # -ReplicationProtectedItem: itens incluidos no plano
     $recoveryPlan = New-AzRecoveryServicesAsrRecoveryPlan `
-        -Name "az104-recovery-plan" `
+        -Name "recovery-plan-contoso" `
         -PrimaryFabric $sourceFabric `
         -RecoveryFabric $targetFabric `
         -ReplicationProtectedItem $replicatedItem
 
-    Write-Host "Recovery Plan criado: az104-recovery-plan"
+    Write-Host "Recovery Plan criado: recovery-plan-contoso"
     Write-Host "VMs incluidas: $($replicatedItem.FriendlyName)"
 } else {
     Write-Host "Item replicado ainda nao esta pronto. Aguarde a replicacao inicial." -ForegroundColor Yellow
@@ -1327,7 +1327,7 @@ if ($replicatedItem -and $replicatedItem.ReplicationHealth -ne "None") {
 # IMPORTANTE: Sempre faca test failover antes de um failover real!
 
 # Obter o recovery plan
-$plan = Get-AzRecoveryServicesAsrRecoveryPlan -Name "az104-recovery-plan"
+$plan = Get-AzRecoveryServicesAsrRecoveryPlan -Name "recovery-plan-contoso"
 
 if ($plan) {
     # Start-AzRecoveryServicesAsrTestFailoverJob: inicia test failover
@@ -1362,7 +1362,7 @@ if ($plan) {
 # O cleanup remove as VMs temporarias criadas pelo teste
 # Se nao fizer cleanup, nao podera iniciar outro test failover
 
-$plan = Get-AzRecoveryServicesAsrRecoveryPlan -Name "az104-recovery-plan"
+$plan = Get-AzRecoveryServicesAsrRecoveryPlan -Name "recovery-plan-contoso"
 
 if ($plan) {
     # Start-AzRecoveryServicesAsrTestFailoverCleanupJob: remove recursos do teste
@@ -1511,7 +1511,7 @@ $emailReceiver = New-AzActionGroupEmailReceiverObject `
 $actionGroup = New-AzActionGroup `
     -ResourceGroupName $rg13 `
     -Name $actionGroupName `
-    -ShortName "az104-ag" `
+    -ShortName "ag-contoso-ops" `
     -Location "Global" `
     -EmailReceiver @($emailReceiver)
 
@@ -1623,7 +1623,7 @@ $dynamicCondition = New-AzMetricAlertRuleV2Criteria `
     -ExaminedPeriod 4
 
 Add-AzMetricAlertRuleV2 `
-    -Name "az104-vm-cpu-dynamic" `
+    -Name "alert-vm-web-01-cpu-dynamic" `
     -ResourceGroupName $rg13 `
     -WindowSize (New-TimeSpan -Minutes 20) `
     -Frequency (New-TimeSpan -Minutes 5) `
@@ -1685,7 +1685,7 @@ $vm = Get-AzVM -ResourceGroupName $vmRg -Name $vmName
 $diagSetting = Set-AzDiagnosticSetting `
     -ResourceId $vm.Id `
     -WorkspaceId $workspace.ResourceId `
-    -Name "az104-vm-diagnostics" `
+    -Name "alert-vm-web-01-diagnostics" `
     -MetricCategory @("AllMetrics") `
     -Enabled $true
 
@@ -1759,7 +1759,7 @@ $actionGroupRef = New-AzActivityLogAlertActionGroupObject `
 
 # Criar alerta para incidentes (outages)
 New-AzActivityLogAlert `
-    -Name "az104-service-health-incident" `
+    -Name "alert-service-health-incident" `
     -ResourceGroupName $rg13 `
     -Location "Global" `
     -Scope "/subscriptions/$((Get-AzContext).Subscription.Id)" `
@@ -1776,7 +1776,7 @@ $conditionMaintenance = New-AzActivityLogAlertAlertRuleAnyOfOrLeafConditionObjec
 
 # Criar alerta para manutencao planejada
 New-AzActivityLogAlert `
-    -Name "az104-service-health-maintenance" `
+    -Name "alert-service-health-maintenance" `
     -ResourceGroupName $rg13 `
     -Location "Global" `
     -Scope "/subscriptions/$((Get-AzContext).Subscription.Id)" `
@@ -1961,7 +1961,7 @@ $workspace = Get-AzOperationalInsightsWorkspace `
 # Definir os dados a coletar:
 #   - Performance counters (CPU, Memory, Disk, Network)
 #   - Windows Event Logs (System, Application)
-$dcrName = "az104-dcr-vm"
+$dcrName = "dcr-contoso-perf"
 
 # Usando New-AzDataCollectionRule (modulo Az.Monitor)
 $windowsEventLogs = New-AzWindowsEventLogDataSourceObject `
@@ -2008,7 +2008,7 @@ $vm = Get-AzVM -ResourceGroupName $vmRg -Name $vmName
 
 New-AzDataCollectionRuleAssociation `
     -TargetResourceId $vm.Id `
-    -AssociationName "az104-dcr-assoc" `
+    -AssociationName "dcr-contoso-perf-assoc" `
     -RuleId $dcr.Id
 
 Write-Host "DCR associada a VM $vmName"
@@ -2257,11 +2257,11 @@ $testGroup = New-AzNetworkWatcherConnectionMonitorTestGroupObject `
 $connMonitor = New-AzNetworkWatcherConnectionMonitor `
     -NetworkWatcherName $networkWatcher.Name `
     -ResourceGroupName $networkWatcher.ResourceGroupName `
-    -Name "az104-conn-monitor" `
+    -Name "alert-conn-monitor" `
     -TestGroup @($testGroup) `
     -WorkspaceResourceId $workspace.ResourceId
 
-Write-Host "`nConnection Monitor criado: az104-conn-monitor"
+Write-Host "`nConnection Monitor criado: alert-conn-monitor"
 Write-Host "Source: $vmName"
 Write-Host "Destination: www.bing.com:443"
 Write-Host "Frequencia: a cada 60 segundos"
@@ -2344,7 +2344,7 @@ if ($nic) {
 # Traffic Analytics agrega os dados no Log Analytics para visualizacao.
 
 # Obter NSG, Storage Account e Workspace
-$nsg = Get-AzNetworkSecurityGroup -ResourceGroupName $vmRg -Name "az104-nsg"
+$nsg = Get-AzNetworkSecurityGroup -ResourceGroupName $vmRg -Name "nsg-contoso"
 $storageAccount = Get-AzStorageAccount -ResourceGroupName $vmRg |
     Select-Object -First 1
 
@@ -2497,7 +2497,7 @@ D) Diagnostic Settings
 > que o Recovery Services Vault nao suporta (Disks, Blobs, PostgreSQL, AKS). Neste bloco voce tambem
 > pratica mover VMs entre Resource Groups — topico cobrado no AZ-104 (dominio Compute).
 >
-> **Resource Groups:** `az104-rg7` (VMs da Semana 2) + `az104-rg-bv` (Backup Vault) + `az104-rg-moved` (destino do move)
+> **Resource Groups:** `rg-contoso-compute` (VMs da Semana 2) + `rg-contoso-management` (Backup Vault) + `rg-contoso-moved` (destino do move)
 >
 > **Modulo principal:** `Az.DataProtection` (Backup Vault) + `Az.Resources` (VM Move)
 
@@ -2521,10 +2521,10 @@ D) Diagnostic Settings
 # ============================================================
 
 # Criar RG de destino
-New-AzResourceGroup -Name "az104-rg-moved" -Location "eastus"
+New-AzResourceGroup -Name "rg-contoso-moved" -Location "eastus"
 
 # Obter a VM e seus recursos dependentes
-$vm = Get-AzVM -ResourceGroupName "az104-rg7" -Name "az104-vm-linux"
+$vm = Get-AzVM -ResourceGroupName "rg-contoso-compute" -Name "vm-api-01"
 
 # Obter IDs dos recursos dependentes
 # IMPORTANTE: VM + NIC + Disk devem ir juntos
@@ -2541,12 +2541,12 @@ Write-Host "Disk ID: $diskId"
 # - -Force: nao pede confirmacao interativa
 # - NAO desliga a VM (move entre RGs e sem downtime)
 Move-AzResource `
-    -DestinationResourceGroupName "az104-rg-moved" `
+    -DestinationResourceGroupName "rg-contoso-moved" `
     -ResourceId @($vmId, $nicId, $diskId) `
     -Force
 
 # Validar: VM agora esta no novo RG
-Get-AzVM -ResourceGroupName "az104-rg-moved" -Name "az104-vm-linux" |
+Get-AzVM -ResourceGroupName "rg-contoso-moved" -Name "vm-api-01" |
     Select-Object Name, ResourceGroupName, Location |
     Format-Table
 ```
@@ -2578,23 +2578,23 @@ Get-AzVM -ResourceGroupName "az104-rg-moved" -Name "az104-vm-linux" |
 # ============================================================
 
 # Obter recursos no RG de destino
-$vm = Get-AzVM -ResourceGroupName "az104-rg-moved" -Name "az104-vm-linux"
+$vm = Get-AzVM -ResourceGroupName "rg-contoso-moved" -Name "vm-api-01"
 $vmId = $vm.Id
 $nicId = $vm.NetworkProfile.NetworkInterfaces[0].Id
 $diskId = $vm.StorageProfile.OsDisk.ManagedDisk.Id
 
 # Mover VM de volta ao RG original
 Move-AzResource `
-    -DestinationResourceGroupName "az104-rg7" `
+    -DestinationResourceGroupName "rg-contoso-compute" `
     -ResourceId @($vmId, $nicId, $diskId) `
     -Force
 
 # Validar: VM de volta ao RG original
-Get-AzVM -ResourceGroupName "az104-rg7" -Name "az104-vm-linux" |
+Get-AzVM -ResourceGroupName "rg-contoso-compute" -Name "vm-api-01" |
     Select-Object Name, ResourceGroupName |
     Format-Table
 
-Write-Host "VM movida de volta para az104-rg7 com sucesso" -ForegroundColor Green
+Write-Host "VM movida de volta para rg-contoso-compute com sucesso" -ForegroundColor Green
 ```
 
 > **Conexao com Bloco 3:** Para mover VMs entre regioes, use Azure Site Recovery (configurado no Bloco 3).
@@ -2622,10 +2622,10 @@ Write-Host "VM movida de volta para az104-rg7 com sucesso" -ForegroundColor Gree
 # ============================================================
 
 # Variaveis
-$bvRg = "az104-rg-bv"
-$bvName = "az104-bv"
+$bvRg = "rg-contoso-management"
+$bvName = "bv-contoso-disks"
 $location = "eastus"
-$policyName = "az104-bv-disk-policy"
+$policyName = "bv-contoso-disks-disk-policy"
 
 # Criar Resource Group
 New-AzResourceGroup -Name $bvRg -Location $location
@@ -2750,11 +2750,11 @@ Get-AzDataProtectionBackupPolicy `
 # ============================================================
 
 # Variaveis
-$bvRg = "az104-rg-bv"
-$bvName = "az104-bv"
-$vmRg = "az104-rg7"
-$vmName = "az104-vm-linux"
-$policyName = "az104-bv-disk-policy"
+$bvRg = "rg-contoso-management"
+$bvName = "bv-contoso-disks"
+$vmRg = "rg-contoso-compute"
+$vmName = "vm-api-01"
+$policyName = "bv-contoso-disks-disk-policy"
 
 # Obter o Backup Vault e a VM
 $backupVault = Get-AzDataProtectionBackupVault -ResourceGroupName $bvRg -VaultName $bvName
@@ -2850,11 +2850,11 @@ Write-Host "Snapshots ficam no OperationalStore (rapido para restore)"
 
 ## Modo Desafio - Bloco 6
 
-- [ ] Criar RG `az104-rg-moved` e mover VM Linux via `Move-AzResource`
+- [ ] Criar RG `rg-contoso-moved` e mover VM Linux via `Move-AzResource`
 - [ ] Verificar recursos dependentes movidos junto (NIC, Disk)
 - [ ] Entender as diferencas entre move entre RGs vs move entre regioes
 - [ ] Mover VM de volta ao RG original
-- [ ] Criar Backup Vault `az104-bv` (LRS) com `New-AzDataProtectionBackupVault`
+- [ ] Criar Backup Vault `bv-contoso-disks` (LRS) com `New-AzDataProtectionBackupVault`
 - [ ] Criar disk backup policy com `New-AzDataProtectionBackupPolicy`
 - [ ] Comparar workloads suportados: RSV vs Backup Vault (tabela conceitual)
 - [ ] Configurar backup de disco via `Initialize-`/`New-AzDataProtectionBackupInstance`
@@ -2923,12 +2923,12 @@ Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos
 
 ```powershell
 # Pausar
-Stop-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-win -Force
-Stop-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-linux -Force
+Stop-AzVM -ResourceGroupName rg-contoso-compute -Name vm-web-01 -Force
+Stop-AzVM -ResourceGroupName rg-contoso-compute -Name vm-api-01 -Force
 
 # Retomar
-Start-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-win
-Start-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-linux
+Start-AzVM -ResourceGroupName rg-contoso-compute -Name vm-web-01
+Start-AzVM -ResourceGroupName rg-contoso-compute -Name vm-api-01
 ```
 
 > **Nota:** Desalocar VMs para cobranca de compute, mas discos continuam cobrando. Site Recovery cobra continuamente por VM replicada — desabilite a replicacao via Portal se nao for continuar no mesmo dia.
@@ -3039,22 +3039,22 @@ if ($vaultDR) {
 # 5. Remover backup instances do Backup Vault (Bloco 6)
 Write-Host "5. Removendo Backup Vault instances..." -ForegroundColor Yellow
 $bvInstances = Get-AzDataProtectionBackupInstance `
-    -ResourceGroupName "az104-rg-bv" `
-    -VaultName "az104-bv" `
+    -ResourceGroupName "rg-contoso-management" `
+    -VaultName "bv-contoso-disks" `
     -ErrorAction SilentlyContinue
 
 foreach ($inst in $bvInstances) {
     # Suspender protecao antes de remover
     Suspend-AzDataProtectionBackupInstanceBackup `
-        -ResourceGroupName "az104-rg-bv" `
-        -VaultName "az104-bv" `
+        -ResourceGroupName "rg-contoso-management" `
+        -VaultName "bv-contoso-disks" `
         -BackupInstanceName $inst.Name `
         -ErrorAction SilentlyContinue
 
     # Remover backup instance
     Remove-AzDataProtectionBackupInstance `
-        -ResourceGroupName "az104-rg-bv" `
-        -VaultName "az104-bv" `
+        -ResourceGroupName "rg-contoso-management" `
+        -VaultName "bv-contoso-disks" `
         -Name $inst.Name `
         -ErrorAction SilentlyContinue
 
@@ -3068,7 +3068,7 @@ if ($networkWatcher) {
     Remove-AzNetworkWatcherConnectionMonitor `
         -NetworkWatcherName $networkWatcher.Name `
         -ResourceGroupName $networkWatcher.ResourceGroupName `
-        -Name "az104-conn-monitor" `
+        -Name "alert-conn-monitor" `
         -ErrorAction SilentlyContinue
     Write-Host "  Connection Monitor removido"
 }
@@ -3088,7 +3088,7 @@ Write-Host "7. Removendo extensoes da VM..." -ForegroundColor Yellow
 # 8. Remover cache storage account
 Write-Host "8. Removendo cache storage account..." -ForegroundColor Yellow
 Get-AzStorageAccount -ResourceGroupName $rg11 |
-    Where-Object { $_.StorageAccountName -like "az104cache*" } |
+    Where-Object { $_.StorageAccountName -like "stcontosocache*" } |
     ForEach-Object {
         Remove-AzStorageAccount -ResourceGroupName $rg11 -Name $_.StorageAccountName -Force
         Write-Host "  Storage account $($_.StorageAccountName) removida"
@@ -3099,8 +3099,8 @@ Write-Host "9. Deletando Resource Groups..." -ForegroundColor Yellow
 Remove-AzResourceGroup -Name $rg11 -Force -AsJob            # Backup vault + policies
 Remove-AzResourceGroup -Name $rg12 -Force -AsJob            # Site Recovery
 Remove-AzResourceGroup -Name $rg13 -Force -AsJob            # Monitor + Log Analytics
-Remove-AzResourceGroup -Name "az104-rg-bv" -Force -AsJob    # Backup Vault
-Remove-AzResourceGroup -Name "az104-rg-moved" -Force -AsJob -ErrorAction SilentlyContinue  # Move RG
+Remove-AzResourceGroup -Name "rg-contoso-management" -Force -AsJob    # Backup Vault
+Remove-AzResourceGroup -Name "rg-contoso-moved" -Force -AsJob -ErrorAction SilentlyContinue  # Move RG
 Write-Host "  RGs sendo deletados em background..."
 
 # 10. Reverter configuracoes de protecao de blobs (opcional)

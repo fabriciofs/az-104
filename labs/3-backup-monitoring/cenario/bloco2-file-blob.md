@@ -3,40 +3,40 @@
 # Bloco 2 - File & Blob Protection
 
 **Origem:** Lab 10 (continuacao) + Azure Backup for File Shares + Soft Delete & Versioning
-**Resource Groups utilizados:** `az104-rg-backup` (vault do Bloco 1) + `az104-rg6` (Storage da Semana 2)
+**Resource Groups utilizados:** `rg-contoso-management` (vault do Bloco 1) + `rg-contoso-storage` (Storage da Semana 2)
 
 ## Contexto
 
-Na Semana 2, voce criou storage accounts com file shares e blob containers no `az104-rg6`. Agora voce protege esses dados com backup de file shares (usando o **mesmo vault do Bloco 1**) e configura soft delete + versioning como camadas adicionais de protecao.
+Na Semana 2, voce criou storage accounts com file shares e blob containers no `rg-contoso-storage`. Agora voce protege esses dados com backup de file shares (usando o **mesmo vault do Bloco 1**) e configura soft delete + versioning como camadas adicionais de protecao.
 
 ## Diagrama
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
-│                    az104-rg-backup (Bloco 1)                       │
+│                    rg-contoso-management (Bloco 1)                       │
 │                                                                    │
 │  ┌──────────────────────────────────────────────────────────────┐  │
-│  │          Recovery Services Vault: az104-rsv (Bloco 1)        │  │
+│  │          Recovery Services Vault: rsv-contoso-backup (Bloco 1)        │  │
 │  │                                                              │  │
 │  │  Backup Items:                                               │  │
-│  │  ├─ Azure VMs: az104-vm-win, az104-vm-linux ◄── Bloco 1      │  │
-│  │  └─ Azure File Share: az104-share ◄── NOVO (este bloco)      │  │
+│  │  ├─ Azure VMs: vm-web-01, vm-api-01 ◄── Bloco 1      │  │
+│  │  └─ Azure File Share: contoso-share ◄── NOVO (este bloco)      │  │
 │  │                                                              │  │
 │  │  File Share Backup Policy:                                   │  │
-│  │  └─ az104-fs-policy (daily, 30 days)                         │  │
+│  │  └─ fspol-contoso-daily (daily, 30 days)                         │  │
 │  └──────────────────────────────────────────────────────────────┘  │
 │                                                                    │
 │  ┌──────────────────────────────────────────────────────────────┐  │
-│  │  az104-rg6 (Semana 2 — Storage)                              │  │
+│  │  rg-contoso-storage (Semana 2 — Storage)                              │  │
 │  │                                                              │  │
 │  │  ┌───────────────────────────────────────────────┐           │  │
-│  │  │ Storage Account: az104storageXXX (Semana 2)   │           │  │
+│  │  │ Storage Account: stcontosodocs01 (Semana 2)   │           │  │
 │  │  │                                               │           │  │
 │  │  │ File Shares:                                  │           │  │
-│  │  │ └─ az104-share ──── backup via RSV ✓          │           │  │
+│  │  │ └─ contoso-share ──── backup via RSV ✓          │           │  │
 │  │  │                                               │           │  │
 │  │  │ Blob Containers:                              │           │  │
-│  │  │ └─ az104-container                            │           │  │
+│  │  │ └─ contoso-container                            │           │  │
 │  │  │    ├─ Soft delete: 14 dias ✓ (NOVO)           │           │  │
 │  │  │    └─ Versioning: habilitado ✓ (NOVO)         │           │  │
 │  │  └───────────────────────────────────────────────┘           │  │
@@ -53,9 +53,9 @@ Na Semana 2, voce criou storage accounts com file shares e blob containers no `a
 
 Voce usa o **mesmo vault** criado no Bloco 1 para proteger o file share da Semana 2.
 
-> **Pre-requisito:** O storage account com file share `az104-share` deve existir no `az104-rg6` (criado na Semana 2). Se nao existir, crie um storage account com um file share antes de continuar.
+> **Pre-requisito:** O storage account com file share `contoso-share` deve existir no `rg-contoso-storage` (criado na Semana 2). Se nao existir, crie um storage account com um file share antes de continuar.
 
-1. No vault **az104-rsv** (criado no Bloco 1), va para **Getting started** > **Backup**
+1. No vault **rsv-contoso-backup** (criado no Bloco 1), va para **Getting started** > **Backup**
 
 2. Configure:
 
@@ -66,7 +66,7 @@ Voce usa o **mesmo vault** criado no Bloco 1 para proteger o file share da Seman
 
 3. Clique em **Backup**
 
-4. Em **Storage Account**, clique em **Select** > selecione o storage account do `az104-rg6` (da Semana 2)
+4. Em **Storage Account**, clique em **Select** > selecione o storage account do `rg-contoso-storage` (da Semana 2)
 
    > **Conexao com Semana 2:** Voce esta protegendo o mesmo file share que os usuarios da Contoso Corp utilizam para armazenamento corporativo (configurado na Semana 2).
 
@@ -82,7 +82,7 @@ Voce usa o **mesmo vault** criado no Bloco 1 para proteger o file share da Seman
 
    | Setting            | Value                                           |
    | ------------------ | ----------------------------------------------- |
-   | Policy name        | `az104-fs-policy`                               |
+   | Policy name        | `fspol-contoso-daily`                               |
    | Frequency          | **Daily**                                       |
    | Time               | `12:00 AM`                                      |
    | Timezone           | **(UTC-03:00) Brasilia**                        |
@@ -100,7 +100,7 @@ Voce usa o **mesmo vault** criado no Bloco 1 para proteger o file share da Seman
 
 1. Em **File Shares to Backup**, clique em **Add**
 
-2. Selecione **az104-share** > **OK**
+2. Selecione **contoso-share** > **OK**
 
 3. Clique em **Enable Backup**
 
@@ -112,9 +112,9 @@ Voce usa o **mesmo vault** criado no Bloco 1 para proteger o file share da Seman
 
 ### Task 2.4: Executar backup on-demand do file share
 
-1. No vault **az104-rsv** > **Protected items** > **Backup items** > **Azure File Share**
+1. No vault **rsv-contoso-backup** > **Protected items** > **Backup items** > **Azure File Share**
 
-2. Selecione **az104-share**
+2. Selecione **contoso-share**
 
 3. Clique em **Backup now**
 
@@ -130,9 +130,9 @@ Voce usa o **mesmo vault** criado no Bloco 1 para proteger o file share da Seman
 
 ### Task 2.5: Testar restore de arquivo do file share
 
-1. No vault **az104-rsv** > **Protected items** > **Backup items** > **Azure File Share**
+1. No vault **rsv-contoso-backup** > **Protected items** > **Backup items** > **Azure File Share**
 
-2. Selecione **az104-share** > **Restore Share**
+2. Selecione **contoso-share** > **Restore Share**
 
 3. Selecione o restore point mais recente
 
@@ -157,7 +157,7 @@ Voce usa o **mesmo vault** criado no Bloco 1 para proteger o file share da Seman
 
 Soft delete protege contra exclusao acidental de blobs no storage account da Semana 2.
 
-1. Navegue para o **storage account** no `az104-rg6` (da Semana 2)
+1. Navegue para o **storage account** no `rg-contoso-storage` (da Semana 2)
 
 2. Va para **Data management** > **Data protection**
 
@@ -196,7 +196,7 @@ Soft delete protege contra exclusao acidental de blobs no storage account da Sem
 
 1. No storage account, va para **Data storage** > **Containers**
 
-2. Selecione **az104-container** (ou crie um se necessario)
+2. Selecione **contoso-container** (ou crie um se necessario)
 
 3. **Upload** um arquivo de teste (qualquer arquivo pequeno, ex: `test.txt`)
 
@@ -222,8 +222,8 @@ Soft delete protege contra exclusao acidental de blobs no storage account da Sem
 
 ## Modo Desafio - Bloco 2
 
-- [ ] Configurar backup do file share `az104-share` **(Semana 2)** usando o vault `az104-rsv` **(Bloco 1)**
-- [ ] Criar policy `az104-fs-policy` (daily, 30 days retention)
+- [ ] Configurar backup do file share `contoso-share` **(Semana 2)** usando o vault `rsv-contoso-backup` **(Bloco 1)**
+- [ ] Criar policy `fspol-contoso-daily` (daily, 30 days retention)
 - [ ] Executar backup on-demand do file share → aguardar completion
 - [ ] Revisar opcoes de restore (Full Share vs Item Level)
 - [ ] Habilitar soft delete para blobs e containers (14 dias) no storage **(Semana 2)**

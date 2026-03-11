@@ -48,11 +48,11 @@ Labs e simulado cobrindo principalmente os dominios oficiais de **Storage** e **
 
 | Recurso                                    | Gera cobranca?                                | Pode parar?                               | Como parar                       |
 | ------------------------------------------ | --------------------------------------------- | ----------------------------------------- | -------------------------------- |
-| VMs (az104-vm-win, az104-vm-linux)         | Sim — enquanto alocada                        | Sim — desalocar                           | `az vm deallocate`               |
-| VMSS (az104-vmss)                          | Sim — por instancia ativa                     | Sim — escalar para 0                      | `az vmss scale --new-capacity 0` |
+| VMs (vm-web-01, vm-api-01)         | Sim — enquanto alocada                        | Sim — desalocar                           | `az vm deallocate`               |
+| VMSS (vmss-contoso-web)                          | Sim — por instancia ativa                     | Sim — escalar para 0                      | `az vmss scale --new-capacity 0` |
 | App Service Plan (Standard S1)             | Sim — enquanto existir (mesmo com app parada) | Nao — so deletar ou rebaixar para Free F1 | —                                |
-| ACI (az104-container-1, az104-container-2) | Sim — enquanto Running                        | Sim — parar                               | `az container stop`              |
-| Container Apps (az104-ca-1)                | Por replica ativa (scale-to-zero = sem custo) | Ja configurado para escalar a zero        | —                                |
+| ACI (ci-contoso-worker, ci-contoso-worker-2) | Sim — enquanto Running                        | Sim — parar                               | `az container stop`              |
+| Container Apps (ca-contoso-api)                | Por replica ativa (scale-to-zero = sem custo) | Ja configurado para escalar a zero        | —                                |
 | Managed Disks (OS disks, data disks)       | Sim — sempre (mesmo com VM desalocada)        | Nao — so deletar                          | —                                |
 | Public IPs (Standard SKU)                  | Sim — enquanto existir                        | Nao — so deletar                          | —                                |
 | Private Endpoint                           | Sim — enquanto existir                        | Nao — so deletar                          | —                                |
@@ -65,35 +65,35 @@ Labs e simulado cobrindo principalmente os dominios oficiais de **Storage** e **
 
 ```bash
 # CLI — VMs
-az vm deallocate -g az104-rg7 -n az104-vm-win --no-wait
-az vm deallocate -g az104-rg7 -n az104-vm-linux --no-wait
+az vm deallocate -g rg-contoso-compute -n vm-web-01 --no-wait
+az vm deallocate -g rg-contoso-compute -n vm-api-01 --no-wait
 
 # CLI — VMSS (escalar para 0)
-az vmss scale -g az104-rg7 -n az104-vmss --new-capacity 0
+az vmss scale -g rg-contoso-compute -n vmss-contoso-web --new-capacity 0
 
 # CLI — ACI
-az container stop -g az104-rg9 -n az104-container-1
-az container stop -g az104-rg9 -n az104-container-2
+az container stop -g rg-contoso-compute -n ci-contoso-worker
+az container stop -g rg-contoso-compute -n ci-contoso-worker-2
 ```
 
 ```powershell
 # PowerShell — VMs
-Stop-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-win -Force
-Stop-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-linux -Force
+Stop-AzVM -ResourceGroupName rg-contoso-compute -Name vm-web-01 -Force
+Stop-AzVM -ResourceGroupName rg-contoso-compute -Name vm-api-01 -Force
 
 # PowerShell — ACI
-Stop-AzContainerGroup -ResourceGroupName az104-rg9 -Name az104-container-1
-Stop-AzContainerGroup -ResourceGroupName az104-rg9 -Name az104-container-2
+Stop-AzContainerGroup -ResourceGroupName rg-contoso-compute -Name ci-contoso-worker
+Stop-AzContainerGroup -ResourceGroupName rg-contoso-compute -Name ci-contoso-worker-2
 ```
 
 ### Retomar (quando voltar ao lab)
 
 ```bash
-az vm start -g az104-rg7 -n az104-vm-win --no-wait
-az vm start -g az104-rg7 -n az104-vm-linux --no-wait
-az vmss scale -g az104-rg7 -n az104-vmss --new-capacity 1
-az container start -g az104-rg9 -n az104-container-1
-az container start -g az104-rg9 -n az104-container-2
+az vm start -g rg-contoso-compute -n vm-web-01 --no-wait
+az vm start -g rg-contoso-compute -n vm-api-01 --no-wait
+az vmss scale -g rg-contoso-compute -n vmss-contoso-web --new-capacity 1
+az container start -g rg-contoso-compute -n ci-contoso-worker
+az container start -g rg-contoso-compute -n ci-contoso-worker-2
 ```
 
 > **Nota:** Desalocar VMs para cobranca de compute, mas discos e IPs publicos continuam cobrando. O App Service Plan (Standard S1) cobra enquanto existir — para parar, delete o plano ou rebaixe para Free F1. Container Apps com scale-to-zero nao geram custo quando ociosas.
@@ -110,10 +110,7 @@ az container start -g az104-rg9 -n az104-container-2
 
 ## Resource Groups
 
-| RG           | Conteudo                                        |
-| ------------ | ----------------------------------------------- |
-| `az104-rg6`  | Storage Account, Blobs, Files, Private Endpoint |
-| `az104-rg7`  | VMs Windows/Linux, VMSS, Data Disks             |
-| `az104-rg8`  | App Service Plan, Web App, Deployment Slots     |
-| `az104-rg9`  | Azure Container Instances                       |
-| `az104-rg10` | Container Apps Environment, Container Apps      |
+| RG                    | Conteudo                                                                           |
+| --------------------- | ---------------------------------------------------------------------------------- |
+| `rg-contoso-storage`  | Storage Account, Blobs, Files, Private Endpoint                                    |
+| `rg-contoso-compute`  | VMs, VMSS, App Service, ACI, Container Apps Environment (ja existe do Modulo 1)    |

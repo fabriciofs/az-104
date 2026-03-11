@@ -118,30 +118,30 @@ SUBSCRIPTION_ID="00000000-0000-0000-0000-000000000000" # ← ALTERE
 LOCATION="eastus"
 
 # Storage
-RG6="az104-rg6"
-STORAGE_ACCOUNT_NAME="az104storage${RANDOM}"
+RG6="rg-contoso-storage"
+STORAGE_ACCOUNT_NAME="stcontosoprod${RANDOM}"
 CONTAINER_NAME="contoso-data"
 FILE_SHARE_NAME="contoso-files"
 
 # VMs
-RG7="az104-rg7"
-VM_WIN_NAME="az104-vm-win"
-VM_LINUX_NAME="az104-vm-linux"
-VMSS_NAME="az104-vmss"
+RG7="rg-contoso-compute"
+VM_WIN_NAME="vm-web-01"
+VM_LINUX_NAME="vm-api-01"
+VMSS_NAME="vmss-contoso-web"
 VM_SIZE="Standard_D2s_v3"
 ADMIN_USERNAME="localadmin"
 ADMIN_PASSWORD="SenhaComplexa@2024!" # ← ALTERE
 
 # Web Apps
-RG8="az104-rg8"
-APP_SERVICE_PLAN="az104-asp"
-WEB_APP_NAME="az104-webapp-${RANDOM}"
+RG8="rg-contoso-compute"
+APP_SERVICE_PLAN="asp-contoso-prod"
+WEB_APP_NAME="app-contoso-web-${RANDOM}"
 
 # ACI
-RG9="az104-rg9"
+RG9="rg-contoso-compute"
 
 # Container Apps
-RG10="az104-rg10"
+RG10="rg-contoso-compute"
 ```
 
 ---
@@ -1026,7 +1026,7 @@ Salve como **`bloco2-vm-windows.json`**:
     "parameters": {
         "vmName": {
             "type": "string",
-            "defaultValue": "az104-vm-win",
+            "defaultValue": "vm-web-01",
             "metadata": {
                 "description": "Nome da VM Windows"
             }
@@ -1235,7 +1235,7 @@ Salve como **`bloco2-vm-linux.json`**:
     "parameters": {
         "vmName": {
             "type": "string",
-            "defaultValue": "az104-vm-linux"
+            "defaultValue": "vm-api-01"
         },
         "vmSize": {
             "type": "string",
@@ -1394,11 +1394,11 @@ Salve como **`bloco2-datadisk.json`**:
     "parameters": {
         "vmName": {
             "type": "string",
-            "defaultValue": "az104-vm-win"
+            "defaultValue": "vm-web-01"
         },
         "diskName": {
             "type": "string",
-            "defaultValue": "az104-vm-win-datadisk1"
+            "defaultValue": "disk-vm-web-01-data"
         },
         "diskSizeGB": {
             "type": "int",
@@ -1452,7 +1452,7 @@ az deployment group create \
 az vm disk attach \
     --resource-group "$RG7" \
     --vm-name "$VM_WIN_NAME" \
-    --name "az104-vm-win-datadisk1" \
+    --name "disk-vm-web-01-data" \
     --lun 0
 
 # Verificar discos
@@ -1475,7 +1475,7 @@ Salve como **`bloco2-vmss.json`**:
     "parameters": {
         "vmssName": {
             "type": "string",
-            "defaultValue": "az104-vmss",
+            "defaultValue": "vmss-contoso-web",
             "maxLength": 61
         },
         "instanceCount": {
@@ -1805,7 +1805,7 @@ Salve como **`bloco2-extension.json`**:
     "parameters": {
         "vmName": {
             "type": "string",
-            "defaultValue": "az104-vm-win"
+            "defaultValue": "vm-web-01"
         },
         "location": {
             "type": "string",
@@ -1889,7 +1889,7 @@ Salve como **`bloco2-vm-cloudinit.json`**:
         }
     },
     "variables": {
-        "vmName": "az104-vm-cloudinit",
+        "vmName": "vm-api-01",
         // cloud-init YAML em base64
         // package_upgrade + nginx + pagina customizada
         "cloudInitConfig": "#cloud-config\npackage_upgrade: true\npackages:\n  - nginx\nwrite_files:\n  - path: /var/www/html/index.html\n    content: |\n      <h1>Hello from cloud-init VM</h1>\n      <p>Configurado automaticamente no primeiro boot via ARM</p>\nruncmd:\n  - systemctl enable nginx\n  - systemctl start nginx"
@@ -1967,13 +1967,13 @@ Deploy:
 az deployment group create \
     --resource-group "$RG7" \
     --template-file bloco2-vm-cloudinit.json \
-    --parameters subnetId="/subscriptions/<sub>/resourceGroups/az104-rg4/providers/Microsoft.Network/virtualNetworks/ManufacturingVnet/subnets/Manufacturing" \
+    --parameters subnetId="/subscriptions/<sub>/resourceGroups/rg-contoso-network/providers/Microsoft.Network/virtualNetworks/vnet-contoso-spoke-brazilsouth/subnets/Manufacturing" \
     adminPassword="$ADMIN_PASSWORD"
 
 # Verificar cloud-init via Run Command
 az vm run-command invoke \
     --resource-group "$RG7" \
-    --name az104-vm-cloudinit \
+    --name vm-api-01 \
     --command-id RunShellScript \
     --scripts "cloud-init status --long"
 ```
@@ -2068,7 +2068,7 @@ Salve como **`bloco3-webapp.json`**:
     "parameters": {
         "appServicePlanName": {
             "type": "string",
-            "defaultValue": "az104-asp",
+            "defaultValue": "asp-contoso-prod",
             "metadata": {
                 "description": "Nome do App Service Plan"
             }
@@ -2251,7 +2251,7 @@ Salve como **`bloco3-autoscale.json`**:
     "parameters": {
         "appServicePlanName": {
             "type": "string",
-            "defaultValue": "az104-asp"
+            "defaultValue": "asp-contoso-prod"
         },
         "location": {
             "type": "string",
@@ -2412,7 +2412,7 @@ Salve como **`bloco4-aci.json`**:
     "parameters": {
         "containerGroupName": {
             "type": "string",
-            "defaultValue": "az104-aci-nginx",
+            "defaultValue": "ci-contoso-worker",
             "metadata": {
                 "description": "Nome do container group"
             }
@@ -2567,17 +2567,17 @@ az deployment group create \
         storageAccountKey="$STORAGE_KEY"
 
 echo "=== Container Group ==="
-az container show -g "$RG9" -n "az104-aci-nginx" \
+az container show -g "$RG9" -n "ci-contoso-worker" \
     --query "{name:name, state:instanceView.state, ip:ipAddress.ip, fqdn:ipAddress.fqdn}" -o table
 
 echo ""
 echo "=== Testar acesso ==="
-FQDN=$(az container show -g "$RG9" -n "az104-aci-nginx" --query "ipAddress.fqdn" -o tsv)
+FQDN=$(az container show -g "$RG9" -n "ci-contoso-worker" --query "ipAddress.fqdn" -o tsv)
 curl -s "http://$FQDN" | head -5
 
 echo ""
 echo "=== Logs ==="
-az container logs -g "$RG9" -n "az104-aci-nginx"
+az container logs -g "$RG9" -n "ci-contoso-worker"
 ```
 
 ---
@@ -2587,7 +2587,7 @@ az container logs -g "$RG9" -n "az104-aci-nginx"
 - [ ] Deploy `bloco4-aci.json` (Container Group + Volume + Env Vars)
 - [ ] Verificar FQDN e testar acesso HTTP
 - [ ] Verificar logs do container
-- [ ] Verificar volume montado: `az container exec -g $RG9 -n az104-aci-nginx --exec-command "ls /mnt/azure"`
+- [ ] Verificar volume montado: `az container exec -g $RG9 -n ci-contoso-worker --exec-command "ls /mnt/azure"`
 
 ---
 
@@ -2642,7 +2642,7 @@ Salve como **`bloco5-container-env.json`**:
     "parameters": {
         "environmentName": {
             "type": "string",
-            "defaultValue": "az104-cae",
+            "defaultValue": "cae-contoso-prod",
             "metadata": {
                 "description": "Nome do Container Apps Environment"
             }
@@ -2720,7 +2720,7 @@ az deployment group create \
     --template-file bloco5-container-env.json
 
 echo "=== Container Apps Environment ==="
-az containerapp env show -g "$RG10" -n "az104-cae" \
+az containerapp env show -g "$RG10" -n "cae-contoso-prod" \
     --query "{name:name, provisioningState:provisioningState}" -o table
 ```
 
@@ -2737,14 +2737,14 @@ Salve como **`bloco5-container-app.json`**:
     "parameters": {
         "containerAppName": {
             "type": "string",
-            "defaultValue": "az104-app",
+            "defaultValue": "ca-contoso-api",
             "metadata": {
                 "description": "Nome do Container App"
             }
         },
         "environmentName": {
             "type": "string",
-            "defaultValue": "az104-cae"
+            "defaultValue": "cae-contoso-prod"
         },
         "location": {
             "type": "string",
@@ -2850,12 +2850,12 @@ az deployment group create \
     --template-file bloco5-container-app.json
 
 echo "=== Container App ==="
-az containerapp show -g "$RG10" -n "az104-app" \
+az containerapp show -g "$RG10" -n "ca-contoso-api" \
     --query "{name:name, fqdn:properties.configuration.ingress.fqdn, latestRevision:properties.latestRevisionName}" -o table
 
 echo ""
 echo "=== Testar acesso ==="
-APP_URL=$(az containerapp show -g "$RG10" -n "az104-app" --query "properties.configuration.ingress.fqdn" -o tsv)
+APP_URL=$(az containerapp show -g "$RG10" -n "ca-contoso-api" --query "properties.configuration.ingress.fqdn" -o tsv)
 curl -s "https://$APP_URL" | head -5
 ```
 
@@ -2872,11 +2872,11 @@ Salve como **`bloco5-traffic-split.json`**:
     "parameters": {
         "containerAppName": {
             "type": "string",
-            "defaultValue": "az104-app"
+            "defaultValue": "ca-contoso-api"
         },
         "environmentName": {
             "type": "string",
-            "defaultValue": "az104-cae"
+            "defaultValue": "cae-contoso-prod"
         },
         "location": {
             "type": "string",
@@ -2907,7 +2907,7 @@ Salve como **`bloco5-traffic-split.json`**:
                             {
                                 // revisionName: nome exato da revisao anterior
                                 // Substituir pelo nome real apos primeiro deploy
-                                "revisionName": "az104-app--REVISION_ANTERIOR",
+                                "revisionName": "ca-contoso-api--REVISION_ANTERIOR",
                                 "weight": 20
                             }
                         ]
@@ -2963,19 +2963,19 @@ Deploy:
 
 ```bash
 # Primeiro, obter nome da revisao atual
-CURRENT_REVISION=$(az containerapp show -g "$RG10" -n "az104-app" \
+CURRENT_REVISION=$(az containerapp show -g "$RG10" -n "ca-contoso-api" \
     --query "properties.latestRevisionName" -o tsv)
 echo "Revisao atual: $CURRENT_REVISION"
 
 # Atualizar o template com o nome da revisao real
-sed "s/az104-app--REVISION_ANTERIOR/$CURRENT_REVISION/" bloco5-traffic-split.json > bloco5-traffic-split-updated.json
+sed "s/ca-contoso-api--REVISION_ANTERIOR/$CURRENT_REVISION/" bloco5-traffic-split.json > bloco5-traffic-split-updated.json
 
 az deployment group create \
     --resource-group "$RG10" \
     --template-file bloco5-traffic-split-updated.json
 
 echo "=== Revisoes ==="
-az containerapp revision list -g "$RG10" -n "az104-app" \
+az containerapp revision list -g "$RG10" -n "ca-contoso-api" \
     --query "[].{name:name, active:properties.active, trafficWeight:properties.trafficWeight}" -o table
 ```
 
@@ -3027,7 +3027,7 @@ A) Deletar v1  B) Alterar weights para 0/100  C) Criar nova revisao  D) Swap com
 
 **Tecnologia:** ARM JSON + CLI
 **Recursos criados:** 1 Storage Account (destino AzCopy), 1 Key Vault com 2 chaves RSA, Object Replication, CMK, ADE
-**Resource Groups:** `az104-rg6` (existente), `az104-rg7` (existente), `az104-rg6adv` (novo)
+**Resource Groups:** `rg-contoso-storage` (existente), `rg-contoso-compute` (existente), `rg-contoso-storage` (novo)
 
 > **Pre-requisito:** Blocos 1 e 2 devem estar completos (Storage Account + VMs criadas).
 
@@ -3120,15 +3120,15 @@ Salve como **`bloco6-storage2.json`**:
 
 ```bash
 # Criar Resource Group
-az group create --name az104-rg6adv --location eastus
+az group create --name rg-contoso-storage --location eastus
 
 # Gerar nome unico
-STORAGE2_NAME="contosostore2$(openssl rand -hex 3)"
+STORAGE2_NAME="stcontosoprod01$(openssl rand -hex 3)"
 echo "Storage Account 2: $STORAGE2_NAME"
 
 # Deploy ARM template
 az deployment group create \
-  -g az104-rg6adv \
+  -g rg-contoso-storage \
   --template-file bloco6-storage2.json \
   --parameters storageAccountName="$STORAGE2_NAME"
 ```
@@ -3144,7 +3144,7 @@ az deployment group create \
 # (server-to-server). Nao passa pelo seu computador local.
 
 # 1. Obter nome da Storage Account de origem (Bloco 1)
-STORAGE1_NAME=$(az storage account list -g az104-rg6 \
+STORAGE1_NAME=$(az storage account list -g rg-contoso-storage \
   --query "[0].name" -o tsv)
 echo "Origem: $STORAGE1_NAME"
 
@@ -3357,12 +3357,12 @@ Salve como **`bloco6-keyvault.json`**:
 ADMIN_OID=$(az ad signed-in-user show --query id -o tsv)
 
 # Gerar nome unico
-KV_NAME="az104-kv-$(openssl rand -hex 3)"
+KV_NAME="kv-contoso-prod-$(openssl rand -hex 3)"
 echo "Key Vault: $KV_NAME"
 
 # Deploy
 az deployment group create \
-  -g az104-rg6adv \
+  -g rg-contoso-storage \
   --template-file bloco6-keyvault.json \
   --parameters keyVaultName="$KV_NAME" adminObjectId="$ADMIN_OID"
 
@@ -3378,11 +3378,11 @@ az keyvault key list --vault-name "$KV_NAME" -o table
 
 # 1. Habilitar System-assigned Managed Identity
 az storage account update \
-  --name "$STORAGE1_NAME" -g az104-rg6 --identity-type SystemAssigned
+  --name "$STORAGE1_NAME" -g rg-contoso-storage --identity-type SystemAssigned
 
 # 2. Obter Principal ID
 STORAGE_IDENTITY=$(az storage account show \
-  --name "$STORAGE1_NAME" -g az104-rg6 --query identity.principalId -o tsv)
+  --name "$STORAGE1_NAME" -g rg-contoso-storage --query identity.principalId -o tsv)
 
 # 3. Atribuir role no Key Vault
 az role assignment create \
@@ -3393,13 +3393,13 @@ az role assignment create \
 
 # 4. Configurar CMK
 az storage account update \
-  --name "$STORAGE1_NAME" -g az104-rg6 \
+  --name "$STORAGE1_NAME" -g rg-contoso-storage \
   --encryption-key-source Microsoft.Keyvault \
   --encryption-key-vault "https://${KV_NAME}.vault.azure.net" \
   --encryption-key-name storage-cmk
 
 # 5. Verificar
-az storage account show --name "$STORAGE1_NAME" -g az104-rg6 \
+az storage account show --name "$STORAGE1_NAME" -g rg-contoso-storage \
   --query "encryption.{keySource: keySource, keyVault: keyVaultProperties.keyVaultUri, keyName: keyVaultProperties.keyName}" -o table
 ```
 
@@ -3417,7 +3417,7 @@ az storage account show --name "$STORAGE1_NAME" -g az104-rg6 \
 # - Storage File Data SMB Share Elevated Contributor (acima + ACLs NTFS)
 
 az storage account show \
-  --name "$STORAGE1_NAME" -g az104-rg6 \
+  --name "$STORAGE1_NAME" -g rg-contoso-storage \
   --query "azureFilesIdentityBasedAuthentication" -o json
 
 echo "RBAC controla acesso no NIVEL DO SHARE. ACLs NTFS controlam acesso GRANULAR."
@@ -3433,18 +3433,18 @@ echo "RBAC controla acesso no NIVEL DO SHARE. ACLs NTFS controlam acesso GRANULA
 # ADE + SSE = dupla camada de protecao
 
 # 1. Verificar VM running
-az vm show -g az104-rg7 -n az104-vm-win --query "powerState" -o tsv --show-details
+az vm show -g rg-contoso-compute -n vm-web-01 --query "powerState" -o tsv --show-details
 
 # 2. Habilitar ADE com KEK
 az vm encryption enable \
-  --resource-group az104-rg7 --name az104-vm-win \
+  --resource-group rg-contoso-compute --name vm-web-01 \
   --disk-encryption-keyvault "$KV_NAME" \
   --key-encryption-key disk-encryption \
   --volume-type All
 # NOTA: Pode levar 10-15 minutos
 
 # 3. Verificar status
-az vm encryption show --resource-group az104-rg7 --name az104-vm-win -o table
+az vm encryption show --resource-group rg-contoso-compute --name vm-web-01 -o table
 ```
 
 ---
@@ -3505,7 +3505,7 @@ A) Storage Account Contributor  B) Storage Blob Data Contributor  C) Storage Fil
 
 **Tecnologia:** ARM JSON + CLI
 **Recursos criados:** 1 Azure Container Registry (Basic), 1 ACI from ACR, App Service configs
-**Resource Groups:** `az104-rg8` (existente), `az104-rg7acr` (novo)
+**Resource Groups:** `rg-contoso-compute` (existente), `rg-contoso-computeacr` (novo)
 
 > **Pre-requisito:** Blocos 1 e 3 devem estar completos (Storage Account + App Service criados).
 
@@ -3578,15 +3578,15 @@ Salve como **`bloco7-acr.json`**:
 
 ```bash
 # Criar Resource Group
-az group create --name az104-rg7acr --location eastus
+az group create --name rg-contoso-computeacr --location eastus
 
 # Gerar nome unico (apenas alfanumerico)
-ACR_NAME="az104acr$(openssl rand -hex 3)"
+ACR_NAME="acrcontosoprod$(openssl rand -hex 3)"
 echo "ACR: $ACR_NAME"
 
 # Deploy
 az deployment group create \
-  -g az104-rg7acr \
+  -g rg-contoso-computeacr \
   --template-file bloco7-acr.json \
   --parameters acrName="$ACR_NAME"
 
@@ -3629,12 +3629,12 @@ Salve como **`bloco7-aci-from-acr.json`**:
     "parameters": {
         "containerName": {
             "type": "string",
-            "defaultValue": "az104-acr-aci"
+            "defaultValue": "ci-contoso-worker"
         },
         "acrLoginServer": {
             "type": "string",
             "metadata": {
-                "description": "Login server do ACR (ex: az104acr123.azurecr.io)"
+                "description": "Login server do ACR (ex: acrcontosoprod123.azurecr.io)"
             }
         },
         "acrUsername": {
@@ -3728,14 +3728,14 @@ ACR_PASS=$(az acr credential show --name "$ACR_NAME" --query "passwords[0].value
 
 # Deploy
 az deployment group create \
-  -g az104-rg7acr \
+  -g rg-contoso-computeacr \
   --template-file bloco7-aci-from-acr.json \
   --parameters acrLoginServer="$ACR_LOGIN" acrUsername="$ACR_USER" acrPassword="$ACR_PASS"
 
 # Verificar
-az container show -g az104-rg7acr -n az104-acr-aci \
+az container show -g rg-contoso-computeacr -n ci-contoso-worker \
   --query "{status: instanceView.state, ip: ipAddress.ip}" -o table
-az container logs -g az104-rg7acr -n az104-acr-aci
+az container logs -g rg-contoso-computeacr -n ci-contoso-worker
 ```
 
 ---
@@ -3746,7 +3746,7 @@ az container logs -g az104-rg7acr -n az104-acr-aci
 # CONCEITO AZ-104: Custom domain requer CNAME (subdomain) ou A record (apex)
 # + TXT record para verificacao. Free/Shared tier NAO suporta custom domains.
 
-APP_NAME=$(az webapp list -g az104-rg8 --query "[0].name" -o tsv)
+APP_NAME=$(az webapp list -g rg-contoso-compute --query "[0].name" -o tsv)
 echo "App: $APP_NAME.azurewebsites.net"
 echo ""
 echo "Processo: CNAME www → $APP_NAME.azurewebsites.net"
@@ -3763,17 +3763,17 @@ echo "Para apex domain: A record → IP do App Service + TXT asuid"
 # Managed Certificate = gratis, automatico, so subdomains
 # SNI SSL (padrao) vs IP-based SSL (requer IP dedicado)
 
-az webapp update -g az104-rg8 -n "$APP_NAME" --https-only true
-az webapp config set -g az104-rg8 -n "$APP_NAME" --min-tls-version 1.2
+az webapp update -g rg-contoso-compute -n "$APP_NAME" --https-only true
+az webapp config set -g rg-contoso-compute -n "$APP_NAME" --min-tls-version 1.2
 
-az webapp show -g az104-rg8 -n "$APP_NAME" \
+az webapp show -g rg-contoso-compute -n "$APP_NAME" \
   --query "{httpsOnly: httpsOnly, minTls: siteConfig.minTlsVersion}" -o table
 ```
 
 ```bash
 # TASK 7.5 (validacao) - Testar redirect HTTP → HTTPS
 # HTTPS Only forca redirect 301 de HTTP para HTTPS
-WEBAPP_URL=$(az webapp show -g az104-rg8 -n "$APP_NAME" --query "defaultHostName" -o tsv)
+WEBAPP_URL=$(az webapp show -g rg-contoso-compute -n "$APP_NAME" --query "defaultHostName" -o tsv)
 curl -I http://$WEBAPP_URL 2>/dev/null | head -5
 # Resultado esperado:
 # HTTP/1.1 301 Moved Permanently
@@ -3802,16 +3802,16 @@ BACKUP_URL="https://${STORAGE1_NAME}.blob.core.windows.net/webapp-backups?${BACK
 
 # 3. Configurar backup agendado (diario, 30 dias)
 az webapp config backup update \
-  -g az104-rg8 --webapp-name "$APP_NAME" \
+  -g rg-contoso-compute --webapp-name "$APP_NAME" \
   --container-url "$BACKUP_URL" --frequency 1d \
   --retain-one-always true --retention 30
 
 # 4. Backup imediato
 az webapp config backup create \
-  -g az104-rg8 --webapp-name "$APP_NAME" --container-url "$BACKUP_URL"
+  -g rg-contoso-compute --webapp-name "$APP_NAME" --container-url "$BACKUP_URL"
 
 # 5. Verificar
-az webapp config backup list -g az104-rg8 --webapp-name "$APP_NAME" -o table
+az webapp config backup list -g rg-contoso-compute --webapp-name "$APP_NAME" -o table
 ```
 
 ---
@@ -3822,8 +3822,8 @@ az webapp config backup list -g az104-rg8 --webapp-name "$APP_NAME" -o table
 # CONCEITO AZ-104: VNet Integration = outbound; Private Endpoint = inbound
 # Requer subnet dedicada (/28 minimo), delegada a Microsoft.Web/serverFarms
 
-VNET_RG="az104-rg4"
-VNET_NAME="CoreServicesVnet"
+VNET_RG="rg-contoso-network"
+VNET_NAME="vnet-contoso-hub-brazilsouth"
 
 # 1. Criar subnet dedicada
 az network vnet subnet create \
@@ -3833,10 +3833,10 @@ az network vnet subnet create \
 
 # 2. Configurar VNet Integration
 az webapp vnet-integration add \
-  -g az104-rg8 -n "$APP_NAME" --vnet "$VNET_NAME" --subnet WebAppSubnet
+  -g rg-contoso-compute -n "$APP_NAME" --vnet "$VNET_NAME" --subnet WebAppSubnet
 
 # 3. Verificar
-az webapp vnet-integration list -g az104-rg8 -n "$APP_NAME" -o table
+az webapp vnet-integration list -g rg-contoso-compute -n "$APP_NAME" -o table
 ```
 
 ---
@@ -3849,7 +3849,7 @@ az webapp vnet-integration list -g az104-rg8 -n "$APP_NAME" -o table
 - [ ] Explorar Custom Domain no App Service — CNAME + TXT verification
 - [ ] Configurar HTTPS Only + TLS 1.2
 - [ ] Configurar backup do App Service para Storage Account com schedule diario
-- [ ] Configurar VNet Integration com CoreServicesVnet
+- [ ] Configurar VNet Integration com vnet-contoso-hub-brazilsouth
 
 ---
 
@@ -3898,20 +3898,20 @@ Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos
 
 ```bash
 # Pausar
-az vm deallocate -g az104-rg7 -n az104-vm-win --no-wait
-az vm deallocate -g az104-rg7 -n az104-vm-linux --no-wait
-az vmss scale -g az104-rg7 -n az104-vmss --new-capacity 0
-az container stop -g az104-rg9 -n az104-container-1
-az container stop -g az104-rg9 -n az104-container-2
-az container stop -g az104-rg7acr -n az104-acr-aci
+az vm deallocate -g rg-contoso-compute -n vm-web-01 --no-wait
+az vm deallocate -g rg-contoso-compute -n vm-api-01 --no-wait
+az vmss scale -g rg-contoso-compute -n vmss-contoso-web --new-capacity 0
+az container stop -g rg-contoso-compute -n ci-contoso-worker
+az container stop -g rg-contoso-compute -n ci-contoso-worker
+az container stop -g rg-contoso-computeacr -n ci-contoso-worker
 
 # Retomar
-az vm start -g az104-rg7 -n az104-vm-win --no-wait
-az vm start -g az104-rg7 -n az104-vm-linux --no-wait
-az vmss scale -g az104-rg7 -n az104-vmss --new-capacity 1
-az container start -g az104-rg9 -n az104-container-1
-az container start -g az104-rg9 -n az104-container-2
-az container start -g az104-rg7acr -n az104-acr-aci
+az vm start -g rg-contoso-compute -n vm-web-01 --no-wait
+az vm start -g rg-contoso-compute -n vm-api-01 --no-wait
+az vmss scale -g rg-contoso-compute -n vmss-contoso-web --new-capacity 1
+az container start -g rg-contoso-compute -n ci-contoso-worker
+az container start -g rg-contoso-compute -n ci-contoso-worker
+az container start -g rg-contoso-computeacr -n ci-contoso-worker
 ```
 
 > **Nota:** Desalocar VMs para cobranca de compute, mas discos e IPs publicos continuam cobrando. O App Service Plan (Standard S1) cobra enquanto existir — para parar, delete o plano ou rebaixe para Free F1. Container Apps com scale-to-zero nao geram custo quando ociosas. Key Vault cobra por operacao (muito baixo custo).
@@ -3941,10 +3941,10 @@ echo "5. Deletando Storage (RG6)..."
 az group delete --name "$RG6" --yes --no-wait
 
 echo "6. Deletando Storage Avancado (RG6adv)..."
-az group delete --name az104-rg6adv --yes --no-wait
+az group delete --name rg-contoso-storage --yes --no-wait
 
 echo "7. Deletando ACR (RG7acr)..."
-az group delete --name az104-rg7acr --yes --no-wait
+az group delete --name rg-contoso-computeacr --yes --no-wait
 
 echo ""
 echo "8. Purge Key Vault (necessario por purge protection)..."
@@ -3954,7 +3954,7 @@ echo "   az keyvault purge --name $KV_NAME --location eastus"
 echo ""
 echo "=== CLEANUP COMPLETO ==="
 echo "Todos os RGs sendo deletados em background."
-echo "Use 'az group list --query \"[?starts_with(name, 'az104-rg')]\" -o table' para verificar."
+echo "Use 'az group list --query \"[?starts_with(name, 'rg-contoso')]\" -o table' para verificar."
 ```
 
 ---

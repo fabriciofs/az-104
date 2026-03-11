@@ -3,29 +3,29 @@
 # Bloco 6 - Load Balancer e Azure Bastion
 
 **Origem:** Lab 06 - Implement Traffic Management (parcial) + Azure Bastion
-**Resource Groups utilizados:** `az104-rg4` (VNets do Bloco 4) + `az104-rg6lb` (Load Balancers, VMs, Bastion)
+**Resource Groups utilizados:** `rg-contoso-network` (VNets do Bloco 4) + `rg-contoso-network` (Load Balancers, VMs, Bastion)
 
 ## Contexto
 
-Com as VNets, NSGs e DNS configurados nos Blocos 4-5, a Contoso Corp precisa distribuir trafego entre servidores e garantir acesso seguro as VMs sem expor IPs publicos. Voce cria um Public Load Balancer para balancear trafego HTTP, um Internal Load Balancer para comunicacao entre camadas internas, e implanta o Azure Bastion para acesso administrativo seguro. As VMs deste bloco sao implantadas na CoreServicesVnet do Bloco 4.
+Com as VNets, NSGs e DNS configurados nos Blocos 4-5, a Contoso Corp precisa distribuir trafego entre servidores e garantir acesso seguro as VMs sem expor IPs publicos. Voce cria um Public Load Balancer para balancear trafego HTTP, um Internal Load Balancer para comunicacao entre camadas internas, e implanta o Azure Bastion para acesso administrativo seguro. As VMs deste bloco sao implantadas na vnet-contoso-hub-brazilsouth do Bloco 4.
 
 ## Diagrama
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│                          az104-rg6lb                                 │
+│                          rg-contoso-network                                 │
 │                                                                      │
 │  ┌────────────────────────────────────────────────────────────────┐  │
-│  │  CoreServicesVnet (az104-rg4)                                  │  │
+│  │  vnet-contoso-hub-brazilsouth (rg-contoso-network)                                  │  │
 │  │                                                                │  │
 │  │  ┌─────────────────────┐   ┌────────────────────────────────┐  │  │
-│  │  │ AzureBastionSubnet  │   │ LBSubnet (NOVO)                │  │  │
+│  │  │ AzureBastionSubnet  │   │ snet-lb (NOVO)                │  │  │
 │  │  │ 10.20.30.0/26       │   │ 10.20.40.0/24                  │  │  │
 │  │  │                     │   │                                │  │  │
-│  │  │ Azure Bastion ──────│───│─→ Acesso seguro a LB-VM1/VM2   │  │  │
+│  │  │ Azure Bastion ──────│───│─→ Acesso seguro a vm-lb-01/VM2   │  │  │
 │  │  └─────────────────────┘   │                                │  │  │
 │  │                            │  ┌──────────┐  ┌──────────┐    │  │  │
-│  │                            │  │ LB-VM1   │  │ LB-VM2   │    │  │  │
+│  │                            │  │ vm-lb-01   │  │ vm-lb-02   │    │  │  │
 │  │  Internet                  │  │ (IIS)    │  │ (IIS)    │    │  │  │
 │  │     │                      │  └────┬─────┘  └────┬─────┘    │  │  │
 │  │     ▼                      │       │              │         │  │  │
@@ -53,13 +53,13 @@ Com as VNets, NSGs e DNS configurados nos Blocos 4-5, a Contoso Corp precisa dis
 
 Voce cria a infraestrutura de backend: uma subnet dedicada, um Availability Set e duas VMs Windows Server com IIS instalado.
 
-**Criar subnet LBSubnet:**
+**Criar subnet snet-lb:**
 
-1. Navegue para **CoreServicesVnet** (em az104-rg4) > **Subnets** > **+ Subnet**:
+1. Navegue para **vnet-contoso-hub-brazilsouth** (em rg-contoso-network) > **Subnets** > **+ Subnet**:
 
    | Setting          | Value        |
    | ---------------- | ------------ |
-   | Name             | `LBSubnet`   |
+   | Name             | `snet-lb`   |
    | Starting address | `10.20.40.0` |
    | Size             | `/24`        |
 
@@ -71,8 +71,8 @@ Voce cria a infraestrutura de backend: uma subnet dedicada, um Availability Set 
 
    | Setting        | Value                              |
    | -------------- | ---------------------------------- |
-   | Resource group | `az104-rg6lb` (crie se necessario) |
-   | Name           | `az104-avset-lb`                   |
+   | Resource group | `rg-contoso-network` (crie se necessario) |
+   | Name           | `avail-contoso-lb`                   |
    | Region         | **(US) East US**                   |
    | Fault domains  | `2`                                |
    | Update domains | `5`                                |
@@ -81,7 +81,7 @@ Voce cria a infraestrutura de backend: uma subnet dedicada, um Availability Set 
 
    > **Conceito:** Availability Sets distribuem VMs entre fault domains (racks fisicos diferentes) e update domains (reinicializacoes planejadas escalonadas). No Standard Load Balancer, o requisito principal do backend pool e estar na mesma VNet; usar Availability Set/Zone melhora resiliencia, mas nao e requisito obrigatorio para participar do pool.
 
-**Criar LB-VM1:**
+**Criar vm-lb-01:**
 
 5. Pesquise **Virtual Machines** > **Create** > **Virtual machine**
 
@@ -89,11 +89,11 @@ Voce cria a infraestrutura de backend: uma subnet dedicada, um Availability Set 
 
    | Setting              | Value                                         |
    | -------------------- | --------------------------------------------- |
-   | Resource group       | `az104-rg6lb`                                 |
-   | Virtual machine name | `LB-VM1`                                      |
+   | Resource group       | `rg-contoso-network`                                 |
+   | Virtual machine name | `vm-lb-01`                                      |
    | Region               | **(US) East US**                              |
    | Availability options | **Availability set**                          |
-   | Availability set     | `az104-avset-lb`                              |
+   | Availability set     | `avail-contoso-lb`                              |
    | Security type        | **Standard**                                  |
    | Image                | **Windows Server 2025 Datacenter - x64 Gen2** |
    | Size                 | **Standard_D2s_v3**                           |
@@ -107,8 +107,8 @@ Voce cria a infraestrutura de backend: uma subnet dedicada, um Availability Set 
 
    | Setting         | Value                               |
    | --------------- | ----------------------------------- |
-   | Virtual network | **CoreServicesVnet** (de az104-rg4) |
-   | Subnet          | **LBSubnet (10.20.40.0/24)**        |
+   | Virtual network | **vnet-contoso-hub-brazilsouth** (de rg-contoso-network) |
+   | Subnet          | **snet-lb (10.20.40.0/24)**        |
    | Public IP       | **None**                            |
    | NIC NSG         | **None**                            |
 
@@ -116,21 +116,21 @@ Voce cria a infraestrutura de backend: uma subnet dedicada, um Availability Set 
 
 10. **Review + create** > **Create** > **Nao espere** — continue
 
-**Criar LB-VM2:**
+**Criar vm-lb-02:**
 
 11. Repita os passos 5-10 com:
 
     | Setting              | Value                |
     | -------------------- | -------------------- |
-    | Virtual machine name | `LB-VM2`             |
-    | Availability set     | `az104-avset-lb`     |
-    | Demais settings      | *identicos a LB-VM1* |
+    | Virtual machine name | `vm-lb-02`             |
+    | Availability set     | `avail-contoso-lb`     |
+    | Demais settings      | *identicos a vm-lb-01* |
 
 12. **Aguarde ambas as VMs serem provisionadas**
 
 **Instalar IIS em ambas as VMs:**
 
-13. Navegue para **LB-VM1** > **Operations** > **Run command** > **RunPowerShellScript**
+13. Navegue para **vm-lb-01** > **Operations** > **Run command** > **RunPowerShellScript**
 
 14. Execute:
 
@@ -140,11 +140,11 @@ Voce cria a infraestrutura de backend: uma subnet dedicada, um Availability Set 
     Add-Content -Path 'C:\inetpub\wwwroot\iisstart.htm' -Value $('Hello from ' + $env:computername)
     ```
 
-15. Repita na **LB-VM2** com o mesmo script
+15. Repita na **vm-lb-02** com o mesmo script
 
     > **Conceito:** O script instala IIS e cria uma pagina customizada que exibe o hostname. Isso permite verificar visualmente qual VM esta respondendo ao trafego balanceado.
 
-    > **Conexao com Bloco 5:** Assim como no Bloco 5, as VMs sao implantadas em subnets da CoreServicesVnet (az104-rg4), demonstrando cross-resource-group deployment.
+    > **Conexao com Bloco 5:** Assim como no Bloco 5, as VMs sao implantadas em subnets da vnet-contoso-hub-brazilsouth (rg-contoso-network), demonstrando cross-resource-group deployment.
 
 ---
 
@@ -156,8 +156,8 @@ Voce cria a infraestrutura de backend: uma subnet dedicada, um Availability Set 
 
    | Setting        | Value            |
    | -------------- | ---------------- |
-   | Resource group | `az104-rg6lb`    |
-   | Name           | `az104-pub-lb`   |
+   | Resource group | `rg-contoso-network`    |
+   | Name           | `lbe-contoso-web`   |
    | Region         | **(US) East US** |
    | SKU            | **Standard**     |
    | Type           | **Public**       |
@@ -167,10 +167,10 @@ Voce cria a infraestrutura de backend: uma subnet dedicada, um Availability Set 
 
    | Setting           | Value                                                     |
    | ----------------- | --------------------------------------------------------- |
-   | Name              | `lb-frontend`                                             |
+   | Name              | `fe-lbe-web`                                             |
    | IP version        | **IPv4**                                                  |
    | IP type           | **IP address**                                            |
-   | Public IP address | **Create new**: `az104-lb-pip` (Standard, Zone-redundant) |
+   | Public IP address | **Create new**: `pip-lbe-contoso-web` (Standard, Zone-redundant) |
 
 4. Clique em **Add**
 
@@ -178,10 +178,10 @@ Voce cria a infraestrutura de backend: uma subnet dedicada, um Availability Set 
 
    | Setting         | Value                |
    | --------------- | -------------------- |
-   | Name            | `lb-backend-pool`    |
-   | Virtual network | **CoreServicesVnet** |
+   | Name            | `bp-lbe-web`    |
+   | Virtual network | **vnet-contoso-hub-brazilsouth** |
 
-6. Clique em **+ Add** > selecione **LB-VM1** e **LB-VM2** > **Add**
+6. Clique em **+ Add** > selecione **vm-lb-01** e **vm-lb-02** > **Add**
 
 7. Aba **Inbound rules** > **+ Add a load balancing rule**:
 
@@ -189,8 +189,8 @@ Voce cria a infraestrutura de backend: uma subnet dedicada, um Availability Set 
    | --------------------- | ----------------- |
    | Name                  | `http-rule`       |
    | IP Version            | **IPv4**          |
-   | Frontend IP address   | `lb-frontend`     |
-   | Backend pool          | `lb-backend-pool` |
+   | Frontend IP address   | `fe-lbe-web`     |
+   | Backend pool          | `bp-lbe-web` |
    | Protocol              | **TCP**           |
    | Port                  | `80`              |
    | Backend port          | `80`              |
@@ -213,14 +213,14 @@ Voce cria a infraestrutura de backend: uma subnet dedicada, um Availability Set 
 
 O Standard Load Balancer bloqueia trafego por padrao. Voce precisa de um NSG para permitir trafego HTTP.
 
-**Criar NSG para LBSubnet:**
+**Criar NSG para snet-lb:**
 
 1. Pesquise **Network security groups** > **+ Create**:
 
    | Setting        | Value         |
    | -------------- | ------------- |
-   | Resource group | `az104-rg6lb` |
-   | Name           | `nsg-lb`      |
+   | Resource group | `rg-contoso-network` |
+   | Name           | `nsg-snet-lb`      |
    | Region         | **East US**   |
 
 2. **Review + create** > **Create** > **Go to resource**
@@ -245,18 +245,18 @@ O Standard Load Balancer bloqueia trafego por padrao. Voce precisa de um NSG par
 
    | Setting         | Value                |
    | --------------- | -------------------- |
-   | Virtual network | **CoreServicesVnet** |
-   | Subnet          | **LBSubnet**         |
+   | Virtual network | **vnet-contoso-hub-brazilsouth** |
+   | Subnet          | **snet-lb**         |
 
 6. Clique em **OK**
 
 **Testar balanceamento:**
 
-7. Navegue para **az104-pub-lb** > **Overview** > copie o **Frontend IP address** (IP publico)
+7. Navegue para **lbe-contoso-web** > **Overview** > copie o **Frontend IP address** (IP publico)
 
-8. Abra o IP no navegador — voce vera "Hello from LB-VM1" ou "Hello from LB-VM2"
+8. Abra o IP no navegador — voce vera "Hello from vm-lb-01" ou "Hello from vm-lb-02"
 
-9. Faca **hard refresh** (Ctrl+Shift+R) varias vezes — o nome do servidor deve alternar entre LB-VM1 e LB-VM2
+9. Faca **hard refresh** (Ctrl+Shift+R) varias vezes — o nome do servidor deve alternar entre vm-lb-01 e vm-lb-02
 
    > **Conceito:** Com session persistence = None, o LB distribui requisicoes usando hash de 5-tupla (source IP, source port, dest IP, dest port, protocol). Hard refresh gera source ports diferentes, resultando em distribuicao entre backends.
 
@@ -264,9 +264,9 @@ O Standard Load Balancer bloqueia trafego por padrao. Voce precisa de um NSG par
 
 Voce altera a configuracao de session persistence e observa o impacto no comportamento do balanceamento.
 
-1. Navegue para **az104-pub-lb** > **Settings** > **Load balancing rules**
+1. Navegue para **lbe-contoso-web** > **Settings** > **Load balancing rules**
 
-2. Clique na regra existente (ex: `az104-lb-rule`)
+2. Clique na regra existente (ex: `rule-lbe-http`)
 
 3. Altere **Session persistence** para **Client IP** > **Save**
 
@@ -294,19 +294,19 @@ Voce altera a configuracao de session persistence e observa o impacto no comport
 
 ### Task 6.4: Testar failover — parar uma VM
 
-1. Navegue para **LB-VM1** > **Overview** > **Stop** > confirme
+1. Navegue para **vm-lb-01** > **Overview** > **Stop** > confirme
 
 2. Aguarde 30-60 segundos (health probe interval + timeout)
 
-3. Acesse o IP publico do LB no navegador — agora so deve mostrar "Hello from LB-VM2"
+3. Acesse o IP publico do LB no navegador — agora so deve mostrar "Hello from vm-lb-02"
 
-4. Faca refresh varias vezes — confirme que **apenas** LB-VM2 responde
+4. Faca refresh varias vezes — confirme que **apenas** vm-lb-02 responde
 
-5. Navegue para **az104-pub-lb** > **Insights** (ou **Monitoring** > **Metrics**):
+5. Navegue para **lbe-contoso-web** > **Insights** (ou **Monitoring** > **Metrics**):
    - Selecione metrica **Health Probe Status**
-   - Observe que LB-VM1 mostra status 0 (unhealthy)
+   - Observe que vm-lb-01 mostra status 0 (unhealthy)
 
-6. **Inicie LB-VM1 novamente** (Start) e aguarde o probe retornar a VM ao pool
+6. **Inicie vm-lb-01 novamente** (Start) e aguarde o probe retornar a VM ao pool
 
    > **Conceito:** Quando uma VM falha no health probe, o LB para de enviar trafego para ela automaticamente. Quando a VM volta a responder, o LB a reincorpora ao pool. Isso garante alta disponibilidade sem intervencao manual.
 
@@ -322,8 +322,8 @@ O Internal Load Balancer distribui trafego dentro da VNet, sem exposicao a inter
 
    | Setting        | Value            |
    | -------------- | ---------------- |
-   | Resource group | `az104-rg6lb`    |
-   | Name           | `az104-int-lb`   |
+   | Resource group | `rg-contoso-network`    |
+   | Name           | `lbi-contoso-apps`   |
    | Region         | **(US) East US** |
    | SKU            | **Standard**     |
    | Type           | **Internal**     |
@@ -333,9 +333,9 @@ O Internal Load Balancer distribui trafego dentro da VNet, sem exposicao a inter
 
    | Setting         | Value                |
    | --------------- | -------------------- |
-   | Name            | `int-lb-frontend`    |
-   | Virtual network | **CoreServicesVnet** |
-   | Subnet          | **LBSubnet**         |
+   | Name            | `fe-lbi-apps`    |
+   | Virtual network | **vnet-contoso-hub-brazilsouth** |
+   | Subnet          | **snet-lb**         |
    | Assignment      | **Static**           |
    | IP address      | `10.20.40.100`       |
 
@@ -345,17 +345,17 @@ O Internal Load Balancer distribui trafego dentro da VNet, sem exposicao a inter
 
    | Setting         | Value                         |
    | --------------- | ----------------------------- |
-   | Name            | `int-lb-backend`              |
-   | Virtual network | **CoreServicesVnet**          |
-   | VMs             | **LB-VM1** e **LB-VM2** (Add) |
+   | Name            | `bp-lbi-apps`              |
+   | Virtual network | **vnet-contoso-hub-brazilsouth**          |
+   | VMs             | **vm-lb-01** e **vm-lb-02** (Add) |
 
 6. Aba **Inbound rules** > **+ Add a load balancing rule**:
 
    | Setting             | Value                                                    |
    | ------------------- | -------------------------------------------------------- |
    | Name                | `int-http-rule`                                          |
-   | Frontend IP address | `int-lb-frontend`                                        |
-   | Backend pool        | `int-lb-backend`                                         |
+   | Frontend IP address | `fe-lbi-apps`                                        |
+   | Backend pool        | `bp-lbi-apps`                                         |
    | Protocol            | **TCP**                                                  |
    | Port                | `80`                                                     |
    | Backend port        | `80`                                                     |
@@ -376,7 +376,7 @@ O Internal Load Balancer distribui trafego dentro da VNet, sem exposicao a inter
 
 Voce simula um cenario de troubleshooting onde o health probe falha.
 
-1. Navegue para **LB-VM1** > **Run command** > **RunPowerShellScript**
+1. Navegue para **vm-lb-01** > **Run command** > **RunPowerShellScript**
 
 2. Execute o comando para parar o IIS:
 
@@ -386,29 +386,29 @@ Voce simula um cenario de troubleshooting onde o health probe falha.
 
 3. Aguarde 30-60 segundos
 
-4. Navegue para **az104-pub-lb** > **Monitoring** > **Metrics**:
+4. Navegue para **lbe-contoso-web** > **Monitoring** > **Metrics**:
    - Selecione metrica **Health Probe Status**
-   - Filtre por **Backend IP Address** = IP da LB-VM1
+   - Filtre por **Backend IP Address** = IP da vm-lb-01
    - Observe o status caindo para 0
 
-5. Navegue para **az104-pub-lb** > **Backend pools** > **lb-backend-pool**:
+5. Navegue para **lbe-contoso-web** > **Backend pools** > **bp-lbe-web**:
    - Verifique o **Health Status** de cada VM
-   - LB-VM1 deve aparecer como **Unhealthy**
+   - vm-lb-01 deve aparecer como **Unhealthy**
 
 6. **Diagnosticar:** Acesse o portal Network Watcher > **Connection troubleshoot**:
 
    | Setting          | Value                |
    | ---------------- | -------------------- |
-   | Source           | **LB-VM2**           |
+   | Source           | **vm-lb-02**           |
    | Destination type | **Specify manually** |
-   | URI/IP           | IP privado de LB-VM1 |
+   | URI/IP           | IP privado de vm-lb-01 |
    | Destination port | `80`                 |
 
 7. Execute o diagnostico — deve mostrar **Unreachable** na porta 80
 
 **Corrigir:**
 
-8. Na **LB-VM1** > **Run command**:
+8. Na **vm-lb-01** > **Run command**:
 
    ```powershell
    Start-Service -Name W3SVC
@@ -430,7 +430,7 @@ O Azure Bastion permite acesso RDP/SSH as VMs diretamente pelo portal Azure, sem
 
 **Criar AzureBastionSubnet:**
 
-1. Navegue para **CoreServicesVnet** (em az104-rg4) > **Subnets** > **+ Subnet**:
+1. Navegue para **vnet-contoso-hub-brazilsouth** (em rg-contoso-network) > **Subnets** > **+ Subnet**:
 
    | Setting          | Value                |
    | ---------------- | -------------------- |
@@ -448,19 +448,19 @@ O Azure Bastion permite acesso RDP/SSH as VMs diretamente pelo portal Azure, sem
 
    | Setting         | Value                                   |
    | --------------- | --------------------------------------- |
-   | Resource group  | `az104-rg6lb`                           |
-   | Name            | `az104-bastion`                         |
+   | Resource group  | `rg-contoso-network`                           |
+   | Name            | `bas-contoso-hub`                         |
    | Region          | **(US) East US**                        |
    | Tier            | **Basic**                               |
-   | Virtual network | **CoreServicesVnet**                    |
+   | Virtual network | **vnet-contoso-hub-brazilsouth**                    |
    | Subnet          | `AzureBastionSubnet` (auto-selecionado) |
-   | Public IP       | **Create new**: `az104-bastion-pip`     |
+   | Public IP       | **Create new**: `bas-contoso-hub-pip`     |
 
 4. **Review + create** > **Create**
 
    > **Nota:** O deployment do Bastion pode levar 5-10 minutos.
 
-5. Apos o deploy, navegue para **LB-VM1** > **Overview** > clique em **Connect** > **Connect via Bastion**
+5. Apos o deploy, navegue para **vm-lb-01** > **Overview** > clique em **Connect** > **Connect via Bastion**
 
 6. Insira as credenciais:
 
@@ -471,7 +471,7 @@ O Azure Bastion permite acesso RDP/SSH as VMs diretamente pelo portal Azure, sem
 
 7. Clique em **Connect** — uma sessao RDP abre no navegador
 
-8. Verifique que voce esta conectado a LB-VM1 (hostname visivel no desktop)
+8. Verifique que voce esta conectado a vm-lb-01 (hostname visivel no desktop)
 
 9. Feche a sessao Bastion
 
@@ -483,12 +483,12 @@ O Azure Bastion permite acesso RDP/SSH as VMs diretamente pelo portal Azure, sem
 
 ## Modo Desafio - Bloco 6
 
-- [ ] Criar subnet `LBSubnet` (10.20.40.0/24) na CoreServicesVnet **(Bloco 4)**
-- [ ] Criar Availability Set `az104-avset-lb` (2 FD, 5 UD)
-- [ ] Criar 2 VMs (LB-VM1, LB-VM2) no Availability Set, sem IP publico
+- [ ] Criar subnet `snet-lb` (10.20.40.0/24) na vnet-contoso-hub-brazilsouth **(Bloco 4)**
+- [ ] Criar Availability Set `avail-contoso-lb` (2 FD, 5 UD)
+- [ ] Criar 2 VMs (vm-lb-01, vm-lb-02) no Availability Set, sem IP publico
 - [ ] Instalar IIS em ambas as VMs via Run Command
 - [ ] Criar Public Load Balancer Standard com frontend IP, backend pool, health probe HTTP e regra
-- [ ] Criar NSG `nsg-lb` com regra AllowHTTP e associar a LBSubnet
+- [ ] Criar NSG `nsg-snet-lb` com regra AllowHTTP e associar a snet-lb
 - [ ] Testar balanceamento (hard refresh no IP publico)
 - [ ] Testar Session Persistence: Client IP (mesmo servidor) → Client IP and protocol → reverter para None
 - [ ] Testar failover: parar VM1 → apenas VM2 responde → reiniciar VM1

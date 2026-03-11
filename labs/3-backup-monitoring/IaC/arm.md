@@ -119,11 +119,11 @@ SUBSCRIPTION_ID="00000000-0000-0000-0000-000000000000" # ← ALTERE
 LOCATION="eastus"
 LOCATION_DR="westus"
 
-RG11="az104-rg11"
-VAULT_NAME="az104-rsv"
-RG12="az104-rg12"
-RG13="az104-rg13"
-WORKSPACE_NAME="az104-law"
+RG11="rg-contoso-management"
+VAULT_NAME="rsv-contoso-backup"
+RG12="rg-contoso-management"
+RG13="rg-contoso-management"
+WORKSPACE_NAME="law-contoso-prod"
 
 VM_USERNAME="localadmin"
 VM_PASSWORD='SenhaComplexa@2024!'                      # ← ALTERE
@@ -212,7 +212,7 @@ Salve como **`bloco1-vm.json`**:
     // VARIABLES - Valores calculados internamente
     // ============================================================
     "variables": {
-        "vmName": "az104-vm-backup",
+        "vmName": "vm-web-01",
         "nicName": "[concat(variables('vmName'), '-nic')]",
         "vnetName": "[concat(variables('vmName'), '-vnet')]",
         "subnetName": "default",
@@ -383,7 +383,7 @@ az deployment group create \
     --parameters adminPassword="$VM_PASSWORD"
 
 # Verificar VM criada
-az vm show -g "$RG11" -n "az104-vm-backup" \
+az vm show -g "$RG11" -n "vm-web-01" \
     --query "{name:name, status:provisioningState, size:hardwareProfile.vmSize}" -o table
 ```
 
@@ -406,7 +406,7 @@ Salve como **`bloco1-rsv.json`**:
     "parameters": {
         "vaultName": {
             "type": "string",
-            "defaultValue": "az104-rsv",
+            "defaultValue": "rsv-contoso-backup",
             "metadata": {
                 "description": "Nome do Recovery Services Vault"
             }
@@ -508,14 +508,14 @@ Salve como **`bloco1-backup-policy.json`**:
     "parameters": {
         "vaultName": {
             "type": "string",
-            "defaultValue": "az104-rsv",
+            "defaultValue": "rsv-contoso-backup",
             "metadata": {
                 "description": "Nome do Recovery Services Vault existente"
             }
         },
         "policyName": {
             "type": "string",
-            "defaultValue": "az104-daily-policy",
+            "defaultValue": "rsvpol-contoso-12h",
             "metadata": {
                 "description": "Nome da policy de backup"
             }
@@ -633,7 +633,7 @@ az deployment group create \
 az backup policy show \
     --vault-name "$VAULT_NAME" \
     -g "$RG11" \
-    --name "az104-daily-policy" \
+    --name "rsvpol-contoso-12h" \
     --query "{name:name, type:properties.backupManagementType}" -o table
 ```
 
@@ -657,8 +657,8 @@ az backup policy show \
 az backup protection enable-for-vm \
     --resource-group "$RG11" \
     --vault-name "$VAULT_NAME" \
-    --vm "az104-vm-backup" \
-    --policy-name "az104-daily-policy"
+    --vm "vm-web-01" \
+    --policy-name "rsvpol-contoso-12h"
 
 # Verificar item protegido
 az backup item list \
@@ -667,7 +667,7 @@ az backup item list \
     --query "[].{name:name, policy:properties.policyId, status:properties.protectionStatus}" \
     -o table
 
-echo "VM protegida com a policy az104-daily-policy"
+echo "VM protegida com a policy rsvpol-contoso-12h"
 ```
 
 ---
@@ -734,7 +734,7 @@ az backup restore restore-disks \
     --container-name "$CONTAINER" \
     --item-name "$ITEM" \
     --rp-name "$RECOVERY_POINT" \
-    --storage-account "az104storerestore" \
+    --storage-account "stcontosorestore01" \
     --target-resource-group "$RG11"
 
 echo "Restore iniciado. Os discos serao criados no RG $RG11"
@@ -850,7 +850,7 @@ Salve como **`bloco2-storage.json`**:
     "parameters": {
         "storageAccountName": {
             "type": "string",
-            "defaultValue": "az104storebkp",
+            "defaultValue": "stcontosodocs01",
             "minLength": 3,
             "maxLength": 24,
             "metadata": {
@@ -863,7 +863,7 @@ Salve como **`bloco2-storage.json`**:
         },
         "fileShareName": {
             "type": "string",
-            "defaultValue": "az104-share",
+            "defaultValue": "contoso-share",
             "metadata": {
                 "description": "Nome do file share"
             }
@@ -983,13 +983,13 @@ az deployment group create \
 
 # Verificar storage account
 az storage account show \
-    -n "az104storebkp" \
+    -n "stcontosodocs01" \
     -g "$RG12" \
     --query "{name:name, kind:kind, softDelete:properties}" -o json
 
 # Verificar file share
 az storage share-rm list \
-    --storage-account "az104storebkp" \
+    --storage-account "stcontosodocs01" \
     -g "$RG12" \
     --query "[].{name:name, quota:properties.shareQuota}" -o table
 ```
@@ -1011,14 +1011,14 @@ Salve como **`bloco2-fileshare-policy.json`**:
     "parameters": {
         "vaultName": {
             "type": "string",
-            "defaultValue": "az104-rsv",
+            "defaultValue": "rsv-contoso-backup",
             "metadata": {
                 "description": "Nome do Recovery Services Vault (deve existir)"
             }
         },
         "policyName": {
             "type": "string",
-            "defaultValue": "az104-fileshare-policy",
+            "defaultValue": "fspol-contoso-daily",
             "metadata": {
                 "description": "Nome da policy para file shares"
             }
@@ -1080,7 +1080,7 @@ az deployment group create \
 az backup policy show \
     --vault-name "$VAULT_NAME" \
     -g "$RG11" \
-    --name "az104-fileshare-policy" -o table
+    --name "fspol-contoso-daily" -o table
 ```
 
 ---
@@ -1100,7 +1100,7 @@ az backup policy show \
 az backup container register \
     --vault-name "$VAULT_NAME" \
     -g "$RG11" \
-    --resource-id "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG12}/providers/Microsoft.Storage/storageAccounts/az104storebkp" \
+    --resource-id "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG12}/providers/Microsoft.Storage/storageAccounts/stcontosodocs01" \
     --backup-management-type AzureStorage \
     --workload-type AzureFileShare
 
@@ -1108,9 +1108,9 @@ az backup container register \
 az backup protection enable-for-azurefileshare \
     --vault-name "$VAULT_NAME" \
     -g "$RG11" \
-    --storage-account "az104storebkp" \
-    --azure-file-share "az104-share" \
-    --policy-name "az104-fileshare-policy"
+    --storage-account "stcontosodocs01" \
+    --azure-file-share "contoso-share" \
+    --policy-name "fspol-contoso-daily"
 
 echo "File share protegido!"
 ```
@@ -1141,7 +1141,7 @@ FS_CONTAINER=$(az backup container list \
 FS_ITEM=$(az backup item list \
     --vault-name "$VAULT_NAME" -g "$RG11" \
     --backup-management-type AzureStorage \
-    --query "[?properties.friendlyName=='az104-share'].name" -o tsv)
+    --query "[?properties.friendlyName=='contoso-share'].name" -o tsv)
 
 az backup recoverypoint list \
     --vault-name "$VAULT_NAME" -g "$RG11" \
@@ -1208,7 +1208,7 @@ Salve como **`bloco3-asr-infra.json`**:
     "parameters": {
         "vaultName": {
             "type": "string",
-            "defaultValue": "az104-rsv",
+            "defaultValue": "rsv-contoso-backup",
             "metadata": {
                 "description": "Nome do Recovery Services Vault"
             }
@@ -1350,11 +1350,11 @@ Salve como **`bloco3-asr-policy.json`**:
     "parameters": {
         "vaultName": {
             "type": "string",
-            "defaultValue": "az104-rsv"
+            "defaultValue": "rsv-contoso-backup"
         },
         "policyName": {
             "type": "string",
-            "defaultValue": "az104-asr-policy",
+            "defaultValue": "repl-contoso-policy",
             "metadata": {
                 "description": "Nome da replication policy"
             }
@@ -1495,7 +1495,7 @@ PRIMARY_CONTAINER="${PRIMARY_FABRIC}-container"
 RECOVERY_CONTAINER="${RECOVERY_FABRIC}-container"
 
 # Obter policy ID
-POLICY_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG11}/providers/Microsoft.RecoveryServices/vaults/${VAULT_NAME}/replicationPolicies/az104-asr-policy"
+POLICY_ID="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG11}/providers/Microsoft.RecoveryServices/vaults/${VAULT_NAME}/replicationPolicies/repl-contoso-policy"
 
 # Criar container mapping (source → target)
 az rest --method PUT \
@@ -1527,7 +1527,7 @@ echo "Container mapping criado: $LOCATION → $LOCATION_DR"
 
 # Criar recovery plan (agrupa VMs para failover coordenado)
 az rest --method PUT \
-    --url "https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG11}/providers/Microsoft.RecoveryServices/vaults/${VAULT_NAME}/replicationRecoveryPlans/az104-recovery-plan?api-version=2023-06-01" \
+    --url "https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG11}/providers/Microsoft.RecoveryServices/vaults/${VAULT_NAME}/replicationRecoveryPlans/recovery-plan-contoso?api-version=2023-06-01" \
     --body "{
         \"properties\": {
             \"primaryFabricId\": \"/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG11}/providers/Microsoft.RecoveryServices/vaults/${VAULT_NAME}/replicationFabrics/${PRIMARY_FABRIC}\",
@@ -1544,10 +1544,10 @@ az rest --method PUT \
         }
     }"
 
-echo "Recovery Plan criado: az104-recovery-plan"
+echo "Recovery Plan criado: recovery-plan-contoso"
 echo ""
 echo "Para executar failover (APENAS em emergencia real ou teste):"
-echo "  az rest --method POST --url '.../replicationRecoveryPlans/az104-recovery-plan/testFailover'"
+echo "  az rest --method POST --url '.../replicationRecoveryPlans/recovery-plan-contoso/testFailover'"
 ```
 
 ---
@@ -1622,14 +1622,14 @@ Salve como **`bloco4-action-group.json`**:
     "parameters": {
         "actionGroupName": {
             "type": "string",
-            "defaultValue": "az104-ag-email",
+            "defaultValue": "ag-contoso-ops",
             "metadata": {
                 "description": "Nome do Action Group"
             }
         },
         "actionGroupShortName": {
             "type": "string",
-            "defaultValue": "az104email",
+            "defaultValue": "contosoops",
             "maxLength": 12,
             "metadata": {
                 "description": "Nome curto do Action Group (max 12 chars)"
@@ -1724,7 +1724,7 @@ az deployment group create \
 
 # Verificar action group
 az monitor action-group show \
-    -n "az104-ag-email" \
+    -n "ag-contoso-ops" \
     -g "$RG13" \
     --query "{name:name, shortName:groupShortName, emails:emailReceivers[].emailAddress}" -o json
 ```
@@ -1748,28 +1748,28 @@ Salve como **`bloco4-metric-alert.json`**:
     "parameters": {
         "alertName": {
             "type": "string",
-            "defaultValue": "az104-cpu-alert",
+            "defaultValue": "alert-vm-web-01-cpu",
             "metadata": {
                 "description": "Nome do alerta de metrica"
             }
         },
         "vmResourceGroup": {
             "type": "string",
-            "defaultValue": "az104-rg11",
+            "defaultValue": "rg-contoso-management",
             "metadata": {
                 "description": "Resource Group da VM monitorada"
             }
         },
         "vmName": {
             "type": "string",
-            "defaultValue": "az104-vm-backup",
+            "defaultValue": "vm-web-01",
             "metadata": {
                 "description": "Nome da VM a monitorar"
             }
         },
         "actionGroupName": {
             "type": "string",
-            "defaultValue": "az104-ag-email",
+            "defaultValue": "ag-contoso-ops",
             "metadata": {
                 "description": "Nome do Action Group para notificacao"
             }
@@ -1885,7 +1885,7 @@ az deployment group create \
 
 # Verificar alerta
 az monitor metrics alert show \
-    --name "az104-cpu-alert" \
+    --name "alert-vm-web-01-cpu" \
     -g "$RG13" \
     --query "{name:name, severity:severity, enabled:enabled, metric:criteria.allOf[0].metricName}" -o json
 ```
@@ -1906,17 +1906,17 @@ az monitor metrics alert show \
 
 az monitor metrics alert create \
     -g "$RG13" \
-    -n "az104-cpu-dynamic-alert" \
-    --scopes $(az vm show -g "$RG11" -n "az104-vm-backup" --query id -o tsv) \
+    -n "alert-vm-web-01-cpu-dynamic" \
+    --scopes $(az vm show -g "$RG11" -n "vm-web-01" --query id -o tsv) \
     --condition "avg Percentage CPU > dynamic medium of 4 violations out of 4 since 2024-01-01" \
-    --action $(az monitor action-group show -g "$RG13" -n "az104-action-group" --query id -o tsv) \
+    --action $(az monitor action-group show -g "$RG13" -n "ag-contoso-ops" --query id -o tsv) \
     --severity 2 \
     --description "Alert com Dynamic Threshold - detecta anomalias baseado em ML"
 
 # Verificar alerta
 az monitor metrics alert show \
     -g "$RG13" \
-    -n "az104-cpu-dynamic-alert" \
+    -n "alert-vm-web-01-cpu-dynamic" \
     --query "{name:name, severity:severity, enabled:enabled}" -o table
 
 echo "Dynamic Threshold Alert criado"
@@ -1947,28 +1947,28 @@ Salve como **`bloco4-diagnostics.json`**:
     "parameters": {
         "vmName": {
             "type": "string",
-            "defaultValue": "az104-vm-backup",
+            "defaultValue": "vm-web-01",
             "metadata": {
                 "description": "Nome da VM para configurar diagnostics"
             }
         },
         "workspaceName": {
             "type": "string",
-            "defaultValue": "az104-law",
+            "defaultValue": "law-contoso-prod",
             "metadata": {
                 "description": "Nome do Log Analytics Workspace (sera criado no Bloco 5)"
             }
         },
         "workspaceResourceGroup": {
             "type": "string",
-            "defaultValue": "az104-rg13",
+            "defaultValue": "rg-contoso-management",
             "metadata": {
                 "description": "RG do workspace"
             }
         },
         "settingName": {
             "type": "string",
-            "defaultValue": "az104-vm-diag",
+            "defaultValue": "alert-vm-web-01-diag",
             "metadata": {
                 "description": "Nome da configuracao de diagnostico"
             }
@@ -2037,7 +2037,7 @@ az deployment group create \
     --resource-group "$RG11" \
     --template-file bloco4-diagnostics.json
 
-echo "Diagnostic settings configurado para az104-vm-backup"
+echo "Diagnostic settings configurado para vm-web-01"
 echo "Metricas serao enviadas para o workspace $WORKSPACE_NAME"
 ```
 
@@ -2058,17 +2058,17 @@ echo "Metricas serao enviadas para o workspace $WORKSPACE_NAME"
 # Alerta para incidentes de servico (outages)
 az monitor activity-log alert create \
     -g "$RG13" \
-    -n "az104-service-health-incident" \
+    -n "alert-service-health-incident" \
     --condition category=ServiceHealth and properties.incidentType=Incident \
-    --action-group $(az monitor action-group show -g "$RG13" -n "az104-action-group" --query id -o tsv) \
+    --action-group $(az monitor action-group show -g "$RG13" -n "ag-contoso-ops" --query id -o tsv) \
     --description "Alerta para incidentes de Service Health"
 
 # Alerta para manutencao planejada
 az monitor activity-log alert create \
     -g "$RG13" \
-    -n "az104-service-health-maintenance" \
+    -n "alert-service-health-maintenance" \
     --condition category=ServiceHealth and properties.incidentType=Maintenance \
-    --action-group $(az monitor action-group show -g "$RG13" -n "az104-action-group" --query id -o tsv) \
+    --action-group $(az monitor action-group show -g "$RG13" -n "ag-contoso-ops" --query id -o tsv) \
     --description "Alerta para manutencao planejada"
 
 # Verificar alertas criados
@@ -2175,7 +2175,7 @@ Salve como **`bloco5-law.json`**:
     "parameters": {
         "workspaceName": {
             "type": "string",
-            "defaultValue": "az104-law",
+            "defaultValue": "law-contoso-prod",
             "metadata": {
                 "description": "Nome do Log Analytics Workspace"
             }
@@ -2296,7 +2296,7 @@ Salve como **`bloco5-ama-extension.json`**:
     "parameters": {
         "vmName": {
             "type": "string",
-            "defaultValue": "az104-vm-backup",
+            "defaultValue": "vm-web-01",
             "metadata": {
                 "description": "Nome da VM onde instalar o agente"
             }
@@ -2365,7 +2365,7 @@ az deployment group create \
 
 # Verificar extensao instalada
 az vm extension show \
-    --vm-name "az104-vm-backup" \
+    --vm-name "vm-web-01" \
     -g "$RG11" \
     --name "AzureMonitorWindowsAgent" \
     --query "{name:name, status:provisioningState, version:typeHandlerVersion}" -o table
@@ -2388,7 +2388,7 @@ Salve como **`bloco5-dcr.json`**:
     "parameters": {
         "dcrName": {
             "type": "string",
-            "defaultValue": "az104-dcr-perf",
+            "defaultValue": "dcr-contoso-perf-perf",
             "metadata": {
                 "description": "Nome da Data Collection Rule"
             }
@@ -2399,11 +2399,11 @@ Salve como **`bloco5-dcr.json`**:
         },
         "workspaceName": {
             "type": "string",
-            "defaultValue": "az104-law"
+            "defaultValue": "law-contoso-prod"
         },
         "workspaceResourceGroup": {
             "type": "string",
-            "defaultValue": "az104-rg13"
+            "defaultValue": "rg-contoso-management"
         }
     },
 
@@ -2520,11 +2520,11 @@ if ! az monitor data-collection rule -h &>/dev/null; then
     echo "  Pulando associacao DCR → VM."
 else
     # Associar DCR a VM
-    VM_ID=$(az vm show -g "$RG11" -n "az104-vm-backup" --query id -o tsv)
-    DCR_ID=$(az monitor data-collection rule show -g "$RG13" -n "az104-dcr-perf" --query id -o tsv)
+    VM_ID=$(az vm show -g "$RG11" -n "vm-web-01" --query id -o tsv)
+    DCR_ID=$(az monitor data-collection rule show -g "$RG13" -n "dcr-contoso-perf-perf" --query id -o tsv)
 
     az monitor data-collection rule association create \
-        --name "az104-vm-dcr-assoc" \
+        --name "dcr-contoso-perf-assoc" \
         --resource "$VM_ID" \
         --rule-id "$DCR_ID"
 
@@ -2549,7 +2549,7 @@ Salve como **`bloco5-saved-searches.json`**:
     "parameters": {
         "workspaceName": {
             "type": "string",
-            "defaultValue": "az104-law"
+            "defaultValue": "law-contoso-prod"
         }
     },
 
@@ -2657,20 +2657,20 @@ az network watcher configure \
 
 # Instalar extensao Network Watcher Agent na VM
 az vm extension set \
-    --vm-name "az104-vm-backup" \
+    --vm-name "vm-web-01" \
     -g "$RG11" \
     --name "NetworkWatcherAgentWindows" \
     --publisher "Microsoft.Azure.NetworkWatcher" \
     --version "1.4"
 
 # Criar Connection Monitor
-VM_ID=$(az vm show -g "$RG11" -n "az104-vm-backup" --query id -o tsv)
+VM_ID=$(az vm show -g "$RG11" -n "vm-web-01" --query id -o tsv)
 
 az network watcher connection-monitor create \
-    --name "az104-conn-monitor" \
+    --name "alert-conn-monitor" \
     --resource-group "NetworkWatcherRG" \
     --location "$LOCATION" \
-    --endpoint-source-name "az104-vm" \
+    --endpoint-source-name "vm-web-01" \
     --endpoint-source-resource-id "$VM_ID" \
     --endpoint-dest-name "bing" \
     --endpoint-dest-address "www.bing.com" \
@@ -2679,7 +2679,7 @@ az network watcher connection-monitor create \
     --tcp-port 443 \
     --test-group-name "web-test"
 
-echo "Connection Monitor criado: az104-conn-monitor"
+echo "Connection Monitor criado: alert-conn-monitor"
 echo "Monitora conectividade da VM para www.bing.com:443"
 ```
 
@@ -2739,7 +2739,7 @@ echo "Eventos podem levar 10-15 min para aparecer"
 # Traffic Analytics agrega os dados no Log Analytics para visualizacao.
 
 # Obter IDs necessarios
-NSG_ID=$(az network nsg show -g "$RG11" -n "az104-nsg" --query id -o tsv)
+NSG_ID=$(az network nsg show -g "$RG11" -n "nsg-contoso" --query id -o tsv)
 WORKSPACE_ID=$(az monitor log-analytics workspace show -g "$RG13" -n "$WORKSPACE_NAME" --query id -o tsv)
 STORAGE_ID=$(az storage account show -g "$RG11" -n "$STORAGE_ACCOUNT_NAME" --query id -o tsv)
 
@@ -2859,7 +2859,7 @@ Formato completo: `[resourceId(subscriptionId, resourceGroupName, 'type', 'name'
 > que o Recovery Services Vault nao suporta (Disks, Blobs, PostgreSQL, AKS). Neste bloco voce tambem
 > pratica mover VMs entre Resource Groups — topico cobrado no AZ-104 (dominio Compute).
 >
-> **Resource Groups:** `az104-rg7` (VMs da Semana 2) + `az104-rg-bv` (Backup Vault) + `az104-rg-moved` (destino do move)
+> **Resource Groups:** `rg-contoso-compute` (VMs da Semana 2) + `rg-contoso-management` (Backup Vault) + `rg-contoso-moved` (destino do move)
 
 ---
 
@@ -2881,14 +2881,14 @@ Formato completo: `[resourceId(subscriptionId, resourceGroupName, 'type', 'name'
 # ============================================================
 
 # Criar RG de destino
-az group create --name az104-rg-moved --location eastus
+az group create --name rg-contoso-moved --location eastus
 
 # Obter IDs dos recursos a mover
 # IMPORTANTE: VM + NIC + Disk devem ir juntos (dependencias)
-VM_ID=$(az vm show -g az104-rg7 -n az104-vm-linux --query id -o tsv)
-NIC_ID=$(az vm show -g az104-rg7 -n az104-vm-linux \
+VM_ID=$(az vm show -g rg-contoso-compute -n vm-api-01 --query id -o tsv)
+NIC_ID=$(az vm show -g rg-contoso-compute -n vm-api-01 \
     --query "networkProfile.networkInterfaces[0].id" -o tsv)
-DISK_ID=$(az vm show -g az104-rg7 -n az104-vm-linux \
+DISK_ID=$(az vm show -g rg-contoso-compute -n vm-api-01 \
     --query "storageProfile.osDisk.managedDisk.id" -o tsv)
 
 echo "VM ID: $VM_ID"
@@ -2900,11 +2900,11 @@ echo "Disk ID: $DISK_ID"
 # --destination-group: RG de destino (mesma subscription)
 # --ids: lista de resource IDs a mover
 az resource move \
-    --destination-group az104-rg-moved \
+    --destination-group rg-contoso-moved \
     --ids $VM_ID $NIC_ID $DISK_ID
 
 # Validar: VM agora esta no novo RG
-az vm show -g az104-rg-moved -n az104-vm-linux --query "{name:name, rg:resourceGroup, location:location}" -o table
+az vm show -g rg-contoso-moved -n vm-api-01 --query "{name:name, rg:resourceGroup, location:location}" -o table
 ```
 
 > **Conceito AZ-104:** `az resource move` altera o Resource Group no resource ID mas NAO altera
@@ -2934,19 +2934,19 @@ az vm show -g az104-rg-moved -n az104-vm-linux --query "{name:name, rg:resourceG
 # ============================================================
 
 # Mover VM de volta ao RG original
-VM_ID=$(az vm show -g az104-rg-moved -n az104-vm-linux --query id -o tsv)
-NIC_ID=$(az vm show -g az104-rg-moved -n az104-vm-linux \
+VM_ID=$(az vm show -g rg-contoso-moved -n vm-api-01 --query id -o tsv)
+NIC_ID=$(az vm show -g rg-contoso-moved -n vm-api-01 \
     --query "networkProfile.networkInterfaces[0].id" -o tsv)
-DISK_ID=$(az vm show -g az104-rg-moved -n az104-vm-linux \
+DISK_ID=$(az vm show -g rg-contoso-moved -n vm-api-01 \
     --query "storageProfile.osDisk.managedDisk.id" -o tsv)
 
 az resource move \
-    --destination-group az104-rg7 \
+    --destination-group rg-contoso-compute \
     --ids $VM_ID $NIC_ID $DISK_ID
 
 # Validar: VM de volta ao RG original
-az vm show -g az104-rg7 -n az104-vm-linux --query "{name:name, rg:resourceGroup}" -o table
-echo "VM movida de volta para az104-rg7 com sucesso"
+az vm show -g rg-contoso-compute -n vm-api-01 --query "{name:name, rg:resourceGroup}" -o table
+echo "VM movida de volta para rg-contoso-compute com sucesso"
 ```
 
 > **Conexao com Bloco 3:** Para mover VMs entre regioes, use Azure Site Recovery (configurado no Bloco 3).
@@ -2984,7 +2984,7 @@ Crie o arquivo `bloco6-backup-vault.json`:
         },
         "backupVaultName": {
             "type": "string",
-            "defaultValue": "az104-bv",
+            "defaultValue": "bv-contoso-disks",
             "metadata": {
                 "description": "Nome do Backup Vault."
             }
@@ -3002,7 +3002,7 @@ Crie o arquivo `bloco6-backup-vault.json`:
         },
         "diskPolicyName": {
             "type": "string",
-            "defaultValue": "az104-bv-disk-policy",
+            "defaultValue": "bv-contoso-disks-disk-policy",
             "metadata": {
                 "description": "Nome da politica de backup para Azure Disks."
             }
@@ -3165,26 +3165,26 @@ Deploy:
 # ============================================================
 
 # Criar Resource Group para o Backup Vault
-az group create --name az104-rg-bv --location eastus
+az group create --name rg-contoso-management --location eastus
 
 # Deploy do template ARM
 az deployment group create \
-    -g az104-rg-bv \
+    -g rg-contoso-management \
     --template-file bloco6-backup-vault.json \
     --query "properties.outputs" -o table
 
 # Validar: Backup Vault criado com LRS
 az dataprotection backup-vault show \
-    -g az104-rg-bv \
-    --vault-name az104-bv \
+    -g rg-contoso-management \
+    --vault-name bv-contoso-disks \
     --query "{name:name, location:location, redundancy:properties.storageSettings[0].type}" \
     -o table
 
 # Validar: Policy criada
 az dataprotection backup-policy show \
-    -g az104-rg-bv \
-    --vault-name az104-bv \
-    --name az104-bv-disk-policy \
+    -g rg-contoso-management \
+    --vault-name bv-contoso-disks \
+    --name bv-contoso-disks-disk-policy \
     --query "{name:name, datasources:properties.datasourceTypes[0]}" \
     -o table
 ```
@@ -3240,11 +3240,11 @@ az dataprotection backup-policy show \
 # ============================================================
 
 # Variaveis
-BV_NAME="az104-bv"
-BV_RG="az104-rg-bv"
-VM_RG="az104-rg7"
-VM_NAME="az104-vm-linux"
-POLICY_NAME="az104-bv-disk-policy"
+BV_NAME="bv-contoso-disks"
+BV_RG="rg-contoso-management"
+VM_RG="rg-contoso-compute"
+VM_NAME="vm-api-01"
+POLICY_NAME="bv-contoso-disks-disk-policy"
 
 # Obter IDs necessarios
 BV_PRINCIPAL_ID=$(az dataprotection backup-vault show \
@@ -3322,7 +3322,7 @@ echo "Snapshots ficam no OperationalStore (rapido para restore)"
 
 ## Modo Desafio - Bloco 6
 
-- [ ] Criar RG `az104-rg-moved` e mover VM Linux para ele via CLI (`az resource move`)
+- [ ] Criar RG `rg-contoso-moved` e mover VM Linux para ele via CLI (`az resource move`)
 - [ ] Verificar recursos dependentes movidos junto (NIC, Disk)
 - [ ] Entender as diferencas entre move entre RGs vs move entre regioes
 - [ ] Mover VM de volta ao RG original
@@ -3394,14 +3394,14 @@ Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos
 
 ```bash
 # Pausar
-az vm deallocate -g az104-rg7 -n az104-vm-win --no-wait
-az vm deallocate -g az104-rg7 -n az104-vm-linux --no-wait
-az monitor metrics alert update -g az104-rg-monitor -n az104-vm-win-cpu-alert --enabled false
+az vm deallocate -g rg-contoso-compute -n vm-web-01 --no-wait
+az vm deallocate -g rg-contoso-compute -n vm-api-01 --no-wait
+az monitor metrics alert update -g rg-contoso-management -n vm-web-01-cpu-alert --enabled false
 
 # Retomar
-az vm start -g az104-rg7 -n az104-vm-win --no-wait
-az vm start -g az104-rg7 -n az104-vm-linux --no-wait
-az monitor metrics alert update -g az104-rg-monitor -n az104-vm-win-cpu-alert --enabled true
+az vm start -g rg-contoso-compute -n vm-web-01 --no-wait
+az vm start -g rg-contoso-compute -n vm-api-01 --no-wait
+az monitor metrics alert update -g rg-contoso-management -n vm-web-01-cpu-alert --enabled true
 ```
 
 > **Nota:** Desalocar VMs para cobranca de compute, mas discos continuam cobrando. Site Recovery cobra continuamente por VM replicada — desabilite a replicacao via Portal se nao for continuar no mesmo dia.
@@ -3476,15 +3476,15 @@ echo "Recovery Services Vault excluido"
 # 5. Desabilitar backup instances no Backup Vault (Bloco 6)
 echo "5. Desabilitando Backup Vault instances..."
 BV_INSTANCES=$(az dataprotection backup-instance list \
-    -g az104-rg-bv --vault-name az104-bv \
+    -g rg-contoso-management --vault-name bv-contoso-disks \
     --query "[].name" -o tsv 2>/dev/null)
 
 for INST in $BV_INSTANCES; do
     az dataprotection backup-instance stop-protection \
-        -g az104-rg-bv --vault-name az104-bv \
+        -g rg-contoso-management --vault-name bv-contoso-disks \
         --backup-instance-name "$INST" 2>/dev/null
     az dataprotection backup-instance delete \
-        -g az104-rg-bv --vault-name az104-bv \
+        -g rg-contoso-management --vault-name bv-contoso-disks \
         --backup-instance-name "$INST" --yes 2>/dev/null
     echo "  Backup instance $INST removida"
 done
@@ -3493,13 +3493,13 @@ done
 az group delete --name "$RG11" --yes --no-wait
 az group delete --name "$RG12" --yes --no-wait
 az group delete --name "$RG13" --yes --no-wait
-az group delete --name az104-rg-bv --yes --no-wait
-az group delete --name az104-rg-moved --yes --no-wait 2>/dev/null
+az group delete --name rg-contoso-management --yes --no-wait
+az group delete --name rg-contoso-moved --yes --no-wait 2>/dev/null
 
 echo ""
 echo "=== Cleanup iniciado ==="
-echo "RGs sendo excluidos em background: $RG11, $RG12, $RG13, az104-rg-bv, az104-rg-moved"
-echo "Verifique com: az group list --query \"[?starts_with(name,'az104-rg')].name\" -o tsv"
+echo "RGs sendo excluidos em background: $RG11, $RG12, $RG13, rg-contoso-management, rg-contoso-moved"
+echo "Verifique com: az group list --query \"[?starts_with(name,'rg-contoso-')].name\" -o tsv"
 ```
 
 ---

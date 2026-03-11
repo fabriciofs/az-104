@@ -69,33 +69,33 @@ $subscriptionId = "00000000-0000-0000-0000-000000000000" # ← ALTERE
 $location = "eastus"
 
 # --- Storage (Bloco 1) ---
-$rg6 = "az104-rg6"
-$storageAccountName = "az104storage$(Get-Random -Minimum 1000 -Maximum 9999)" # ← nome unico
+$rg6 = "rg-contoso-storage"
+$storageAccountName = "stcontosoprod$(Get-Random -Minimum 1000 -Maximum 9999)" # ← nome unico
 $containerName = "contoso-data"
 $fileShareName = "contoso-files"
 
 # --- VMs (Bloco 2) ---
-$rg7 = "az104-rg7"
-$vmWindowsName = "az104-vm-win"
-$vmLinuxName = "az104-vm-linux"
-$vmssName = "az104-vmss"
+$rg7 = "rg-contoso-compute"
+$vmWindowsName = "vm-web-01"
+$vmLinuxName = "vm-api-01"
+$vmssName = "vmss-contoso-web"
 $vmSize = "Standard_D2s_v3"
 $vmUsername = "localadmin"
 $vmPassword = ConvertTo-SecureString "SenhaComplexa@2024!" -AsPlainText -Force # ← ALTERE
 
 # --- Web Apps (Bloco 3) ---
-$rg8 = "az104-rg8"
-$appServicePlanName = "az104-asp"
-$webAppName = "az104-webapp-$(Get-Random -Minimum 1000 -Maximum 9999)"
+$rg8 = "rg-contoso-compute"
+$appServicePlanName = "asp-contoso-prod"
+$webAppName = "app-contoso-web-$(Get-Random -Minimum 1000 -Maximum 9999)"
 
 # --- ACI (Bloco 4) ---
-$rg9 = "az104-rg9"
-$aciName = "az104-aci"
+$rg9 = "rg-contoso-compute"
+$aciName = "ci-contoso-worker"
 
 # --- Container Apps (Bloco 5) ---
-$rg10 = "az104-rg10"
-$containerAppEnvName = "az104-cae"
-$containerAppName = "az104-ca"
+$rg10 = "rg-contoso-compute"
+$containerAppEnvName = "cae-contoso-prod"
+$containerAppName = "ca-contoso-api"
 ```
 
 ---
@@ -117,20 +117,20 @@ Bloco 1 (Storage)
   │                                                      ▼
 Bloco 2 (VMs) ◄──── File Share montado na VM ───────────┘
   │
-  ├─ Windows VM (az104-vm-win) ──────────────────────────┐
+  ├─ Windows VM (vm-web-01) ──────────────────────────┐
   │    ├─ Availability Zone 1                            │
   │    ├─ Data Disk (64GB)                               │
   │    └─ Custom Script Extension (IIS)                  │
-  ├─ Linux VM (az104-vm-linux)                           │
+  ├─ Linux VM (vm-api-01)                           │
   │    └─ SSH key authentication                         │
   ├─ VM Resize (Standard_D2s_v3 → Standard_D4s_v3)      │
-  └─ VMSS (az104-vmss) com autoscale                    │
+  └─ VMSS (vmss-contoso-web) com autoscale                    │
                                                          │
                                                          ▼
 Bloco 3 (Web Apps) ◄──── Alternativa PaaS a VMs ────────┘
   │
-  ├─ App Service Plan (az104-asp, S1)
-  ├─ Web App (az104-webapp-XXXX)
+  ├─ App Service Plan (asp-contoso-prod, S1)
+  ├─ Web App (app-contoso-web-XXXX)
   ├─ Deployment Slot (staging)
   ├─ Slot Swap (staging → production)
   ├─ Autoscale rules
@@ -517,7 +517,7 @@ $subnetConfig = New-AzVirtualNetworkSubnetConfig `
 
 $vnet = New-AzVirtualNetwork `
     -ResourceGroupName $rg6 `
-    -Name "az104-vnet-storage" `
+    -Name "vnet-contoso-hub-brazilsouth" `
     -Location $location `
     -AddressPrefix "10.0.0.0/16" `
     -Subnet $subnetConfig
@@ -591,7 +591,7 @@ Write-Host "  Definicao: allow-contoso-storage"
 Write-Host "  Recurso permitido: $storageId"
 
 # Associar a policy a subnet que tem Service Endpoint habilitado
-$vnet = Get-AzVirtualNetwork -Name "az104-vnet-storage" -ResourceGroupName $rg6
+$vnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub-brazilsouth" -ResourceGroupName $rg6
 $subnet = Get-AzVirtualNetworkSubnetConfig -Name "default" -VirtualNetwork $vnet
 $subnet.ServiceEndpointPolicies = @($policy)
 Set-AzVirtualNetwork -VirtualNetwork $vnet
@@ -620,7 +620,7 @@ Write-Host "Policy associada a subnet 'default'"
 
 # Criar subnet dedicada para Private Endpoints
 # Private Endpoints precisam de subnet propria (boa pratica)
-$vnet = Get-AzVirtualNetwork -Name "az104-vnet-storage" -ResourceGroupName $rg6
+$vnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub-brazilsouth" -ResourceGroupName $rg6
 
 Add-AzVirtualNetworkSubnetConfig `
     -Name "private-endpoints" `
@@ -629,7 +629,7 @@ Add-AzVirtualNetworkSubnetConfig `
 
 # Aplicar a mudanca na VNet (padrao PowerShell: Set-Az* para persistir)
 $vnet | Set-AzVirtualNetwork
-$vnet = Get-AzVirtualNetwork -Name "az104-vnet-storage" -ResourceGroupName $rg6
+$vnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub-brazilsouth" -ResourceGroupName $rg6
 
 Write-Host "Subnet 'private-endpoints' criada"
 
@@ -682,7 +682,7 @@ New-AzPrivateDnsVirtualNetworkLink `
     -VirtualNetworkId $vnet.Id `
     -EnableRegistration:$false
 
-Write-Host "DNS Zone vinculada a VNet az104-vnet-storage"
+Write-Host "DNS Zone vinculada a VNet vnet-contoso-hub-brazilsouth"
 
 # Criar registro DNS para o Private Endpoint
 # Mapeia: storageaccount.privatelink.blob.core.windows.net → IP privado
@@ -920,7 +920,7 @@ $subnetVm = New-AzVirtualNetworkSubnetConfig `
 
 $vnetVm = New-AzVirtualNetwork `
     -ResourceGroupName $rg7 `
-    -Name "az104-vnet-vm" `
+    -Name "vnet-contoso-hub-brazilsouth" `
     -Location $location `
     -AddressPrefix "10.1.0.0/16" `
     -Subnet $subnetVm
@@ -956,7 +956,7 @@ $vmConfig = New-AzVMConfig `
 $vmConfig = Set-AzVMOperatingSystem `
     -VM $vmConfig `
     -Windows `
-    -ComputerName "az104win" `
+    -ComputerName "vm-web-01" `
     -Credential $vmCredential `
     -ProvisionVMAgent `
     -EnableAutoUpdate
@@ -1057,7 +1057,7 @@ $nsgLinux = New-AzNetworkSecurityGroup `
 
 # Criar NIC para VM Linux
 # Reutilizando a mesma VNet do Bloco 2
-$vnetVm = Get-AzVirtualNetwork -Name "az104-vnet-vm" -ResourceGroupName $rg7
+$vnetVm = Get-AzVirtualNetwork -Name "vnet-contoso-hub-brazilsouth" -ResourceGroupName $rg7
 $subnetRef = Get-AzVirtualNetworkSubnetConfig -Name "vm-subnet" -VirtualNetwork $vnetVm
 
 $nicLinux = New-AzNetworkInterface `
@@ -1079,7 +1079,7 @@ $vmLinuxConfig = New-AzVMConfig `
 $vmLinuxConfig = Set-AzVMOperatingSystem `
     -VM $vmLinuxConfig `
     -Linux `
-    -ComputerName "az104linux" `
+    -ComputerName "vm-api-01" `
     -Credential $vmCredential `
     -DisablePasswordAuthentication
 
@@ -1329,12 +1329,12 @@ $securePassword = ConvertTo-SecureString $AdminPassword -AsPlainText -Force
 $cred = New-Object System.Management.Automation.PSCredential("localadmin", $securePassword)
 
 # Referenciar subnet existente
-$vnet = Get-AzVirtualNetwork -Name "ManufacturingVnet" -ResourceGroupName "az104-rg4"
+$vnet = Get-AzVirtualNetwork -Name "vnet-contoso-spoke-brazilsouth" -ResourceGroupName "rg-contoso-network"
 $subnet = $vnet.Subnets | Where-Object { $_.Name -eq "Manufacturing" }
 
 # Criar PIP
 $pip = New-AzPublicIpAddress `
-    -Name "az104-vm-cloudinit-pip" `
+    -Name "vm-api-01-pip" `
     -ResourceGroupName $RG7 `
     -Location $Location `
     -Sku Standard `
@@ -1342,19 +1342,19 @@ $pip = New-AzPublicIpAddress `
 
 # Criar NIC
 $nic = New-AzNetworkInterface `
-    -Name "az104-vm-cloudinit-nic" `
+    -Name "vm-api-01-nic" `
     -ResourceGroupName $RG7 `
     -Location $Location `
     -SubnetId $subnet.Id `
     -PublicIpAddressId $pip.Id
 
 # Configurar VM
-$vmConfig = New-AzVMConfig -VMName "az104-vm-cloudinit" -VMSize "Standard_B1s"
+$vmConfig = New-AzVMConfig -VMName "vm-api-01" -VMSize "Standard_B1s"
 
 $vmConfig = Set-AzVMOperatingSystem `
     -VM $vmConfig `
     -Linux `
-    -ComputerName "az104-vm-cloudinit" `
+    -ComputerName "vm-api-01" `
     -Credential $cred `
     -CustomData $cloudInitBase64
 
@@ -1377,7 +1377,7 @@ Write-Host "Teste: curl http://$($pip.IpAddress)"
 # Verificar status do cloud-init
 Invoke-AzVMRunCommand `
     -ResourceGroupName $RG7 `
-    -VMName "az104-vm-cloudinit" `
+    -VMName "vm-api-01" `
     -CommandId "RunShellScript" `
     -ScriptString "cloud-init status --long"
 ```
@@ -1404,13 +1404,13 @@ Invoke-AzVMRunCommand `
 # Diferente de VMs individuais, o VMSS gerencia o ciclo de vida
 
 # Criar subnet dedicada para o VMSS
-$vnetVm = Get-AzVirtualNetwork -Name "az104-vnet-vm" -ResourceGroupName $rg7
+$vnetVm = Get-AzVirtualNetwork -Name "vnet-contoso-hub-brazilsouth" -ResourceGroupName $rg7
 Add-AzVirtualNetworkSubnetConfig `
     -Name "vmss-subnet" `
     -AddressPrefix "10.1.1.0/24" `
     -VirtualNetwork $vnetVm
 $vnetVm | Set-AzVirtualNetwork
-$vnetVm = Get-AzVirtualNetwork -Name "az104-vnet-vm" -ResourceGroupName $rg7
+$vnetVm = Get-AzVirtualNetwork -Name "vnet-contoso-hub-brazilsouth" -ResourceGroupName $rg7
 
 # Criar Load Balancer para o VMSS
 $lbPublicIp = New-AzPublicIpAddress `
@@ -2661,7 +2661,7 @@ ACI = container simples, sem orquestracao, sem auto-scaling (voce gerencia manua
 
 **Tecnologia:** PowerShell (Az module) + az CLI
 **Recursos criados:** 1 Storage Account (destino AzCopy), 1 Key Vault com 2 chaves RSA, Object Replication, CMK, ADE
-**Resource Groups:** `az104-rg6` (existente), `az104-rg7` (existente), `az104-rg6adv` (novo)
+**Resource Groups:** `rg-contoso-storage` (existente), `rg-contoso-compute` (existente), `rg-contoso-storage` (novo)
 
 > **Pre-requisito:** Blocos 1 e 2 devem estar completos (Storage Account + VMs criadas).
 
@@ -2675,13 +2675,13 @@ ACI = container simples, sem orquestracao, sem auto-scaling (voce gerencia manua
 # ============================================================
 
 # Criar Resource Group
-$rg6adv = "az104-rg6adv"
+$rg6adv = "rg-contoso-storage"
 New-AzResourceGroup -Name $rg6adv -Location "East US" -Force
 
 # CONCEITO AZ-104: Segunda Storage Account demonstra:
 # - AzCopy entre contas (server-to-server)
 # - Object Replication (assincrona, cross-account)
-$storage2Name = "contosostore2" + (-join ((48..57) + (97..102) | Get-Random -Count 6 | ForEach-Object { [char]$_ }))
+$storage2Name = "stcontosoprod01" + (-join ((48..57) + (97..102) | Get-Random -Count 6 | ForEach-Object { [char]$_ }))
 Write-Host "Storage Account 2: $storage2Name"
 
 $storage2 = New-AzStorageAccount `
@@ -2726,9 +2726,9 @@ Write-Host "Storage Account $storage2Name criada com container data-replica"
 # PowerShell nao tem cmdlet nativo para AzCopy — usamos o executavel
 
 # 1. Obter contexto da Storage Account de origem (Bloco 1)
-$storage1Name = (Get-AzStorageAccount -ResourceGroupName "az104-rg6")[0].StorageAccountName
+$storage1Name = (Get-AzStorageAccount -ResourceGroupName "rg-contoso-storage")[0].StorageAccountName
 Write-Host "Origem: $storage1Name"
-$ctx1 = (Get-AzStorageAccount -ResourceGroupName "az104-rg6" -Name $storage1Name).Context
+$ctx1 = (Get-AzStorageAccount -ResourceGroupName "rg-contoso-storage" -Name $storage1Name).Context
 
 # 2. Gerar SAS de ORIGEM (Read + List)
 $sasOrigem = New-AzStorageAccountSASToken `
@@ -2802,7 +2802,7 @@ Write-Host "URL com SAS: $blobUrl"
 
 # 1. Habilitar versioning + change feed na origem
 Update-AzStorageBlobServiceProperty `
-    -ResourceGroupName "az104-rg6" `
+    -ResourceGroupName "rg-contoso-storage" `
     -StorageAccountName $storage1Name `
     -IsVersioningEnabled $true `
     -EnableChangeFeed $true
@@ -2836,7 +2836,7 @@ Write-Host "Aguarde minutos e verifique data-replica em $storage2Name"
 
 # CONCEITO AZ-104: Key Vault armazena secrets, keys e certificates
 # Purge protection: OBRIGATORIO para CMK (nao pode ser desabilitado depois)
-$kvName = "az104-kv-" + (-join ((48..57) + (97..102) | Get-Random -Count 6 | ForEach-Object { [char]$_ }))
+$kvName = "kv-contoso-prod-" + (-join ((48..57) + (97..102) | Get-Random -Count 6 | ForEach-Object { [char]$_ }))
 Write-Host "Key Vault: $kvName"
 
 $kv = New-AzKeyVault `
@@ -2890,7 +2890,7 @@ Get-AzKeyVaultKey -VaultName $kvName | Format-Table Name, KeyType, Enabled
 
 # 1. Habilitar System-assigned Managed Identity
 $storage1 = Set-AzStorageAccount `
-    -ResourceGroupName "az104-rg6" `
+    -ResourceGroupName "rg-contoso-storage" `
     -Name $storage1Name `
     -AssignIdentity
 
@@ -2908,13 +2908,13 @@ Start-Sleep -Seconds 15  # Aguardar propagacao
 # 3. Configurar CMK via az CLI (mais simples que PS para CMK)
 az storage account update `
     --name $storage1Name `
-    --resource-group "az104-rg6" `
+    --resource-group "rg-contoso-storage" `
     --encryption-key-source Microsoft.Keyvault `
     --encryption-key-vault "https://${kvName}.vault.azure.net" `
     --encryption-key-name "storage-cmk"
 
 # 4. Verificar
-$storageEnc = Get-AzStorageAccount -ResourceGroupName "az104-rg6" -Name $storage1Name
+$storageEnc = Get-AzStorageAccount -ResourceGroupName "rg-contoso-storage" -Name $storage1Name
 Write-Host "Encryption Key Source: $($storageEnc.Encryption.KeySource)"
 Write-Host "Key Vault URI: $($storageEnc.Encryption.KeyVaultProperties.KeyVaultUri)"
 ```
@@ -2949,7 +2949,7 @@ Write-Host "RBAC = nivel do SHARE. ACLs NTFS = nivel granular (arquivo/diretorio
 # New-AzRoleAssignment `
 #     -ObjectId "<user-object-id>" `
 #     -RoleDefinitionName "Storage File Data SMB Share Contributor" `
-#     -Scope "/subscriptions/<sub>/resourceGroups/az104-rg6/providers/Microsoft.Storage/storageAccounts/$storage1Name/fileServices/default/fileshares/contoso-files"
+#     -Scope "/subscriptions/<sub>/resourceGroups/rg-contoso-storage/providers/Microsoft.Storage/storageAccounts/$storage1Name/fileServices/default/fileshares/contoso-files"
 ```
 
 ---
@@ -2962,7 +2962,7 @@ Write-Host "RBAC = nivel do SHARE. ACLs NTFS = nivel granular (arquivo/diretorio
 # ADE + SSE = dupla camada de protecao
 
 # 1. Verificar VM running
-$vmStatus = Get-AzVM -ResourceGroupName "az104-rg7" -Name "az104-vm-win" -Status
+$vmStatus = Get-AzVM -ResourceGroupName "rg-contoso-compute" -Name "vm-web-01" -Status
 Write-Host "VM Status: $($vmStatus.Statuses[1].DisplayStatus)"
 
 # 2. Habilitar ADE com KEK
@@ -2971,8 +2971,8 @@ Write-Host "VM Status: $($vmStatus.Statuses[1].DisplayStatus)"
 # PowerShell nao tem cmdlet nativo simples para ADE com KEK,
 # az CLI e mais direto para este caso
 az vm encryption enable `
-    --resource-group "az104-rg7" `
-    --name "az104-vm-win" `
+    --resource-group "rg-contoso-compute" `
+    --name "vm-web-01" `
     --disk-encryption-keyvault $kvName `
     --key-encryption-key "disk-encryption" `
     --volume-type All
@@ -2982,13 +2982,13 @@ az vm encryption enable `
 # 3. Verificar status da criptografia
 # Via PowerShell:
 $encStatus = Get-AzVMDiskEncryptionStatus `
-    -ResourceGroupName "az104-rg7" `
-    -VMName "az104-vm-win"
+    -ResourceGroupName "rg-contoso-compute" `
+    -VMName "vm-web-01"
 Write-Host "OS Disk: $($encStatus.OsVolumeEncryptionSettings)"
 Write-Host "Data Disk: $($encStatus.DataVolumesEncrypted)"
 
 # Via az CLI (mais detalhado):
-az vm encryption show --resource-group "az104-rg7" --name "az104-vm-win" -o table
+az vm encryption show --resource-group "rg-contoso-compute" --name "vm-web-01" -o table
 ```
 
 ---
@@ -3093,7 +3093,7 @@ Roles SMB: Reader (leitura), Contributor (leitura + escrita + exclusao), Elevate
 
 **Tecnologia:** PowerShell (Az module) + az CLI
 **Recursos criados:** 1 Azure Container Registry (Basic), 1 ACI from ACR, App Service configs
-**Resource Groups:** `az104-rg8` (existente), `az104-rg7acr` (novo)
+**Resource Groups:** `rg-contoso-compute` (existente), `rg-contoso-computeacr` (novo)
 
 > **Pre-requisito:** Blocos 1 e 3 devem estar completos (Storage Account + App Service criados).
 
@@ -3111,10 +3111,10 @@ Roles SMB: Reader (leitura), Contributor (leitura + escrita + exclusao), Elevate
 # - Standard: 100 GiB, webhooks
 # - Premium: 500 GiB, geo-replication, private link, CMK
 
-$rg7acr = "az104-rg7acr"
+$rg7acr = "rg-contoso-computeacr"
 New-AzResourceGroup -Name $rg7acr -Location "East US" -Force
 
-$acrName = "az104acr" + (-join ((48..57) + (97..102) | Get-Random -Count 6 | ForEach-Object { [char]$_ }))
+$acrName = "acrcontosoprod" + (-join ((48..57) + (97..102) | Get-Random -Count 6 | ForEach-Object { [char]$_ }))
 Write-Host "ACR: $acrName"
 
 $acr = New-AzContainerRegistry `
@@ -3176,7 +3176,7 @@ $acrCredential = New-Object System.Management.Automation.PSCredential($acrUserna
 # Criar container puxando imagem do ACR
 New-AzContainerGroup `
     -ResourceGroupName $rg7acr `
-    -Name "az104-acr-aci" `
+    -Name "ci-contoso-worker" `
     -Location "East US" `
     -OsType Linux `
     -RestartPolicy Always `
@@ -3184,7 +3184,7 @@ New-AzContainerGroup `
     -RegistryCredential $acrCredential `
     -Container @(
         @{
-            Name = "az104-acr-aci"
+            Name = "ci-contoso-worker"
             Image = "$acrLoginServer/sample-app:v1"
             RequestCpu = 1
             RequestMemoryInGb = 1
@@ -3195,12 +3195,12 @@ New-AzContainerGroup `
     -Port @(80)
 
 # Verificar
-$container = Get-AzContainerGroup -ResourceGroupName $rg7acr -Name "az104-acr-aci"
+$container = Get-AzContainerGroup -ResourceGroupName $rg7acr -Name "ci-contoso-worker"
 Write-Host "Status: $($container.State)"
 Write-Host "IP: $($container.IPAddressIP)"
 
 # Logs
-Get-AzContainerInstanceLog -ResourceGroupName $rg7acr -ContainerGroupName "az104-acr-aci"
+Get-AzContainerInstanceLog -ResourceGroupName $rg7acr -ContainerGroupName "ci-contoso-worker"
 ```
 
 ---
@@ -3211,7 +3211,7 @@ Get-AzContainerInstanceLog -ResourceGroupName $rg7acr -ContainerGroupName "az104
 # CONCEITO AZ-104: Custom domain requer CNAME (subdomain) ou A record (apex)
 # + TXT record para verificacao. Free/Shared tier NAO suporta custom domains.
 
-$appName = (Get-AzWebApp -ResourceGroupName "az104-rg8")[0].Name
+$appName = (Get-AzWebApp -ResourceGroupName "rg-contoso-compute")[0].Name
 Write-Host "App: $appName.azurewebsites.net"
 
 Write-Host "`n=== PROCESSO DE CUSTOM DOMAIN ===" -ForegroundColor Cyan
@@ -3235,19 +3235,19 @@ Write-Host "3. Para apex: A record -> [IP] + TXT asuid -> [ID]"
 
 # 1. Configurar HTTPS Only e TLS 1.2
 Set-AzWebApp `
-    -ResourceGroupName "az104-rg8" `
+    -ResourceGroupName "rg-contoso-compute" `
     -Name $appName `
     -HttpsOnly $true `
     -MinTlsVersion "1.2"
 
 # 2. Verificar
-$app = Get-AzWebApp -ResourceGroupName "az104-rg8" -Name $appName
+$app = Get-AzWebApp -ResourceGroupName "rg-contoso-compute" -Name $appName
 Write-Host "HTTPS Only: $($app.HttpsOnly)"
 Write-Host "Min TLS: $($app.SiteConfig.MinTlsVersion)"
 
 # 3. Testar redirect HTTP → HTTPS
 # HTTPS Only forca redirect 301 de HTTP para HTTPS
-$webappUrl = (Get-AzWebApp -ResourceGroupName "az104-rg8" -Name $appName).DefaultHostName
+$webappUrl = (Get-AzWebApp -ResourceGroupName "rg-contoso-compute" -Name $appName).DefaultHostName
 try {
     $response = Invoke-WebRequest -Uri "http://$webappUrl" -MaximumRedirection 0 -ErrorAction Stop
 } catch {
@@ -3288,7 +3288,7 @@ $backupUrl = "https://${storage1Name}.blob.core.windows.net/webapp-backups${back
 
 # 3. Configurar backup agendado via az CLI (mais simples)
 az webapp config backup update `
-    --resource-group "az104-rg8" `
+    --resource-group "rg-contoso-compute" `
     --webapp-name $appName `
     --container-url $backupUrl `
     --frequency 1d `
@@ -3297,13 +3297,13 @@ az webapp config backup update `
 
 # 4. Executar backup imediato
 az webapp config backup create `
-    --resource-group "az104-rg8" `
+    --resource-group "rg-contoso-compute" `
     --webapp-name $appName `
     --container-url $backupUrl
 
 # 5. Verificar
 az webapp config backup list `
-    --resource-group "az104-rg8" `
+    --resource-group "rg-contoso-compute" `
     --webapp-name $appName -o table
 
 Write-Host "Verifique .zip no container webapp-backups de $storage1Name"
@@ -3317,8 +3317,8 @@ Write-Host "Verifique .zip no container webapp-backups de $storage1Name"
 # CONCEITO AZ-104: VNet Integration = outbound; Private Endpoint = inbound
 # Requer subnet dedicada (/28 minimo)
 
-$vnetRg = "az104-rg4"
-$vnetName = "CoreServicesVnet"
+$vnetRg = "rg-contoso-network"
+$vnetName = "vnet-contoso-hub-brazilsouth"
 
 # 1. Criar subnet dedicada (delegada ao App Service)
 $vnet = Get-AzVirtualNetwork -ResourceGroupName $vnetRg -Name $vnetName -ErrorAction SilentlyContinue
@@ -3341,14 +3341,14 @@ if ($vnet) {
 
 # 2. Configurar VNet Integration via az CLI
 az webapp vnet-integration add `
-    --resource-group "az104-rg8" `
+    --resource-group "rg-contoso-compute" `
     --name $appName `
     --vnet $vnetName `
     --subnet WebAppSubnet
 
 # 3. Verificar
 az webapp vnet-integration list `
-    --resource-group "az104-rg8" `
+    --resource-group "rg-contoso-compute" `
     --name $appName -o table
 
 Write-Host "`nO App Service pode acessar Private Endpoints e VMs na VNet"
@@ -3364,7 +3364,7 @@ Write-Host "`nO App Service pode acessar Private Endpoints e VMs na VNet"
 - [ ] Explorar Custom Domain no App Service — CNAME + TXT verification
 - [ ] Configurar HTTPS Only + TLS 1.2 com `Set-AzWebApp`
 - [ ] Configurar backup com schedule diario para Storage Account **(Bloco 1)**
-- [ ] Configurar VNet Integration com CoreServicesVnet **(Semana 1)**
+- [ ] Configurar VNet Integration com vnet-contoso-hub-brazilsouth **(Semana 1)**
 
 ---
 
@@ -3448,18 +3448,18 @@ Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos
 
 ```powershell
 # Pausar
-Stop-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-win -Force
-Stop-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-linux -Force
-Stop-AzContainerGroup -ResourceGroupName az104-rg9 -Name az104-container-1
-Stop-AzContainerGroup -ResourceGroupName az104-rg9 -Name az104-container-2
-Stop-AzContainerGroup -ResourceGroupName az104-rg7acr -Name az104-acr-aci
+Stop-AzVM -ResourceGroupName rg-contoso-compute -Name vm-web-01 -Force
+Stop-AzVM -ResourceGroupName rg-contoso-compute -Name vm-api-01 -Force
+Stop-AzContainerGroup -ResourceGroupName rg-contoso-compute -Name ci-contoso-worker
+Stop-AzContainerGroup -ResourceGroupName rg-contoso-compute -Name ci-contoso-worker
+Stop-AzContainerGroup -ResourceGroupName rg-contoso-computeacr -Name ci-contoso-worker
 
 # Retomar
-Start-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-win
-Start-AzVM -ResourceGroupName az104-rg7 -Name az104-vm-linux
-Start-AzContainerGroup -ResourceGroupName az104-rg9 -Name az104-container-1
-Start-AzContainerGroup -ResourceGroupName az104-rg9 -Name az104-container-2
-Start-AzContainerGroup -ResourceGroupName az104-rg7acr -Name az104-acr-aci
+Start-AzVM -ResourceGroupName rg-contoso-compute -Name vm-web-01
+Start-AzVM -ResourceGroupName rg-contoso-compute -Name vm-api-01
+Start-AzContainerGroup -ResourceGroupName rg-contoso-compute -Name ci-contoso-worker
+Start-AzContainerGroup -ResourceGroupName rg-contoso-compute -Name ci-contoso-worker
+Start-AzContainerGroup -ResourceGroupName rg-contoso-computeacr -Name ci-contoso-worker
 ```
 
 > **Nota:** Desalocar VMs para cobranca de compute, mas discos e IPs publicos continuam cobrando. O App Service Plan (Standard S1) cobra enquanto existir — para parar, delete o plano ou rebaixe para Free F1. Container Apps com scale-to-zero nao geram custo quando ociosas. Key Vault cobra por operacao (muito baixo custo).
