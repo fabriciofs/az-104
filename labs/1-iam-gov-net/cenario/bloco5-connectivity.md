@@ -12,38 +12,38 @@ Este e o bloco final onde tudo se conecta. As VMs sao implantadas nas **VNets cr
 ## Diagrama
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                rg-contoso-network (VNets do Bloco 4)                         │
-│                                                                     │
-│  ┌──────────────────────────────┐  ┌─────────────────────────────┐  │
-│  │  vnet-contoso-hub-eastus            │  │  vnet-contoso-spoke-eastus          │  │
-│  │  10.20.0.0/16                │  │  10.30.0.0/16               │  │
-│  │                              │  │                             │  │
-│  │  snet-shared        │  │  SensorSubnet1 (Bloco 4)    │  │
-│  │  10.20.10.0/24 (← NSG)       │  │  SensorSubnet2 (Bloco 4)    │  │
-│  │  snet-data              │  │                             │  │
-│  │  10.20.20.0/24               │  │  snet-workloads (NOVO)      │  │
-│  │                              │  │  10.30.0.0/24               │  │
-│  │  snet-apps (NOVO) ←──────── peering ──────────→ vm-app-01│  │
-│  │  10.20.0.0/24                │  │  (rg-contoso-compute)                │  │
-│  │  vm-web-01              │  └─────────────────────────────┘  │
-│  │  (rg-contoso-compute)                 │                                   │
-│  │                              │                                   │
-│  │  perimeter (NOVO)            │  ┌────────────────────────────┐   │
-│  │  10.20.1.0/24                │  │ DNS: contoso.internal   │   │
-│  │  (NVA: 10.20.1.7)            │  │ + corevm → IP real da VM   │   │
-│  └──────────────────────────────┘  │ + Link: vnet-contoso-hub-eastus   │   │
-│                                    └────────────────────────────┘   │
-│                                                                     │
-│  ┌──────────────────────────────┐                                   │
-│  │ rg-contoso-compute                    │                                   │
-│  │ (VMs + Route Table)          │                                   │
-│  │                              │                                   │
-│  │ • vm-web-01             │                                   │
-│  │ • vm-app-01            │                                   │
-│  │ • rt-contoso-spoke            │                                   │
-│  └──────────────────────────────┘                                   │
-└─────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│                rg-contoso-network (VNets do Bloco 4)                      │
+│                                                                           │
+│  ┌──────────────────────────────┐  ┌─────────────────────────────┐        │
+│  │  vnet-contoso-hub-eastus     │  │  vnet-contoso-spoke-eastus  │        │
+│  │  10.20.0.0/16                │  │  10.30.0.0/16               │        │
+│  │                              │  │                             │        │
+│  │  snet-shared                 │  │  SensorSubnet1 (Bloco 4)    │        │
+│  │  10.20.10.0/24 (← NSG)       │  │  SensorSubnet2 (Bloco 4)    │        │
+│  │  snet-data                   │  │                             │        │
+│  │  10.20.20.0/24               │  │  snet-workloads (NOVO)      │        │
+│  │                              │  │  10.30.0.0/24               │        │
+│  │  snet-apps (NOVO) ←──────── peering ──────────→ vm-app-01.    │        │
+│  │  10.20.0.0/24                │  │  (rg-contoso-compute)       │        │
+│  │  vm-web-01                   │  └─────────────────────────────┘        │
+│  │  (rg-contoso-compute)        │                                         │
+│  │                              │                                         │
+│  │  perimeter (NOVO)            │  ┌──────────────────────────────────┐   │
+│  │  10.20.1.0/24                │  │ DNS: contoso.internal            │   │
+│  │  (NVA: 10.20.1.7)            │  │ + corevm → IP real da VM         │   │
+│  └──────────────────────────────┘  │ + Link: vnet-contoso-hub-eastus  │   │
+│                                    └──────────────────────────────────┘   │
+│                                                                           │
+│  ┌──────────────────────────────┐                                         │
+│  │ rg-contoso-compute           │                                         │
+│  │ (VMs + Route Table)          │                                         │
+│  │                              │                                         │
+│  │ • vm-web-01                  │                                         │
+│  │ • vm-app-01                  │                                         │
+│  │ • rt-contoso-spoke           │                                         │
+│  └──────────────────────────────┘                                         │
+└───────────────────────────────────────────────────────────────────────────┘
 ```
 
 > **Nota:** Este bloco cria VMs que geram custo. Faca o cleanup assim que terminar.
@@ -74,11 +74,11 @@ Antes de criar as VMs, adicione subnets dedicadas nas VNets do Bloco 4.
 
 5. **Subnets** > **+ Subnet**:
 
-   | Setting          | Value           |
-   | ---------------- | --------------- |
+   | Setting          | Value            |
+   | ---------------- | ---------------- |
    | Name             | `snet-workloads` |
-   | Starting address | `10.30.0.0`     |
-   | Size             | `/24`           |
+   | Starting address | `10.30.0.0`      |
+   | Size             | `/24`            |
 
 6. Clique em **Add**
 
@@ -97,8 +97,8 @@ Antes de criar as VMs, adicione subnets dedicadas nas VNets do Bloco 4.
    | Setting              | Value                                         |
    | -------------------- | --------------------------------------------- |
    | Subscription         | *sua subscription*                            |
-   | Resource group       | `rg-contoso-compute` (crie se necessario)              |
-   | Virtual machine name | `vm-web-01`                              |
+   | Resource group       | `rg-contoso-compute` (crie se necessario)     |
+   | Virtual machine name | `vm-web-01`                                   |
    | Region               | **(US) East US**                              |
    | Availability options | No infrastructure redundancy required         |
    | Security type        | **Standard**                                  |
@@ -134,8 +134,8 @@ Antes de criar as VMs, adicione subnets dedicadas nas VNets do Bloco 4.
 
    | Setting              | Value                                         |
    | -------------------- | --------------------------------------------- |
-   | Resource group       | `rg-contoso-compute`                                   |
-   | Virtual machine name | `vm-app-01`                             |
+   | Resource group       | `rg-contoso-compute`                          |
+   | Virtual machine name | `vm-app-01`                                   |
    | Region               | **(US) East US**                              |
    | Security type        | **Standard**                                  |
    | Image                | **Windows Server 2025 Datacenter - x64 Gen2** |
@@ -167,9 +167,9 @@ Antes de criar as VMs, adicione subnets dedicadas nas VNets do Bloco 4.
    | Setting              | Value                        |
    | -------------------- | ---------------------------- |
    | Source type          | **Virtual machine**          |
-   | Virtual machine      | **vm-web-01**           |
+   | Virtual machine      | **vm-web-01**                |
    | Destination type     | **Select a virtual machine** |
-   | Virtual machine      | **vm-app-01**          |
+   | Virtual machine      | **vm-app-01**                |
    | Preferred IP Version | **Both**                     |
    | Protocol             | **TCP**                      |
    | Destination port     | `3389`                       |
@@ -190,17 +190,17 @@ Peering entre as VNets **do Bloco 4** para habilitar comunicacao.
 
 2. **Settings** > **Peerings** > **+ Add**:
 
-   | Setting                                          | Value                                   |
-   | ------------------------------------------------ | --------------------------------------- |
-   | **This virtual network**                         |                                         |
-   | Peering link name                                | `vnet-contoso-hub-eastus-to-vnet-contoso-spoke-eastus` |
-   | Allow access to 'vnet-contoso-spoke-eastus'              | **selected**                            |
-   | Allow forwarded traffic from 'vnet-contoso-spoke-eastus' | **selected**                            |
-   | **Remote virtual network**                       |                                         |
-   | Peering link name                                | `vnet-contoso-spoke-eastus-to-vnet-contoso-hub-eastus` |
-   | Virtual network                                  | **vnet-contoso-spoke-eastus (rg-contoso-network)**       |
-   | Allow access to 'vnet-contoso-hub-eastus'               | **selected**                            |
-   | Allow forwarded traffic from 'vnet-contoso-hub-eastus'  | **selected**                            |
+   | Setting                                                  | Value                                                  |
+   | -------------------------------------------------------- | ------------------------------------------------------ |
+   | **This virtual network**                                 |                                                        |
+   | Peering link name                                        | `vnet-contoso-hub-eastus-to-vnet-contoso-spoke-eastus` |
+   | Allow access to 'vnet-contoso-spoke-eastus'              | **selected**                                           |
+   | Allow forwarded traffic from 'vnet-contoso-spoke-eastus' | **selected**                                           |
+   | **Remote virtual network**                               |                                                        |
+   | Peering link name                                        | `vnet-contoso-spoke-eastus-to-vnet-contoso-hub-eastus` |
+   | Virtual network                                          | **vnet-contoso-spoke-eastus (rg-contoso-network)**     |
+   | Allow access to 'vnet-contoso-hub-eastus'                | **selected**                                           |
+   | Allow forwarded traffic from 'vnet-contoso-hub-eastus'   | **selected**                                           |
 
 3. Clique em **Add**
 
@@ -256,20 +256,20 @@ Voce atualiza a zona DNS privada do **Bloco 4** com o IP real da vm-web-01 e tes
 
 2. Primeiro, adicione um **Virtual network link** para vnet-contoso-hub-eastus:
 
-   | Setting         | Value               |
-   | --------------- | ------------------- |
-   | Link name       | `coreservices-link` |
-   | Virtual network | `vnet-contoso-hub-eastus`  |
+   | Setting         | Value                     |
+   | --------------- | ------------------------- |
+   | Link name       | `coreservices-link`       |
+   | Virtual network | `vnet-contoso-hub-eastus` |
 
 3. Clique em **Create** e aguarde
 
 4. Em **Recordsets**, adicione um novo registro com o IP **real** da vm-web-01:
 
-   | Setting    | Value                          |
-   | ---------- | ------------------------------ |
-   | Name       | `corevm`                       |
-   | Type       | **A**                          |
-   | TTL        | `1`                            |
+   | Setting    | Value                     |
+   | ---------- | ------------------------- |
+   | Name       | `corevm`                  |
+   | Type       | **A**                     |
+   | TTL        | `1`                       |
    | IP address | *IP privado da vm-web-01* |
 
 5. Clique em **Add**
@@ -304,13 +304,13 @@ Voce atualiza a zona DNS privada do **Bloco 4** com o IP real da vm-web-01 e tes
 
 3. Pesquise **Route tables** > **+ Create**:
 
-   | Setting                  | Value              |
-   | ------------------------ | ------------------ |
-   | Subscription             | *sua subscription* |
-   | Resource group           | `rg-contoso-compute`        |
-   | Region                   | **East US**        |
-   | Name                     | `rt-contoso-spoke`  |
-   | Propagate gateway routes | **No**             |
+   | Setting                  | Value                |
+   | ------------------------ | -------------------- |
+   | Subscription             | *sua subscription*   |
+   | Resource group           | `rg-contoso-compute` |
+   | Region                   | **East US**          |
+   | Name                     | `rt-contoso-spoke`   |
+   | Propagate gateway routes | **No**               |
 
 4. **Review + create** > **Create**
 
@@ -332,10 +332,10 @@ Voce atualiza a zona DNS privada do **Bloco 4** com o IP real da vm-web-01 e tes
 
 7. **Subnets** > **+ Associate**:
 
-   | Setting         | Value                            |
-   | --------------- | -------------------------------- |
+   | Setting         | Value                                            |
+   | --------------- | ------------------------------------------------ |
    | Virtual network | **vnet-contoso-hub-eastus (rg-contoso-network)** |
-   | Subnet          | **snet-apps**                    |
+   | Subnet          | **snet-apps**                                    |
 
 8. Clique em **OK**
 
@@ -400,11 +400,11 @@ Teste final que valida todo o RBAC configurado desde o Bloco 1.
 
 1. Navegue para **vnet-contoso-hub-eastus** (em rg-contoso-network) > **Subnets** > **+ Subnet**:
 
-   | Setting          | Value            |
-   | ---------------- | ---------------- |
-   | Name             | `GatewaySubnet`  |
-   | Starting address | `10.20.2.0`      |
-   | Size             | `/27`            |
+   | Setting          | Value           |
+   | ---------------- | --------------- |
+   | Name             | `GatewaySubnet` |
+   | Starting address | `10.20.2.0`     |
+   | Size             | `/27`           |
 
 2. Clique em **Add**
 
@@ -414,13 +414,13 @@ Teste final que valida todo o RBAC configurado desde o Bloco 1.
 
 3. Pesquise **Public IP addresses** > **+ Create**:
 
-   | Setting        | Value              |
-   | -------------- | ------------------ |
-   | Name           | `pip-vpngw-core`   |
-   | SKU            | **Standard**       |
-   | Assignment     | **Static**         |
-   | Resource group | `rg-contoso-compute`        |
-   | Region         | **East US**        |
+   | Setting        | Value                |
+   | -------------- | -------------------- |
+   | Name           | `pip-vpngw-core`     |
+   | SKU            | **Standard**         |
+   | Assignment     | **Static**           |
+   | Resource group | `rg-contoso-compute` |
+   | Region         | **East US**          |
 
 4. **Review + create** > **Create**
 
@@ -428,16 +428,16 @@ Teste final que valida todo o RBAC configurado desde o Bloco 1.
 
 5. Pesquise **Virtual network gateways** > **+ Create**:
 
-   | Setting          | Value                            |
-   | ---------------- | -------------------------------- |
-   | Name             | `vgw-contoso-hub`             |
-   | Region           | **East US**                      |
-   | Gateway type     | **VPN**                          |
-   | SKU              | **VpnGw1**                       |
-   | Generation       | **Generation1**                  |
-   | Virtual network  | **vnet-contoso-hub-eastus (rg-contoso-network)** |
-   | Public IP        | `pip-vpngw-core`                 |
-   | Enable active-active | **Disabled**                 |
+   | Setting              | Value                                            |
+   | -------------------- | ------------------------------------------------ |
+   | Name                 | `vgw-contoso-hub`                                |
+   | Region               | **East US**                                      |
+   | Gateway type         | **VPN**                                          |
+   | SKU                  | **VpnGw1**                                       |
+   | Generation           | **Generation1**                                  |
+   | Virtual network      | **vnet-contoso-hub-eastus (rg-contoso-network)** |
+   | Public IP            | `pip-vpngw-core`                                 |
+   | Enable active-active | **Disabled**                                     |
 
 6. **Review + create** > **Create**
 
@@ -494,12 +494,12 @@ Teste final que valida todo o RBAC configurado desde o Bloco 1.
 
 4. Clique em **Configure now**:
 
-   | Setting            | Value                                   |
-   | ------------------ | --------------------------------------- |
-   | Address pool       | `172.16.0.0/24`                         |
-   | Tunnel type        | **IKEv2 and SSTP (SSL)**                |
-   | Authentication type| **Azure certificate**                   |
-   | Root certificate name | `P2SRootCert`                        |
+   | Setting                 | Value                              |
+   | ----------------------- | ---------------------------------- |
+   | Address pool            | `172.16.0.0/24`                    |
+   | Tunnel type             | **IKEv2 and SSTP (SSL)**           |
+   | Authentication type     | **Azure certificate**              |
+   | Root certificate name   | `P2SRootCert`                      |
    | Public certificate data | *cole o Base64 copiado no passo 2* |
 
 5. Clique em **Save** (aguarde alguns minutos)

@@ -157,8 +157,21 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 | Service Endpoint Policy | Recurso PaaS de **destino** | Para onde a subnet envia trafego |
 | Private Endpoint | Elimina acesso publico (IP privado) | Acesso totalmente privado |
 
-- Service Endpoint = rota otimizada (IP publico mantido)
-- Private Endpoint = IP privado na VNet (acesso totalmente privado)
+**Service Endpoint vs Private Endpoint:**
+
+| | Service Endpoint | Private Endpoint |
+|---|---|---|
+| IP do servico | **Publico** (rota otimizada pelo backbone Azure) | **Privado** (NIC com IP na sua subnet) |
+| DNS customizado | Nao necessario | Sim (Private DNS Zone obrigatoria) |
+| Acesso de on-premises (VPN/ER) | **Nao** | **Sim** |
+| Custo | Gratis | Pago (por hora + trafego) |
+| Trafego sai da VNet? | Nao (backbone Microsoft) | Nao (IP privado) |
+
+- Service Endpoint = rota otimizada (IP publico mantido, trafego pelo backbone Azure)
+- Private Endpoint = IP privado na VNet (acesso totalmente privado, requer Private DNS Zone)
+- Private Endpoint = **NIC** com IP privado na subnet que aponta para o recurso PaaS
+- "Acesso a Storage de on-premises via VPN" → **Private Endpoint** (Service Endpoint NAO funciona de on-prem)
+- "Eliminar acesso publico ao Storage" → **Private Endpoint** (Service Endpoint mantem IP publico)
 - "Restringir Service Endpoint para uma Storage Account especifica" → **Service Endpoint Policy**
 - Service Endpoint Policy so funciona com Service Endpoints (nao com Private Endpoints)
 - Servicos suportados por policy: **Microsoft.Storage** (GA) e Azure SQL Database (preview)
