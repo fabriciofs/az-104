@@ -1373,7 +1373,7 @@ resource actionGroup 'Microsoft.Insights/actionGroups@2023-01-01' = {
 // Diferenca de ARM JSON: em ARM, 'criteria' usa tipo completo como string.
 // Em Bicep, usamos a mesma sintaxe mas com type-safety nos campos.
 resource cpuAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
-  name: '${vmName}-high-cpu-alert'
+  name: 'alert-${vmName}-cpu'
   location: 'global'      // Metric Alerts sao SEMPRE globais
   properties: {
     severity: 2            // 0=Critical, 1=Error, 2=Warning, 3=Informational, 4=Verbose
@@ -1525,7 +1525,7 @@ echo "Verifique o email: $ALERT_EMAIL"
 
 az monitor metrics alert create \
     -g "$RG13" \
-    -n "vm-web-01-cpu-dynamic" \
+    -n "alert-vm-web-01-cpu-dynamic" \
     --scopes $(az vm show -g "$RG11" -n "vm-web-01" --query id -o tsv) \
     --condition "avg Percentage CPU > dynamic medium of 4 violations out of 4 since 2024-01-01" \
     --action $(az monitor action-group show -g "$RG13" -n "$ACTION_GROUP_NAME" --query id -o tsv) \
@@ -1561,7 +1561,7 @@ az monitor metrics alert list \
 # Detalhes do alerta especifico
 az monitor metrics alert show \
     --resource-group "$RG13" \
-    --name "vm-web-01-high-cpu-alert" \
+    --name "alert-vm-web-01-cpu" \
     --query "{name:name, severity:severity, enabled:enabled}" \
     -o table
 
@@ -2925,12 +2925,12 @@ Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos
 # Pausar
 az vm deallocate -g rg-contoso-compute -n vm-web-01 --no-wait
 az vm deallocate -g rg-contoso-compute -n vm-api-01 --no-wait
-az monitor metrics alert update -g rg-contoso-management -n vm-web-01-cpu-alert --enabled false
+az monitor metrics alert update -g rg-contoso-management -n alert-vm-web-01-cpu --enabled false
 
 # Retomar
 az vm start -g rg-contoso-compute -n vm-web-01 --no-wait
 az vm start -g rg-contoso-compute -n vm-api-01 --no-wait
-az monitor metrics alert update -g rg-contoso-management -n vm-web-01-cpu-alert --enabled true
+az monitor metrics alert update -g rg-contoso-management -n alert-vm-web-01-cpu --enabled true
 ```
 
 > **Nota:** Desalocar VMs para cobranca de compute, mas discos continuam cobrando. Site Recovery cobra continuamente por VM replicada — desabilite a replicacao via Portal se nao for continuar no mesmo dia.

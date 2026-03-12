@@ -50,7 +50,7 @@ Com o armazenamento configurado no Bloco 1, voce agora implanta cargas de trabal
 
 ### Task 2.1: Criar Windows VM na vnet-contoso-hub-brazilsouth
 
-> **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab (veja [Pausar entre Sessoes](#pausar-entre-sessoes)).
+> **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab (veja [Pausar entre Sessoes](../cenario-contoso.md#pausar-entre-sessoes)).
 
 A VM Windows sera implantada na vnet-contoso-hub-brazilsouth criada na Semana 1, demonstrando cross-resource-group deployment.
 
@@ -173,7 +173,7 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
 
 ### Task 2.3: Criar Linux VM na vnet-contoso-spoke-brazilsouth com Custom Script Extension
 
-> **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab (veja [Pausar entre Sessoes](#pausar-entre-sessoes)).
+> **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab (veja [Pausar entre Sessoes](../cenario-contoso.md#pausar-entre-sessoes)).
 
 1. Pesquise **Virtual Machines** > **Create** > **Azure Virtual Machine**
 
@@ -695,4 +695,3 @@ Uma VM pode estar em Availability Zone OU Availability Set, nunca em ambos. Essa
 </details>
 
 ---
-

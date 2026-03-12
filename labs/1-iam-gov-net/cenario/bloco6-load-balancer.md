@@ -45,7 +45,7 @@ Com as VNets, NSGs e DNS configurados nos Blocos 4-5, a Contoso Corp precisa dis
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-> **Nota:** Este bloco cria VMs e Public IP que geram custo. Faca o cleanup assim que terminar.
+> **Nota:** Este bloco cria VMs, Load Balancers, Public IPs e Azure Bastion que geram custo. Faca o cleanup assim que terminar.
 
 ---
 

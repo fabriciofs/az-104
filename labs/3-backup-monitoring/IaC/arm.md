@@ -1755,7 +1755,7 @@ Salve como **`bloco4-metric-alert.json`**:
         },
         "vmResourceGroup": {
             "type": "string",
-            "defaultValue": "rg-contoso-management",
+            "defaultValue": "rg-contoso-compute",
             "metadata": {
                 "description": "Resource Group da VM monitorada"
             }
@@ -3396,12 +3396,12 @@ Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos
 # Pausar
 az vm deallocate -g rg-contoso-compute -n vm-web-01 --no-wait
 az vm deallocate -g rg-contoso-compute -n vm-api-01 --no-wait
-az monitor metrics alert update -g rg-contoso-management -n vm-web-01-cpu-alert --enabled false
+az monitor metrics alert update -g rg-contoso-management -n alert-vm-web-01-cpu --enabled false
 
 # Retomar
 az vm start -g rg-contoso-compute -n vm-web-01 --no-wait
 az vm start -g rg-contoso-compute -n vm-api-01 --no-wait
-az monitor metrics alert update -g rg-contoso-management -n vm-web-01-cpu-alert --enabled true
+az monitor metrics alert update -g rg-contoso-management -n alert-vm-web-01-cpu --enabled true
 ```
 
 > **Nota:** Desalocar VMs para cobranca de compute, mas discos continuam cobrando. Site Recovery cobra continuamente por VM replicada — desabilite a replicacao via Portal se nao for continuar no mesmo dia.

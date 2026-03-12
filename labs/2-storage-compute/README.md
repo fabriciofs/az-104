@@ -53,6 +53,7 @@ Labs e simulado cobrindo principalmente os dominios oficiais de **Storage** e **
 | App Service Plan (Standard S1)             | Sim — enquanto existir (mesmo com app parada) | Nao — so deletar ou rebaixar para Free F1 | —                                |
 | ACI (ci-contoso-worker, ci-contoso-worker-2) | Sim — enquanto Running                        | Sim — parar                               | `az container stop`              |
 | Container Apps (ca-contoso-api)                | Por replica ativa (scale-to-zero = sem custo) | Ja configurado para escalar a zero        | —                                |
+| Azure Container Registry (Basic)               | Sim — enquanto existir                        | Nao — so deletar ou rebaixar SKU          | —                                |
 | Managed Disks (OS disks, data disks)       | Sim — sempre (mesmo com VM desalocada)        | Nao — so deletar                          | —                                |
 | Public IPs (Standard SKU)                  | Sim — enquanto existir                        | Nao — so deletar                          | —                                |
 | Private Endpoint                           | Sim — enquanto existir                        | Nao — so deletar                          | —                                |
@@ -113,4 +114,5 @@ az container start -g rg-contoso-compute -n ci-contoso-worker-2
 | RG                    | Conteudo                                                                           |
 | --------------------- | ---------------------------------------------------------------------------------- |
 | `rg-contoso-storage`  | Storage Account, Blobs, Files, Private Endpoint                                    |
-| `rg-contoso-compute`  | VMs, VMSS, App Service, ACI, Container Apps Environment (ja existe do Modulo 1)    |
+| `rg-contoso-compute`  | VMs, VMSS, App Service, ACI, Container Apps Environment, ACR (cenario via Portal) |
+| `rg-contoso-computeacr` | ACR + ACI from ACR (variantes IaC do Bloco 7)                                     |

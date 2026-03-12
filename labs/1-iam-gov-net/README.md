@@ -37,6 +37,8 @@ Labs e simulado cobrindo principalmente os dominios de **Identity/Governance** e
 | VMs (vm-web-01, vm-app-01)         | Sim, enquanto alocada                 | Sim, desalocar  | `az vm deallocate`  |
 | Managed Disks (disk-iac-test-01 a 05, OS disks) | Sim, sempre (mesmo com VM desalocada) | Nao, so deletar | Deletar disco ou RG |
 | Public IP (Standard SKU)                      | Sim, enquanto existir                 | Nao, so deletar | Deletar IP ou RG    |
+| Standard Load Balancer (publico/interno)      | Sim, enquanto existir                 | Nao, so deletar | Deletar LB ou RG    |
+| Azure Bastion                                 | Sim, enquanto existir                 | Nao, so deletar | Deletar Bastion ou RG |
 | DNS Zones (publica e privada)                 | Sim, cobranca minima mensal           | Nao, so deletar | Deletar zona ou RG  |
 | Storage Account                               | Sim, por dados armazenados            | Nao, so deletar | Deletar conta ou RG |
 | VNets, NSGs, Route Tables                     | Gratuito                              | —               | —                   |
@@ -65,7 +67,7 @@ az vm start -g rg-contoso-compute -n vm-web-01 --no-wait
 az vm start -g rg-contoso-compute -n vm-app-01 --no-wait
 ```
 
-> **Nota:** Desalocar a VM para a cobranca de compute mas discos e IPs publicos continuam gerando cobranca. Para zerar completamente, delete o Resource Group.
+> **Nota:** Desalocar a VM para a cobranca de compute, mas discos, IPs publicos, load balancers e Bastion continuam gerando cobranca. Para zerar completamente, delete o Resource Group.
 
 ## Dominios AZ-104 cobertos
 

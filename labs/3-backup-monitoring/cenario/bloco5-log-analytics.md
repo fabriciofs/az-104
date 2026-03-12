@@ -1,4 +1,4 @@
-> Voltar para o [Cenário Contoso](../cenario-contoso.md)
+> Voltar para o [Cenário Contoso](../cenario-contoso.md) | Próximo: [Bloco 6 - Backup Vault e VM Move](bloco6-backup-vault-vm-move.md)
 
 # Bloco 5 - Log Analytics & Network Watcher
 

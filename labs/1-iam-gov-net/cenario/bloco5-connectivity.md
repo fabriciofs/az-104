@@ -1,4 +1,4 @@
-> Voltar para o [Cenario Contoso](../cenario-contoso.md)
+> Voltar para o [Cenario Contoso](../cenario-contoso.md) | Proximo: [Bloco 6 - Load Balancer e Azure Bastion](bloco6-load-balancer.md)
 
 # Bloco 5 - Intersite Connectivity
 
@@ -88,7 +88,7 @@ Antes de criar as VMs, adicione subnets dedicadas nas VNets do Bloco 4.
 
 ### Task 5.2: Criar vm-web-01
 
-> **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab (veja [Pausar entre Sessoes](#pausar-entre-sessoes)).
+> **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab (veja [Pausar entre Sessoes](../cenario-contoso.md#pausar-entre-sessoes)).
 
 1. Pesquise **Virtual Machines** > **Create** > **Virtual machine**
 
@@ -126,7 +126,7 @@ Antes de criar as VMs, adicione subnets dedicadas nas VNets do Bloco 4.
 
 ### Task 5.3: Criar vm-app-01
 
-> **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab (veja [Pausar entre Sessoes](#pausar-entre-sessoes)).
+> **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab (veja [Pausar entre Sessoes](../cenario-contoso.md#pausar-entre-sessoes)).
 
 1. **Virtual Machines** > **Create** > **Virtual machine**
 
