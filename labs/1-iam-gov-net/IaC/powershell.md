@@ -70,7 +70,7 @@ $vmPassword = ConvertTo-SecureString "SenhaComplexa@2024!" -AsPlainText -Force  
 $vmCredential = New-Object System.Management.Automation.PSCredential($vmUsername, $vmPassword)
 
 # --- Identity (Bloco 1) ---
-$userName        = "az104-user1"
+$userName        = "contoso-user1"
 $userUPN         = "$userName@$tenantDomain"
 $groupITLab      = "IT Lab Administrators"
 $groupHelpdesk   = "helpdesk"
@@ -139,7 +139,7 @@ $nvaIP     = "10.20.1.7"
 ```
 Bloco 1 (Identity)
   │
-  ├─ az104-user1 ──────────────────┐
+  ├─ contoso-user1 ──────────────────┐
   ├─ Guest user ───────────────────┤
   ├─ IT Lab Administrators ────────┤
   └─ helpdesk ─────────────────────┤
@@ -178,7 +178,7 @@ Bloco 5 (Connectivity) ◄──── VMs nas VNets do Bloco 4
   ├─ vm-app-01 na vnet-contoso-spoke-brazilsouth (10.30.0.0/24)
   ├─ Peering entre as VNets do Bloco 4
   ├─ DNS privado resolve nome real da VM ✓
-  ├─ az104-user1 gerencia VMs (VM Contributor) ✓
+  ├─ contoso-user1 gerencia VMs (VM Contributor) ✓
   └─ Route table + NVA + custom route
 ```
 
@@ -195,7 +195,7 @@ Bloco 5 (Connectivity) ◄──── VMs nas VNets do Bloco 4
 
 ---
 
-### Task 1.1: Criar usuario az104-user1
+### Task 1.1: Criar usuario contoso-user1
 
 ```powershell
 # ============================================================
@@ -313,7 +313,7 @@ $groupIT = New-MgGroup `
 
 Write-Host "Grupo criado: $($groupIT.DisplayName) - ID: $($groupIT.Id)"
 
-# Adicionar az104-user1 como membro
+# Adicionar contoso-user1 como membro
 # New-MgGroupMember: adiciona membro ao grupo
 # -DirectoryObjectId: ID do usuario a adicionar
 New-MgGroupMember -GroupId $groupIT.Id -DirectoryObjectId $user1.Id
@@ -346,7 +346,7 @@ $groupHD = New-MgGroup `
     -MailNickname "helpdesk" `
     -GroupTypes @()
 
-# Adicionar apenas az104-user1 (diferente do grupo IT que tem tambem o guest)
+# Adicionar apenas contoso-user1 (diferente do grupo IT que tem tambem o guest)
 New-MgGroupMember -GroupId $groupHD.Id -DirectoryObjectId $user1.Id
 
 # Verificar ambos os grupos
@@ -362,7 +362,7 @@ Write-Host "`n=== Grupos criados ===" -ForegroundColor Green
 ```
 
 > **Conexao com Blocos 2-5:** Os usuarios e grupos criados aqui sao a base de toda a governanca.
-> `az104-user1` (membro de ambos os grupos) tera roles RBAC no Bloco 2, testados nos Blocos 3 e 5.
+> `contoso-user1` (membro de ambos os grupos) tera roles RBAC no Bloco 2, testados nos Blocos 3 e 5.
 
 ---
 
@@ -408,11 +408,11 @@ $members | ForEach-Object {
 
 ## Modo Desafio - Bloco 1
 
-- [ ] Criar usuario `az104-user1` com Job title `IT Lab Administrator`, Department `IT`, Usage location `US`
+- [ ] Criar usuario `contoso-user1` com Job title `IT Lab Administrator`, Department `IT`, Usage location `US`
 - [ ] **Salvar a senha gerada** (necessaria para testes nos Blocos 2 e 5)
 - [ ] Convidar usuario externo (guest) via `New-MgInvitation` + aceitar o convite
-- [ ] Criar grupo `IT Lab Administrators` (Assigned) — members: az104-user1 + guest
-- [ ] Criar grupo `helpdesk` (Assigned) — member: az104-user1
+- [ ] Criar grupo `IT Lab Administrators` (Assigned) — members: contoso-user1 + guest
+- [ ] Criar grupo `helpdesk` (Assigned) — member: contoso-user1
 - [ ] Verificar members de ambos os grupos com `Get-MgGroupMember`
 
 ---
@@ -545,7 +545,7 @@ Get-AzRoleAssignment -Scope "/providers/Microsoft.Management/managementGroups/$m
 > mas NAO o SO, a VNet ou o Storage Account conectados.
 > RBAC e aditivo — o usuario so pode fazer o que os roles permitem explicitamente.
 
-> **Conexao com Bloco 5:** `az104-user1` (membro do IT Lab Administrators) podera
+> **Conexao com Bloco 5:** `contoso-user1` (membro do IT Lab Administrators) podera
 > gerenciar VMs em qualquer RG sob este MG. Testaremos no Bloco 5.
 
 ---
@@ -979,7 +979,7 @@ $initiativeParams = @"
 
 # Criar a Initiative (Policy Set Definition) no escopo da subscription
 New-AzPolicySetDefinition `
-    -Name "az104-governance-initiative" `
+    -Name "contoso-governance-initiative" `
     -DisplayName "AZ-104 Lab Governance Initiative" `
     -Description "Agrupa 3 policies: require tag, inherit tag, allowed locations" `
     -PolicyDefinition $initiativeDefinition `
@@ -987,7 +987,7 @@ New-AzPolicySetDefinition `
 
 # Verificar criacao
 Write-Host "Initiative criada:" -ForegroundColor Green
-Get-AzPolicySetDefinition -Name "az104-governance-initiative" |
+Get-AzPolicySetDefinition -Name "contoso-governance-initiative" |
     Select-Object Name, DisplayName,
         @{N='TotalPolicies';E={$_.PolicyDefinition.Count}}
 
@@ -997,7 +997,7 @@ Get-AzPolicySetDefinition -Name "az104-governance-initiative" |
 # New-AzPolicyAssignment `
 #     -Name "governance-initiative-rg3" `
 #     -DisplayName "Governance Initiative no rg-contoso-identity" `
-#     -PolicySetDefinition (Get-AzPolicySetDefinition -Name "az104-governance-initiative") `
+#     -PolicySetDefinition (Get-AzPolicySetDefinition -Name "contoso-governance-initiative") `
 #     -Scope "/subscriptions/$subscriptionId/resourceGroups/$rg3" `
 #     -PolicyParameterObject @{
 #         tagName          = "Cost Center"
@@ -1017,30 +1017,30 @@ Get-AzPolicySetDefinition -Name "az104-governance-initiative" |
 
 ---
 
-### Task 2.13: Teste de integracao — Verificar acesso do az104-user1
+### Task 2.13: Teste de integracao — Verificar acesso do contoso-user1
 
 ```powershell
 # ============================================================
-# TASK 2.13 - Verificar RBAC do az104-user1 (informativo)
+# TASK 2.13 - Verificar RBAC do contoso-user1 (informativo)
 # ============================================================
 
-# Para testar de verdade, faca login como az104-user1 em InPrivate/Incognito
+# Para testar de verdade, faca login como contoso-user1 em InPrivate/Incognito
 # Aqui, verificamos as atribuicoes programaticamente
 
 Write-Host "=== Verificacao de RBAC para $userName ===" -ForegroundColor Green
 
-# Roles atribuidos ao grupo IT Lab Administrators (que inclui az104-user1)
+# Roles atribuidos ao grupo IT Lab Administrators (que inclui contoso-user1)
 $roles = Get-AzRoleAssignment -ObjectId $itLabGroup.Id
 Write-Host "`nRoles do grupo $groupITLab :"
 $roles | Select-Object RoleDefinitionName, Scope | Format-Table
 
-# O que az104-user1 PODE fazer:
-Write-Host "O que az104-user1 PODE fazer:"
+# O que contoso-user1 PODE fazer:
+Write-Host "O que contoso-user1 PODE fazer:"
 Write-Host "  ✓ Gerenciar VMs (VM Contributor no MG)"
 Write-Host "  ✓ Ver recursos no rg-contoso-identity (heranca do MG)"
 
-# O que az104-user1 NAO PODE fazer:
-Write-Host "`nO que az104-user1 NAO PODE fazer:"
+# O que contoso-user1 NAO PODE fazer:
+Write-Host "`nO que contoso-user1 NAO PODE fazer:"
 Write-Host "  ✗ Criar Storage Accounts (VM Contributor nao inclui Storage)"
 Write-Host "  ✗ Deletar rg-contoso-identity (Lock impede + sem permissao)"
 
@@ -2913,12 +2913,12 @@ $ssprGroup = New-MgGroup -DisplayName "SSPR-TestGroup" `
 
 Write-Host "Grupo SSPR-TestGroup criado: $($ssprGroup.Id)" -ForegroundColor Green
 
-# Adicionar az104-user1 ao grupo
-$user1Obj = Get-MgUser -Filter "userPrincipalName eq 'az104-user1@$tenantDomain'"
+# Adicionar contoso-user1 ao grupo
+$user1Obj = Get-MgUser -Filter "userPrincipalName eq 'contoso-user1@$tenantDomain'"
 New-MgGroupMember -GroupId $ssprGroup.Id `
     -DirectoryObjectId $user1Obj.Id
 
-Write-Host "az104-user1 adicionado ao SSPR-TestGroup" -ForegroundColor Green
+Write-Host "contoso-user1 adicionado ao SSPR-TestGroup" -ForegroundColor Green
 
 # Habilitar SSPR via portal
 Write-Host "`n=== ACAO MANUAL REQUERIDA ===" -ForegroundColor Yellow
@@ -2954,7 +2954,7 @@ Write-Host "4. Notifications: Notify users + admins: Yes"
 # TASK 7.3 - Testar fluxo SSPR
 # ============================================================
 
-Write-Host "1. InPrivate > https://aka.ms/ssprsetup > login az104-user1" -ForegroundColor Cyan
+Write-Host "1. InPrivate > https://aka.ms/ssprsetup > login contoso-user1" -ForegroundColor Cyan
 Write-Host "2. Registrar metodos (email + security questions)"
 Write-Host "3. https://aka.ms/sspr > username > captcha > nova senha"
 ```
@@ -2974,13 +2974,13 @@ Write-Host "3. https://aka.ms/sspr > username > captcha > nova senha"
 # Use az CLI dentro do PowerShell ou portal
 Write-Host "=== Criar Budget via Portal ou CLI ===" -ForegroundColor Yellow
 Write-Host "Portal: Cost Management > Budgets > + Add"
-Write-Host "  Name: az104-lab-budget"
+Write-Host "  Name: contoso-lab-budget"
 Write-Host "  Reset: Monthly"
 Write-Host "  Amount: `$50"
 Write-Host "  Alertas: 80% Actual, 100% Actual, 120% Forecasted"
 Write-Host ""
 Write-Host "Ou via Azure CLI no Cloud Shell (Bash):" -ForegroundColor Cyan
-Write-Host '  az consumption budget create --budget-name "az104-lab-budget" --amount 50 --time-grain Monthly --category Cost'
+Write-Host '  az consumption budget create --budget-name "contoso-lab-budget" --amount 50 --time-grain Monthly --category Cost'
 ```
 
 ---
@@ -3003,7 +3003,7 @@ $emailReceiver = New-AzActionGroupEmailReceiverObject `
 
 $actionGroup = Set-AzActionGroup `
     -ResourceGroupName $rg6 `
-    -Name "az104-budget-ag" `
+    -Name "contoso-budget-ag" `
     -ShortName "budgetag" `
     -EmailReceiver $emailReceiver
 
@@ -3013,11 +3013,11 @@ Write-Host "  Email: your@email.com"
 # Atualizar budget para usar Action Group
 Write-Host ""
 Write-Host "=== Para vincular Action Group ao Budget ===" -ForegroundColor Yellow
-Write-Host "Portal: Cost Management > Budgets > az104-lab-budget > Edit"
-Write-Host "  Alert conditions > Action group: az104-budget-ag"
+Write-Host "Portal: Cost Management > Budgets > contoso-lab-budget > Edit"
+Write-Host "  Alert conditions > Action group: contoso-budget-ag"
 Write-Host ""
 Write-Host "Ou via REST API (az CLI dentro do PowerShell):"
-Write-Host '  az rest --method PUT --url "https://management.azure.com/subscriptions/{sub-id}/providers/Microsoft.Consumption/budgets/az104-lab-budget?api-version=2023-05-01"'
+Write-Host '  az rest --method PUT --url "https://management.azure.com/subscriptions/{sub-id}/providers/Microsoft.Consumption/budgets/contoso-lab-budget?api-version=2023-05-01"'
 ```
 
 ---
@@ -3036,7 +3036,7 @@ Get-AzAdvisorRecommendation | Where-Object { $_.Category -eq "Cost" } |
     Select-Object Category, Impact, ShortDescription | Format-Table
 
 Write-Host "`nCriar alerta: Advisor > Alerts > + New alert" -ForegroundColor Yellow
-Write-Host "Category: Cost, Impact: High, Name: az104-advisor-cost-alert"
+Write-Host "Category: Cost, Impact: High, Name: contoso-advisor-cost-alert"
 ```
 
 ---
@@ -3156,7 +3156,7 @@ Write-Host "Cleanup: NSG nsg-nic-vm-web-01 removido" -ForegroundColor Green
 
 ## Modo Desafio - Bloco 7
 
-- [ ] `New-MgGroup` SSPR-TestGroup + `New-MgGroupMember` az104-user1
+- [ ] `New-MgGroup` SSPR-TestGroup + `New-MgGroupMember` contoso-user1
 - [ ] Habilitar SSPR (Selected) via portal
 - [ ] Configurar metodos: Email + Security Questions, 1 requerido
 - [ ] Testar reset via `https://aka.ms/sspr`
@@ -3240,7 +3240,7 @@ $scopeRg3 = "/subscriptions/$subscriptionId/resourceGroups/$rg3"
 Remove-AzPolicyAssignment -Name "InheritCostCenter-rg2" -Scope $scopeRg2 -ErrorAction SilentlyContinue
 Remove-AzPolicyAssignment -Name "InheritCostCenter-rg3" -Scope $scopeRg3 -ErrorAction SilentlyContinue
 Remove-AzPolicyAssignment -Name "AllowedLocations-rg3" -Scope $scopeRg3 -ErrorAction SilentlyContinue
-Remove-AzPolicySetDefinition -Name "az104-governance-initiative" -Force -ErrorAction SilentlyContinue
+Remove-AzPolicySetDefinition -Name "contoso-governance-initiative" -Force -ErrorAction SilentlyContinue
 Write-Host "  Policies e Initiative removidas"
 
 # 2. Remover Resource Lock ANTES de deletar rg-contoso-identity

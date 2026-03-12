@@ -462,7 +462,7 @@ O VMSS sera implantado na snet-shared da vnet-contoso-hub-brazilsouth (Semana 1)
    | Setting              | Value                                         |
    | -------------------- | --------------------------------------------- |
    | Resource group       | `rg-contoso-compute`                                   |
-   | Virtual machine name | `az104-vm-zone1`                               |
+   | Virtual machine name | `contoso-vm-zone1`                               |
    | Region               | **(US) East US**                              |
    | Availability options | **Availability zone**                         |
    | Availability zone    | **Zone 1**                                    |
@@ -485,16 +485,16 @@ O VMSS sera implantado na snet-shared da vnet-contoso-hub-brazilsouth (Semana 1)
 
    | Setting              | Value              |
    | -------------------- | ------------------ |
-   | Virtual machine name | `az104-vm-zone2`   |
+   | Virtual machine name | `contoso-vm-zone2`   |
    | Availability zone    | **Zone 2**         |
 
 6. **Review + create** > **Create**
 
 **Verificar zonas atribuidas:**
 
-7. Apos o deploy, navegue para **az104-vm-zone1** > **Overview** > verifique **Availability zone: 1**
+7. Apos o deploy, navegue para **contoso-vm-zone1** > **Overview** > verifique **Availability zone: 1**
 
-8. Navegue para **az104-vm-zone2** > **Overview** > verifique **Availability zone: 2**
+8. Navegue para **contoso-vm-zone2** > **Overview** > verifique **Availability zone: 2**
 
    > **Conceito:** Availability Zones sao **datacenters fisicamente separados** dentro da mesma regiao. Se o datacenter da Zone 1 falhar, a VM na Zone 2 continua operando. SLA: **99.99%**.
 
@@ -505,7 +505,7 @@ O VMSS sera implantado na snet-shared da vnet-contoso-hub-brazilsouth (Semana 1)
    | Setting            | Value                |
    | ------------------ | -------------------- |
    | Resource group     | `rg-contoso-compute`          |
-   | Name               | `az104-avset`        |
+   | Name               | `contoso-avset`        |
    | Region             | **East US**          |
    | Fault domains      | `2`                  |
    | Update domains     | `5`                  |
@@ -516,7 +516,7 @@ O VMSS sera implantado na snet-shared da vnet-contoso-hub-brazilsouth (Semana 1)
 
 11. Inicie a criacao de uma nova VM:
     - Availability options: **Availability set**
-    - Availability set: **az104-avset**
+    - Availability set: **contoso-avset**
 
 12. Note que **Availability zone** desaparece das opcoes — sao **mutuamente exclusivos**
 
@@ -547,8 +547,8 @@ O VMSS sera implantado na snet-shared da vnet-contoso-hub-brazilsouth (Semana 1)
 
 > **Importante:** VMs geram custo. Delete as VMs de teste apos a pratica.
 
-1. Delete **az104-vm-zone1** e **az104-vm-zone2** (e seus discos e NICs associados)
-2. Delete o Availability Set **az104-avset**
+1. Delete **contoso-vm-zone1** e **contoso-vm-zone2** (e seus discos e NICs associados)
+2. Delete o Availability Set **contoso-avset**
 
 ---
 

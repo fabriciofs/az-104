@@ -74,7 +74,7 @@ Com a identidade configurada no Bloco 1, agora voce estabelece governanca: RBAC 
 
 ### Task 2.2: Atribuir role built-in (Virtual Machine Contributor)
 
-Voce atribui o role ao grupo **IT Lab Administrators** (criado no Bloco 1), que inclui `az104-user1` e o guest user. Isso sera testado no **Bloco 5** quando az104-user1 gerenciar VMs.
+Voce atribui o role ao grupo **IT Lab Administrators** (criado no Bloco 1), que inclui `contoso-user1` e o guest user. Isso sera testado no **Bloco 5** quando contoso-user1 gerenciar VMs.
 
 1. Selecione o management group **mg-contoso-prod**
 
@@ -96,7 +96,7 @@ Voce atribui o role ao grupo **IT Lab Administrators** (criado no Bloco 1), que 
 
 9. Confirme a atribuicao na aba **Role assignments**
 
-   > **Conexao com Bloco 5:** O az104-user1 (membro do IT Lab Administrators) podera gerenciar VMs em qualquer RG sob este Management Group. Testaremos isso no Bloco 5.
+   > **Conexao com Bloco 5:** O contoso-user1 (membro do IT Lab Administrators) podera gerenciar VMs em qualquer RG sob este Management Group. Testaremos isso no Bloco 5.
 
 ---
 
@@ -289,7 +289,7 @@ O guest user (convidado no Bloco 1) recebera permissao somente-leitura no rg-con
 
 ---
 
-### Task 2.11: Teste de integracao — Verificar acesso do az104-user1
+### Task 2.11: Teste de integracao — Verificar acesso do contoso-user1
 
 Aqui voce valida que o RBAC configurado neste bloco funciona com o usuario do Bloco 1.
 
@@ -297,7 +297,7 @@ Aqui voce valida que o RBAC configurado neste bloco funciona com o usuario do Bl
 
 2. Acesse `https://portal.azure.com`
 
-3. Faca login como **az104-user1@{seu-dominio}.onmicrosoft.com** usando a senha salva no Bloco 1
+3. Faca login como **contoso-user1@{seu-dominio}.onmicrosoft.com** usando a senha salva no Bloco 1
 
 4. Pesquise **Management groups** — voce deve ver **mg-contoso-prod**
 
@@ -307,7 +307,7 @@ Aqui voce valida que o RBAC configurado neste bloco funciona com o usuario do Bl
 
 7. Tente criar um **Storage Account** no rg-contoso-identity — deve **falhar** (VM Contributor nao tem permissao para storage)
 
-   > **Validacao:** az104-user1 tem VM Contributor (pode gerenciar VMs) mas nao pode criar outros tipos de recursos. No Bloco 5, testaremos com VMs reais.
+   > **Validacao:** contoso-user1 tem VM Contributor (pode gerenciar VMs) mas nao pode criar outros tipos de recursos. No Bloco 5, testaremos com VMs reais.
 
 8. Feche a janela InPrivate
 
@@ -325,7 +325,7 @@ Aqui voce valida que o RBAC configurado neste bloco funciona com o usuario do Bl
 - [ ] Aplicar **Allowed Locations** (East US only)
 - [ ] Atribuir **Reader** ao guest user
 - [ ] Criar Resource Lock (Delete) → testar exclusao
-- [ ] **Integracao:** Login como az104-user1 → verificar acesso limitado
+- [ ] **Integracao:** Login como contoso-user1 → verificar acesso limitado
 
 ---
 

@@ -16,7 +16,7 @@ Antes de provisionar qualquer recurso, voce precisa configurar a base de identid
 │            Microsoft Entra ID                │
 │                                              │
 │  ┌─────────────┐       ┌──────────────────┐  │
-│  │  az104-     │       │   Guest User     │  │
+│  │  contoso-     │       │   Guest User     │  │
 │  │  user1      │       │   (B2B Invite)   │  │
 │  │ IT Lab Admin│       │  IT Lab Admin    │  │
 │  └──────┬──────┘       └────────┬─────────┘  │
@@ -29,8 +29,8 @@ Antes de provisionar qualquer recurso, voce precisa configurar a base de identid
 │  │ Administrators    │  │ (Security)     │   │
 │  │ (Security)        │  │                │   │
 │  │                   │  │ Members:       │   │
-│  │ Members:          │  │ • az104-user1  │   │
-│  │ • az104-user1     │  └────────────────┘   │
+│  │ Members:          │  │ • contoso-user1  │   │
+│  │ • contoso-user1     │  └────────────────┘   │
 │  │ • Guest user      │                       │
 │  └───────────────────┘                       │
 │                                              │
@@ -58,8 +58,8 @@ Nesta task voce cria uma conta de usuario interna que sera usada como **membro d
 
    | Setting                | Value         |
    | ---------------------- | ------------- |
-   | User principal name    | `az104-user1` |
-   | Display name           | `az104-user1` |
+   | User principal name    | `contoso-user1` |
+   | Display name           | `contoso-user1` |
    | Auto-generate password | **checked**   |
    | Account enabled        | **checked**   |
 
@@ -136,7 +136,7 @@ Este grupo recebera o role **Virtual Machine Contributor** no Bloco 2.
 4. Clique em **No owners selected** > pesquise e selecione **voce mesmo** como owner
 
 5. Clique em **No members selected** > pesquise e selecione:
-   - **az104-user1**
+   - **contoso-user1**
    - O **guest user** que voce convidou
 
 6. Clique em **Create**
@@ -158,13 +158,13 @@ Este grupo sera usado no **Bloco 2** para atribuicao de role RBAC.
    | Group description | `Helpdesk team for support and VM access` |
    | Membership type   | **Assigned**                              |
 
-2. Adicione **az104-user1** como member
+2. Adicione **contoso-user1** como member
 
 3. Clique em **Create**
 
 4. **Refresh** e verifique ambos os grupos: `IT Lab Administrators` e `helpdesk`
 
-   > **Conexao com Blocos 2-5:** Os usuarios e grupos criados neste bloco serao o alicerce de toda a governanca. O az104-user1 (membro de ambos os grupos) tera roles RBAC atribuidos no Bloco 2, e o acesso sera testado nos Blocos 3 e 5.
+   > **Conexao com Blocos 2-5:** Os usuarios e grupos criados neste bloco serao o alicerce de toda a governanca. O contoso-user1 (membro de ambos os grupos) tera roles RBAC atribuidos no Bloco 2, e o acesso sera testado nos Blocos 3 e 5.
 
 ---
 
@@ -194,15 +194,15 @@ Voce cria um grupo que adiciona/remove membros automaticamente com base em atrib
    | -------------- | ---------- | ----- |
    | `department`   | **Equals** | `IT`  |
 
-5. Clique em **Validate Rules** > selecione **az104-user1** > **Validate**
+5. Clique em **Validate Rules** > selecione **contoso-user1** > **Validate**
 
-   - Resultado esperado: az104-user1 atende a regra (department = IT)
+   - Resultado esperado: contoso-user1 atende a regra (department = IT)
 
 6. Clique em **Save** > **Create**
 
 7. Aguarde o processamento (pode levar alguns minutos para o engine de regras dinamicas avaliar)
 
-8. Navegue para **IT-Dynamic** > **Members** — verifique que **az104-user1** aparece automaticamente
+8. Navegue para **IT-Dynamic** > **Members** — verifique que **contoso-user1** aparece automaticamente
 
    > **Dica AZ-104:** Na prova, grupos dinamicos sao muito cobrados. Lembre-se: (1) requerem Entra ID P1/P2, (2) nao permitem adicionar membros manualmente, (3) a avaliacao pode levar minutos, (4) podem ser baseados em users OU devices (nao ambos no mesmo grupo).
 
@@ -210,13 +210,13 @@ Voce cria um grupo que adiciona/remove membros automaticamente com base em atrib
 
 ## Modo Desafio - Bloco 1
 
-- [ ] Criar usuario `az104-user1` com Job title `IT Lab Administrator`, Department `IT`, Usage location `United States`
+- [ ] Criar usuario `contoso-user1` com Job title `IT Lab Administrator`, Department `IT`, Usage location `United States`
 - [ ] **Salvar a senha gerada** (necessaria para testes nos Blocos 2 e 5)
 - [ ] Convidar usuario externo (guest) com mesmas propriedades + aceitar o convite
-- [ ] Criar grupo `IT Lab Administrators` (Assigned) — members: az104-user1 + guest
-- [ ] Criar grupo `helpdesk` (Assigned) — member: az104-user1
+- [ ] Criar grupo `IT Lab Administrators` (Assigned) — members: contoso-user1 + guest
+- [ ] Criar grupo `helpdesk` (Assigned) — member: contoso-user1
 - [ ] Criar grupo dinamico `IT-Dynamic` (Dynamic user) com regra department=IT (requer P1/P2)
-- [ ] Validar regra dinamica com az104-user1 e verificar membro automatico
+- [ ] Validar regra dinamica com contoso-user1 e verificar membro automatico
 - [ ] Verificar members e owners de todos os grupos
 
 ---

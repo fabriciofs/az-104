@@ -260,13 +260,13 @@ Voce testa a policy do Bloco 2 que restringe recursos ao East US.
    ```sh
    az deployment group create --resource-group rg-contoso-identity \
      --template-file azuredeploydisk.bicep \
-     --parameters managedDiskName=az104-disk-test location=westus
+     --parameters managedDiskName=contoso-disk-test location=westus
    ```
 
 2. **Resultado esperado:** O deploy **falha** com erro de policy violation:
 
    ```
-   "Resource 'az104-disk-test' was disallowed by policy."
+   "Resource 'contoso-disk-test' was disallowed by policy."
    ```
 
    > **Conexao com Bloco 2:** A policy "Allowed locations" aplicada no Bloco 2 esta funcionando! Recursos so podem ser criados em East US neste resource group.

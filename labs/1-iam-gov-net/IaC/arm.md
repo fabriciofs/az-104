@@ -154,7 +154,7 @@ Bloco 5 (Connectivity) → ARM templates + CLI
 
 ---
 
-### Task 1.1: Criar usuario az104-user1
+### Task 1.1: Criar usuario contoso-user1
 
 ```bash
 # ============================================================
@@ -163,16 +163,16 @@ Bloco 5 (Connectivity) → ARM templates + CLI
 PASSWORD="Az104Lab@$RANDOM"
 
 az ad user create \
-    --display-name "az104-user1" \
-    --user-principal-name "az104-user1@${TENANT_DOMAIN}" \
+    --display-name "contoso-user1" \
+    --user-principal-name "contoso-user1@${TENANT_DOMAIN}" \
     --password "$PASSWORD" \
     --force-change-password-next-sign-in true
 
 echo "=== SALVE ESTA SENHA ==="
-echo "UPN: az104-user1@${TENANT_DOMAIN}"
+echo "UPN: contoso-user1@${TENANT_DOMAIN}"
 echo "Senha: $PASSWORD"
 
-USER1_ID=$(az ad user show --id "az104-user1@${TENANT_DOMAIN}" --query id -o tsv)
+USER1_ID=$(az ad user show --id "contoso-user1@${TENANT_DOMAIN}" --query id -o tsv)
 
 # Atualizar propriedades via Graph API
 az rest --method PATCH \
@@ -291,7 +291,7 @@ echo "Grupo dinamico configurado. Aguarde alguns minutos para processamento da r
 
 ## Modo Desafio - Bloco 1
 
-- [ ] Criar `az104-user1` + atualizar via Graph API
+- [ ] Criar `contoso-user1` + atualizar via Graph API
 - [ ] Convidar guest via `az rest` + aceitar convite
 - [ ] Criar grupo `IT Lab Administrators` com 2 membros
 - [ ] Criar grupo `helpdesk` com 1 membro
@@ -793,7 +793,7 @@ Salve como **`bloco2-initiative.json`**:
         {
             "type": "Microsoft.Authorization/policySetDefinitions",
             "apiVersion": "2023-04-01",
-            "name": "az104-governance-initiative",
+            "name": "contoso-governance-initiative",
             "properties": {
                 "displayName": "AZ-104 Lab Governance Initiative",
                 "description": "Agrupa 3 policies: require tag, inherit tag, allowed locations",
@@ -848,7 +848,7 @@ Salve como **`bloco2-initiative.json`**:
     "outputs": {
         "initiativeId": {
             "type": "string",
-            "value": "[resourceId('Microsoft.Authorization/policySetDefinitions', 'az104-governance-initiative')]"
+            "value": "[resourceId('Microsoft.Authorization/policySetDefinitions', 'contoso-governance-initiative')]"
         }
     }
 }
@@ -871,7 +871,7 @@ az deployment sub create \
 
 # Verificar criacao
 az policy set-definition show \
-    --name "az104-governance-initiative" \
+    --name "contoso-governance-initiative" \
     --query "{name:name, displayName:displayName, policies:length(policyDefinitions)}" \
     -o table
 ```
@@ -885,7 +885,7 @@ az policy set-definition show \
 
 ---
 
-### Task 2.13: Teste de integracao — Verificar acesso do az104-user1
+### Task 2.13: Teste de integracao — Verificar acesso do contoso-user1
 
 Aqui voce valida que o RBAC configurado neste bloco funciona com o usuario do Bloco 1.
 
@@ -901,17 +901,17 @@ az role assignment list \
     --output table
 
 echo ""
-echo "=== O que az104-user1 PODE fazer ==="
+echo "=== O que contoso-user1 PODE fazer ==="
 echo "  ✓ Gerenciar VMs (VM Contributor no MG)"
 echo "  ✓ Ver recursos no rg-contoso-identity (heranca do MG)"
 echo ""
-echo "=== O que az104-user1 NAO PODE fazer ==="
+echo "=== O que contoso-user1 NAO PODE fazer ==="
 echo "  ✗ Criar Storage Accounts (VM Contributor nao inclui Storage)"
 echo "  ✗ Deletar rg-contoso-identity (Lock impede + sem permissao)"
 echo ""
 echo "Para validar manualmente:"
 echo "  1. Abra janela InPrivate/Incognito"
-echo "  2. Login como az104-user1@${TENANT_DOMAIN}"
+echo "  2. Login como contoso-user1@${TENANT_DOMAIN}"
 echo "  3. Tente criar Storage Account no rg-contoso-identity → deve FALHAR"
 echo "  4. Feche a janela InPrivate"
 ```
@@ -929,7 +929,7 @@ echo "  4. Feche a janela InPrivate"
 - [ ] Deploy `bloco2-policies-rg3.json` com parameter file
 - [ ] Deploy `bloco2-lock.json` → testar exclusao
 - [ ] Deploy `bloco2-initiative.json` no scope subscription (Policy Initiative)
-- [ ] Teste de integracao com az104-user1 em InPrivate
+- [ ] Teste de integracao com contoso-user1 em InPrivate
 
 ---
 
@@ -1169,11 +1169,11 @@ az disk list -g "$RG3" --query "[].{name:name, size:diskSizeGb, sku:sku.name, ta
 >         "count": 5
 >     },
 >     "type": "Microsoft.Compute/disks",
->     "name": "[concat('az104-disk', copyIndex(1))]",
+>     "name": "[concat('contoso-disk', copyIndex(1))]",
 >     ...
 > }
 > ```
-> Em Bicep: `resource disks 'type' = [for i in range(1,5): { name: 'az104-disk${i}' }]` — mais legivel.
+> Em Bicep: `resource disks 'type' = [for i in range(1,5): { name: 'contoso-disk${i}' }]` — mais legivel.
 
 ---
 
@@ -2028,7 +2028,7 @@ echo "NSG apenas em snet-shared"
 
 # RBAC informativo
 echo "=== Teste RBAC Final ==="
-echo "Login como az104-user1@${TENANT_DOMAIN} em InPrivate"
+echo "Login como contoso-user1@${TENANT_DOMAIN} em InPrivate"
 echo "1. VMs visiveis ✓  2. Stop VM ✓  3. Deletar RG ✗  4. Criar Storage ✗"
 ```
 
@@ -2914,7 +2914,7 @@ az ad group create \
 
 SSPR_GROUP_ID=$(az ad group show --group "SSPR-TestGroup" --query id -o tsv)
 
-USER1_ID=$(az ad user show --id "az104-user1@${TENANT_DOMAIN}" --query id -o tsv)
+USER1_ID=$(az ad user show --id "contoso-user1@${TENANT_DOMAIN}" --query id -o tsv)
 az ad group member add --group "SSPR-TestGroup" --member-id "$USER1_ID"
 
 echo "=== ACAO MANUAL ==="
@@ -2948,7 +2948,7 @@ echo "4. Notifications: Notify users + admins: Yes"
 # TASK 7.3 - Testar fluxo SSPR
 # ============================================================
 
-echo "1. InPrivate > https://aka.ms/ssprsetup > login az104-user1"
+echo "1. InPrivate > https://aka.ms/ssprsetup > login contoso-user1"
 echo "2. Registrar metodos (email + security questions)"
 echo "3. https://aka.ms/sspr > username > captcha > verificacao > nova senha"
 ```
@@ -2966,7 +2966,7 @@ START_DATE=$(date -u +"%Y-%m-01")
 END_DATE=$(date -u -d "+6 months" +"%Y-%m-01" 2>/dev/null || date -u -v+6m +"%Y-%m-01")
 
 az consumption budget create \
-    --budget-name "az104-lab-budget" \
+    --budget-name "contoso-lab-budget" \
     --amount 50 \
     --time-grain "Monthly" \
     --start-date "$START_DATE" \
@@ -2974,7 +2974,7 @@ az consumption budget create \
     --category "Cost"
 
 echo "Budget criado. Configure alertas 80%, 100%, 120% no portal."
-echo "Cost Management > Budgets > az104-lab-budget > Edit"
+echo "Cost Management > Budgets > contoso-lab-budget > Edit"
 ```
 
 ---
@@ -2993,20 +2993,20 @@ echo "Cost Management > Budgets > az104-lab-budget > Edit"
 # Criar Action Group
 az monitor action-group create \
     -g "$RG6" \
-    -n "az104-budget-ag" \
+    -n "contoso-budget-ag" \
     --short-name "budgetag" \
     --action email admin-email your@email.com
 
-echo "Action Group az104-budget-ag criado"
+echo "Action Group contoso-budget-ag criado"
 
 # Atualizar budget para usar Action Group (via portal ou REST API)
 echo ""
 echo "=== Vincular Action Group ao Budget ==="
-echo "Portal: Cost Management > Budgets > az104-lab-budget > Edit"
-echo "  Alert conditions > Action group: az104-budget-ag"
+echo "Portal: Cost Management > Budgets > contoso-lab-budget > Edit"
+echo "  Alert conditions > Action group: contoso-budget-ag"
 echo ""
 echo "Ou via REST API:"
-echo '  az rest --method PUT --url "https://management.azure.com/subscriptions/{sub-id}/providers/Microsoft.Consumption/budgets/az104-lab-budget?api-version=2023-05-01"'
+echo '  az rest --method PUT --url "https://management.azure.com/subscriptions/{sub-id}/providers/Microsoft.Consumption/budgets/contoso-lab-budget?api-version=2023-05-01"'
 ```
 
 ---
@@ -3022,7 +3022,7 @@ az advisor recommendation list --category Cost -o table 2>/dev/null
 az advisor recommendation list --category Security -o table 2>/dev/null
 
 echo "Criar alerta: Advisor > Alerts > + New alert"
-echo "Category: Cost, Impact: High, Name: az104-advisor-cost-alert"
+echo "Category: Cost, Impact: High, Name: contoso-advisor-cost-alert"
 ```
 
 ---
@@ -3099,7 +3099,7 @@ echo "Cleanup: NSG nsg-nic-vm-web-01 removido"
 
 ## Modo Desafio - Bloco 7
 
-- [ ] Criar `SSPR-TestGroup` com `az104-user1`
+- [ ] Criar `SSPR-TestGroup` com `contoso-user1`
 - [ ] Habilitar SSPR (Selected) via portal
 - [ ] Configurar metodos: Email + Security Questions, 1 requerido
 - [ ] Testar reset via `https://aka.ms/sspr`
@@ -3180,7 +3180,7 @@ az policy assignment delete --name "InheritCostCenter-rg3" \
     --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG3}" 2>/dev/null
 az policy assignment delete --name "AllowedLocations-rg3" \
     --scope "/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG3}" 2>/dev/null
-az policy set-definition delete --name "az104-governance-initiative" 2>/dev/null
+az policy set-definition delete --name "contoso-governance-initiative" 2>/dev/null
 
 # 2. Lock
 echo "2. Removendo lock..."
@@ -3206,7 +3206,7 @@ az role definition delete --name "Custom Support Request" 2>/dev/null
 
 # 6. Identidades
 echo "6. Identidades..."
-az ad user delete --id "az104-user1@${TENANT_DOMAIN}" 2>/dev/null
+az ad user delete --id "contoso-user1@${TENANT_DOMAIN}" 2>/dev/null
 az ad user delete --id "$GUEST_ID" 2>/dev/null
 az ad group delete --group "IT Lab Administrators" 2>/dev/null
 az ad group delete --group "helpdesk" 2>/dev/null
@@ -3214,7 +3214,7 @@ az ad group delete --group "SSPR-TestGroup" 2>/dev/null
 
 # 7. Budget
 echo "7. Removendo budget..."
-az consumption budget delete --budget-name "az104-lab-budget" 2>/dev/null
+az consumption budget delete --budget-name "contoso-lab-budget" 2>/dev/null
 
 echo "=== CLEANUP COMPLETO ==="
 ```

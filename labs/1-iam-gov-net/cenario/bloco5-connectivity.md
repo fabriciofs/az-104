@@ -367,7 +367,7 @@ Teste final que valida todo o RBAC configurado desde o Bloco 1.
 
 1. Abra uma janela **InPrivate/Incognito**
 
-2. Faca login como **az104-user1** (senha salva no Bloco 1)
+2. Faca login como **contoso-user1** (senha salva no Bloco 1)
 
 3. Navegue para **Virtual Machines**
 
@@ -376,7 +376,7 @@ Teste final que valida todo o RBAC configurado desde o Bloco 1.
 5. Selecione **vm-web-01** > tente **Stop** (desligar) a VM — deve **funcionar** (VM Contributor permite)
 
 6. Tente deletar o resource group **rg-contoso-identity** — deve **falhar** por dois motivos:
-   - az104-user1 nao tem Contributor/Owner no RG
+   - contoso-user1 nao tem Contributor/Owner no RG
    - O resource lock (Delete) do Bloco 2 impede a exclusao
 
 7. Navegue para **Storage Accounts** > tente criar um — deve **falhar** (VM Contributor nao inclui permissoes de Storage)
@@ -384,7 +384,7 @@ Teste final que valida todo o RBAC configurado desde o Bloco 1.
    > **Validacao completa:**
    > - **Bloco 1:** Identidade criada ✓
    > - **Bloco 2:** RBAC (VM Contributor) funciona + Lock protege ✓
-   > - **Bloco 5:** az104-user1 gerencia VMs mas nao outros recursos ✓
+   > - **Bloco 5:** contoso-user1 gerencia VMs mas nao outros recursos ✓
 
 8. **Se parou a VM no passo 5**, inicie-a novamente antes de fechar
 
@@ -609,7 +609,7 @@ Esta task demonstra a pegadinha classica do AZ-104: **cliente P2S precisa ser re
 - [ ] **Integracao:** Adicionar link DNS + registro A com IP real → Resolve-DnsName da vm-app-01
 - [ ] Criar subnet `perimeter` + Route Table + custom route (NVA 10.20.1.7)
 - [ ] **Integracao:** Verificar NSG isolado por subnet
-- [ ] **Integracao final:** Login como az104-user1 → gerenciar VM ✓, criar Storage ✗
+- [ ] **Integracao final:** Login como contoso-user1 → gerenciar VM ✓, criar Storage ✗
 - [ ] Criar `GatewaySubnet` (/27) na vnet-contoso-hub-brazilsouth + Public IP + VPN Gateway (VpnGw1)
 - [ ] Gerar certificados (raiz + cliente) e configurar P2S com Azure certificate
 - [ ] Conectar via P2S e verificar rotas (so vnet-contoso-hub-brazilsouth)

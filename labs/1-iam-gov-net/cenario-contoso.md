@@ -25,7 +25,7 @@ Ao final, voce tera **um ambiente corporativo funcional** onde identidade, gover
 ```
 Bloco 1 (Identity)
   │
-  ├─ az104-user1 ──────────────────┐
+  ├─ contoso-user1 ──────────────────┐
   ├─ Guest user ───────────────────┤
   ├─ IT Lab Administrators ────────┤
   └─ helpdesk ─────────────────────┤
@@ -66,7 +66,7 @@ Bloco 5 (Connectivity) ◄──── VMs nas VNets do Bloco 4
   ├─ vm-app-01 na vnet-contoso-spoke-brazilsouth (10.30.0.0/24)
   ├─ Peering entre as VNets do Bloco 4
   ├─ DNS privado resolve nome real da VM ✓
-  ├─ az104-user1 gerencia VMs (VM Contributor) ✓
+  ├─ contoso-user1 gerencia VMs (VM Contributor) ✓
   └─ Route table + NVA + custom route
                                    │
                                    ▼
@@ -80,7 +80,7 @@ Bloco 6 (Load Balancer & Bastion) ◄──── VMs nas VNets do Bloco 4
                                    ▼
 Bloco 7 (SSPR, Cost, NSG) ◄──── Complementa Identity + Governance
   │
-  ├─ SSPR configurado para SSPR-TestGroup (az104-user1)
+  ├─ SSPR configurado para SSPR-TestGroup (contoso-user1)
   ├─ Budget + Cost Analysis + Advisor alerts
   └─ NSG Effective Rules + IP Flow Verify (Network Watcher)
 ```
@@ -160,7 +160,7 @@ az vm start -g rg-contoso-compute -n vm-app-01 --no-wait
    - `rg-contoso-identity` (Disks, Cloud Shell storage, Policies)
 
 6. **Deletar usuarios e grupos do Entra ID:**
-   - Users > delete `az104-user1` e o guest user (por Object ID)
+   - Users > delete `contoso-user1` e o guest user (por Object ID)
    - Groups > delete `IT Lab Administrators` e `helpdesk`
 
 ## Via CLI
@@ -194,7 +194,7 @@ az account management-group delete --name mg-contoso-prod
 az role definition delete --name "Custom Support Request"
 
 # 6. Deletar usuarios e grupos
-USER1_ID=$(az ad user list --filter "startsWith(userPrincipalName, 'az104-user1@')" --query "[0].id" -o tsv)
+USER1_ID=$(az ad user list --filter "startsWith(userPrincipalName, 'contoso-user1@')" --query "[0].id" -o tsv)
 if [ -n "$USER1_ID" ]; then
   az ad user delete --id "$USER1_ID"
 fi
@@ -233,7 +233,7 @@ Remove-AzManagementGroup -GroupName mg-contoso-prod
 
 # 4. Custom role, usuarios e grupos
 Remove-AzRoleDefinition -Name "Custom Support Request" -Force
-$user1 = Get-AzADUser -Filter "startsWith(userPrincipalName,'az104-user1@')" | Select-Object -First 1
+$user1 = Get-AzADUser -Filter "startsWith(userPrincipalName,'contoso-user1@')" | Select-Object -First 1
 if ($user1) { Remove-AzADUser -ObjectId $user1.Id }
 # Guest users: listar e remover manualmente o ID correto (evita apagar guest indevido)
 Get-AzADUser -Filter "userType eq 'Guest'" | Select-Object Id, Mail, DisplayName | Format-Table

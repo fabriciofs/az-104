@@ -22,7 +22,7 @@ Com toda a infraestrutura da Contoso Corp operacional (identidade, governanca, r
 │  │  • Required methods: 1                                       │  │
 │  │  • Registration: Required on next login                      │  │
 │  │                                                              │  │
-│  │  Users: az104-user1 (do Bloco 1)                             │  │
+│  │  Users: contoso-user1 (do Bloco 1)                             │  │
 │  └──────────────────────────────────────────────────────────────┘  │
 │                                                                    │
 │  ┌──────────────────────────────────────────────────────────────┐  │
@@ -59,7 +59,7 @@ O Self-Service Password Reset permite que usuarios resetem suas proprias senhas 
    | Group type | **Security**                 |
    | Group name | `SSPR-TestGroup`             |
    | Membership | **Assigned**                 |
-   | Members    | **az104-user1** (do Bloco 1) |
+   | Members    | **contoso-user1** (do Bloco 1) |
 
 2. Clique em **Create**
 
@@ -78,7 +78,7 @@ O Self-Service Password Reset permite que usuarios resetem suas proprias senhas 
 
    > **Conceito:** SSPR pode ser habilitado para **All** (todos os usuarios), **Selected** (grupo especifico) ou **None** (desabilitado). Em producao, o ideal e habilitar para All. Para testes, usar um grupo especifico e mais seguro.
 
-   > **Conexao com Bloco 1:** Voce usa o usuario `az104-user1` criado no Bloco 1. A identidade e a base — sem usuarios configurados, SSPR nao tem publico-alvo.
+   > **Conexao com Bloco 1:** Voce usa o usuario `contoso-user1` criado no Bloco 1. A identidade e a base — sem usuarios configurados, SSPR nao tem publico-alvo.
 
 ---
 
@@ -132,7 +132,7 @@ O Self-Service Password Reset permite que usuarios resetem suas proprias senhas 
 
 2. Acesse `https://aka.ms/ssprsetup`
 
-3. Faca login como **az104-user1** (credenciais do Bloco 1)
+3. Faca login como **contoso-user1** (credenciais do Bloco 1)
 
 4. Se solicitado, **registre** os metodos de autenticacao:
    - Configure um email alternativo (pode usar qualquer email pessoal)
@@ -140,7 +140,7 @@ O Self-Service Password Reset permite que usuarios resetem suas proprias senhas 
 
 5. Apos registrar, acesse `https://aka.ms/sspr`
 
-6. Insira o username de **az104-user1**
+6. Insira o username de **contoso-user1**
 
 7. Complete o captcha
 
@@ -392,10 +392,10 @@ Voce demonstra como o Azure avalia NSGs em camadas: para trafego **inbound**, pr
 
 ## Modo Desafio - Bloco 7
 
-- [ ] Criar grupo `SSPR-TestGroup` com `az104-user1` **(Bloco 1)**
+- [ ] Criar grupo `SSPR-TestGroup` com `contoso-user1` **(Bloco 1)**
 - [ ] Habilitar SSPR para o grupo de teste (Selected)
 - [ ] Configurar metodos: Email + Security Questions, 1 metodo requerido
-- [ ] Testar reset de senha como az104-user1 via `https://aka.ms/sspr`
+- [ ] Testar reset de senha como contoso-user1 via `https://aka.ms/sspr`
 - [ ] Criar Budget mensal ($50) com alertas em 80%, 100% e 120% (forecasted)
 - [ ] Criar Action Group `ag-budget-alert` e associar ao alerta de 100% do budget
 - [ ] Explorar Cost Analysis por Resource Group e por Service
