@@ -16,7 +16,7 @@ Antes de provisionar qualquer recurso, voce precisa configurar a base de identid
 │            Microsoft Entra ID                │
 │                                              │
 │  ┌─────────────┐       ┌──────────────────┐  │
-│  │  contoso-     │       │   Guest User     │  │
+│  │  contoso-   │       │   Guest User     │  │
 │  │  user1      │       │   (B2B Invite)   │  │
 │  │ IT Lab Admin│       │  IT Lab Admin    │  │
 │  └──────┬──────┘       └────────┬─────────┘  │
@@ -29,8 +29,8 @@ Antes de provisionar qualquer recurso, voce precisa configurar a base de identid
 │  │ Administrators    │  │ (Security)     │   │
 │  │ (Security)        │  │                │   │
 │  │                   │  │ Members:       │   │
-│  │ Members:          │  │ • contoso-user1  │   │
-│  │ • contoso-user1     │  └────────────────┘   │
+│  │ Members:          │  │ • contoso-user1│   │
+│  │ • contoso-user1   │  └────────────────┘   │
 │  │ • Guest user      │                       │
 │  └───────────────────┘                       │
 │                                              │
@@ -56,12 +56,12 @@ Nesta task voce cria uma conta de usuario interna que sera usada como **membro d
 
 5. Preencha as configuracoes:
 
-   | Setting                | Value         |
-   | ---------------------- | ------------- |
+   | Setting                | Value           |
+   | ---------------------- | --------------- |
    | User principal name    | `contoso-user1` |
    | Display name           | `contoso-user1` |
-   | Auto-generate password | **checked**   |
-   | Account enabled        | **checked**   |
+   | Auto-generate password | **checked**     |
+   | Account enabled        | **checked**     |
 
 6. Va para a aba **Properties** e preencha:
 
@@ -180,19 +180,19 @@ Voce cria um grupo que adiciona/remove membros automaticamente com base em atrib
 
 2. Configure:
 
-   | Setting         | Value                              |
-   | --------------- | ---------------------------------- |
-   | Group type      | **Security**                       |
-   | Group name      | `IT-Dynamic`                       |
-   | Membership type | **Dynamic user**                   |
+   | Setting         | Value            |
+   | --------------- | ---------------- |
+   | Group type      | **Security**     |
+   | Group name      | `IT-Dynamic`     |
+   | Membership type | **Dynamic user** |
 
 3. Clique em **Add dynamic query**
 
 4. No **Rule builder**, configure:
 
-   | Property       | Operator   | Value |
-   | -------------- | ---------- | ----- |
-   | `department`   | **Equals** | `IT`  |
+   | Property     | Operator   | Value |
+   | ------------ | ---------- | ----- |
+   | `department` | **Equals** | `IT`  |
 
 5. Clique em **Validate Rules** > selecione **contoso-user1** > **Validate**
 
