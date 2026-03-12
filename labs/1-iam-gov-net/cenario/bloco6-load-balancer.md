@@ -7,7 +7,7 @@
 
 ## Contexto
 
-Com as VNets, NSGs e DNS configurados nos Blocos 4-5, a Contoso Corp precisa distribuir trafego entre servidores e garantir acesso seguro as VMs sem expor IPs publicos. Voce cria um Public Load Balancer para balancear trafego HTTP, um Internal Load Balancer para comunicacao entre camadas internas, e implanta o Azure Bastion para acesso administrativo seguro. As VMs deste bloco sao implantadas na vnet-contoso-hub-brazilsouth do Bloco 4.
+Com as VNets, NSGs e DNS configurados nos Blocos 4-5, a Contoso Corp precisa distribuir trafego entre servidores e garantir acesso seguro as VMs sem expor IPs publicos. Voce cria um Public Load Balancer para balancear trafego HTTP, um Internal Load Balancer para comunicacao entre camadas internas, e implanta o Azure Bastion para acesso administrativo seguro. As VMs deste bloco sao implantadas na vnet-contoso-hub-eastus do Bloco 4.
 
 ## Diagrama
 
@@ -16,7 +16,7 @@ Com as VNets, NSGs e DNS configurados nos Blocos 4-5, a Contoso Corp precisa dis
 │                          rg-contoso-network                                 │
 │                                                                      │
 │  ┌────────────────────────────────────────────────────────────────┐  │
-│  │  vnet-contoso-hub-brazilsouth (rg-contoso-network)                                  │  │
+│  │  vnet-contoso-hub-eastus (rg-contoso-network)                                  │  │
 │  │                                                                │  │
 │  │  ┌─────────────────────┐   ┌────────────────────────────────┐  │  │
 │  │  │ AzureBastionSubnet  │   │ snet-lb (NOVO)                │  │  │
@@ -55,7 +55,7 @@ Voce cria a infraestrutura de backend: uma subnet dedicada, um Availability Set 
 
 **Criar subnet snet-lb:**
 
-1. Navegue para **vnet-contoso-hub-brazilsouth** (em rg-contoso-network) > **Subnets** > **+ Subnet**:
+1. Navegue para **vnet-contoso-hub-eastus** (em rg-contoso-network) > **Subnets** > **+ Subnet**:
 
    | Setting          | Value        |
    | ---------------- | ------------ |
@@ -107,7 +107,7 @@ Voce cria a infraestrutura de backend: uma subnet dedicada, um Availability Set 
 
    | Setting         | Value                               |
    | --------------- | ----------------------------------- |
-   | Virtual network | **vnet-contoso-hub-brazilsouth** (de rg-contoso-network) |
+   | Virtual network | **vnet-contoso-hub-eastus** (de rg-contoso-network) |
    | Subnet          | **snet-lb (10.20.40.0/24)**        |
    | Public IP       | **None**                            |
    | NIC NSG         | **None**                            |
@@ -144,7 +144,7 @@ Voce cria a infraestrutura de backend: uma subnet dedicada, um Availability Set 
 
     > **Conceito:** O script instala IIS e cria uma pagina customizada que exibe o hostname. Isso permite verificar visualmente qual VM esta respondendo ao trafego balanceado.
 
-    > **Conexao com Bloco 5:** Assim como no Bloco 5, as VMs sao implantadas em subnets da vnet-contoso-hub-brazilsouth (rg-contoso-network), demonstrando cross-resource-group deployment.
+    > **Conexao com Bloco 5:** Assim como no Bloco 5, as VMs sao implantadas em subnets da vnet-contoso-hub-eastus (rg-contoso-network), demonstrando cross-resource-group deployment.
 
 ---
 
@@ -179,7 +179,7 @@ Voce cria a infraestrutura de backend: uma subnet dedicada, um Availability Set 
    | Setting         | Value                |
    | --------------- | -------------------- |
    | Name            | `bp-lbe-web`    |
-   | Virtual network | **vnet-contoso-hub-brazilsouth** |
+   | Virtual network | **vnet-contoso-hub-eastus** |
 
 6. Clique em **+ Add** > selecione **vm-lb-01** e **vm-lb-02** > **Add**
 
@@ -245,7 +245,7 @@ O Standard Load Balancer bloqueia trafego por padrao. Voce precisa de um NSG par
 
    | Setting         | Value                |
    | --------------- | -------------------- |
-   | Virtual network | **vnet-contoso-hub-brazilsouth** |
+   | Virtual network | **vnet-contoso-hub-eastus** |
    | Subnet          | **snet-lb**         |
 
 6. Clique em **OK**
@@ -334,7 +334,7 @@ O Internal Load Balancer distribui trafego dentro da VNet, sem exposicao a inter
    | Setting         | Value                |
    | --------------- | -------------------- |
    | Name            | `fe-lbi-apps`    |
-   | Virtual network | **vnet-contoso-hub-brazilsouth** |
+   | Virtual network | **vnet-contoso-hub-eastus** |
    | Subnet          | **snet-lb**         |
    | Assignment      | **Static**           |
    | IP address      | `10.20.40.100`       |
@@ -346,7 +346,7 @@ O Internal Load Balancer distribui trafego dentro da VNet, sem exposicao a inter
    | Setting         | Value                         |
    | --------------- | ----------------------------- |
    | Name            | `bp-lbi-apps`              |
-   | Virtual network | **vnet-contoso-hub-brazilsouth**          |
+   | Virtual network | **vnet-contoso-hub-eastus**          |
    | VMs             | **vm-lb-01** e **vm-lb-02** (Add) |
 
 6. Aba **Inbound rules** > **+ Add a load balancing rule**:
@@ -430,7 +430,7 @@ O Azure Bastion permite acesso RDP/SSH as VMs diretamente pelo portal Azure, sem
 
 **Criar AzureBastionSubnet:**
 
-1. Navegue para **vnet-contoso-hub-brazilsouth** (em rg-contoso-network) > **Subnets** > **+ Subnet**:
+1. Navegue para **vnet-contoso-hub-eastus** (em rg-contoso-network) > **Subnets** > **+ Subnet**:
 
    | Setting          | Value                |
    | ---------------- | -------------------- |
@@ -452,7 +452,7 @@ O Azure Bastion permite acesso RDP/SSH as VMs diretamente pelo portal Azure, sem
    | Name            | `bas-contoso-hub`                         |
    | Region          | **(US) East US**                        |
    | Tier            | **Basic**                               |
-   | Virtual network | **vnet-contoso-hub-brazilsouth**                    |
+   | Virtual network | **vnet-contoso-hub-eastus**                    |
    | Subnet          | `AzureBastionSubnet` (auto-selecionado) |
    | Public IP       | **Create new**: `bas-contoso-hub-pip`     |
 
@@ -483,7 +483,7 @@ O Azure Bastion permite acesso RDP/SSH as VMs diretamente pelo portal Azure, sem
 
 ## Modo Desafio - Bloco 6
 
-- [ ] Criar subnet `snet-lb` (10.20.40.0/24) na vnet-contoso-hub-brazilsouth **(Bloco 4)**
+- [ ] Criar subnet `snet-lb` (10.20.40.0/24) na vnet-contoso-hub-eastus **(Bloco 4)**
 - [ ] Criar Availability Set `avail-contoso-lb` (2 FD, 5 UD)
 - [ ] Criar 2 VMs (vm-lb-01, vm-lb-02) no Availability Set, sem IP publico
 - [ ] Instalar IIS em ambas as VMs via Run Command

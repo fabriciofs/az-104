@@ -7,7 +7,7 @@
 
 ## Contexto
 
-Com o armazenamento configurado no Bloco 1, voce agora implanta cargas de trabalho de computacao. As VMs serao criadas nas VNets da Semana 1 (vnet-contoso-hub-brazilsouth e vnet-contoso-spoke-brazilsouth), usando o storage do Bloco 1 para dados. Voce tambem criara um VMSS com auto-scaling para cenarios de alta disponibilidade. Os data disks demonstram integracao com o storage, e a montagem do file share valida a conectividade end-to-end.
+Com o armazenamento configurado no Bloco 1, voce agora implanta cargas de trabalho de computacao. As VMs serao criadas nas VNets da Semana 1 (vnet-contoso-hub-eastus e vnet-contoso-spoke-eastus), usando o storage do Bloco 1 para dados. Voce tambem criara um VMSS com auto-scaling para cenarios de alta disponibilidade. Os data disks demonstram integracao com o storage, e a montagem do file share valida a conectividade end-to-end.
 
 ## Diagrama
 
@@ -19,7 +19,7 @@ Com o armazenamento configurado no Bloco 1, voce agora implanta cargas de trabal
 │  │  vm-web-01              │  │  vm-api-01             │  │
 │  │  (Windows Server 2022)     │  │  (Ubuntu 22.04 LTS)         │  │
 │  │                            │  │                             │  │
-│  │  VNet: vnet-contoso-hub-brazilsouth    │  │  VNet: vnet-contoso-spoke-brazilsouth    │  │
+│  │  VNet: vnet-contoso-hub-eastus    │  │  VNet: vnet-contoso-spoke-eastus    │  │
 │  │  Subnet: snet-apps (Semana 1)   │  │  Subnet: snet-apps      │  │
 │  │  Size: Standard_D2s_v3     │  │  Size: Standard_D2s_v3      │  │
 │  │                            │  │                             │  │
@@ -32,7 +32,7 @@ Com o armazenamento configurado no Bloco 1, voce agora implanta cargas de trabal
 │  │  vmss-contoso-web                                                 │  │
 │  │  (VM Scale Set - Ubuntu 22.04)                              │  │
 │  │                                                             │  │
-│  │  VNet: vnet-contoso-hub-brazilsouth (Semana 1)                          │  │
+│  │  VNet: vnet-contoso-hub-eastus (Semana 1)                          │  │
 │  │  Subnet: snet-shared                               │  │
 │  │  Instances: min 1, max 3 (CPU > 75% scale out)              │  │
 │  │  → Usa rede ja protegida por NSG (Semana 1)                 │  │
@@ -48,11 +48,11 @@ Com o armazenamento configurado no Bloco 1, voce agora implanta cargas de trabal
 
 ---
 
-### Task 2.1: Criar Windows VM na vnet-contoso-hub-brazilsouth
+### Task 2.1: Criar Windows VM na vnet-contoso-hub-eastus
 
 > **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab (veja [Pausar entre Sessoes](../cenario-contoso.md#pausar-entre-sessoes)).
 
-A VM Windows sera implantada na vnet-contoso-hub-brazilsouth criada na Semana 1, demonstrando cross-resource-group deployment.
+A VM Windows sera implantada na vnet-contoso-hub-eastus criada na Semana 1, demonstrando cross-resource-group deployment.
 
 1. Pesquise e selecione **Virtual Machines** > **Create** > **Azure Virtual Machine**
 
@@ -79,7 +79,7 @@ A VM Windows sera implantada na vnet-contoso-hub-brazilsouth criada na Semana 1,
 
    | Setting              | Value                                         |
    | -------------------- | --------------------------------------------- |
-   | Virtual network      | **vnet-contoso-hub-brazilsouth** (de rg-contoso-network, Semana 1) |
+   | Virtual network      | **vnet-contoso-hub-eastus** (de rg-contoso-network, Semana 1) |
    | Subnet               | **snet-apps** (10.20.0.0/24)                       |
    | Public IP            | **(new) vm-web-01-ip**                     |
    | NIC NSG              | **Basic**                                     |
@@ -171,7 +171,7 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
 
 ---
 
-### Task 2.3: Criar Linux VM na vnet-contoso-spoke-brazilsouth com Custom Script Extension
+### Task 2.3: Criar Linux VM na vnet-contoso-spoke-eastus com Custom Script Extension
 
 > **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab (veja [Pausar entre Sessoes](../cenario-contoso.md#pausar-entre-sessoes)).
 
@@ -197,11 +197,11 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
 
    | Setting         | Value                                          |
    | --------------- | ---------------------------------------------- |
-   | Virtual network | **vnet-contoso-spoke-brazilsouth** (de rg-contoso-network, Semana 1) |
+   | Virtual network | **vnet-contoso-spoke-eastus** (de rg-contoso-network, Semana 1) |
    | Subnet          | **snet-apps** (10.30.0.0/24)               |
    | Public IP       | **(new) vm-api-01-ip**                    |
 
-   > **Conexao com Semana 1:** A Linux VM fica na vnet-contoso-spoke-brazilsouth. Se o peering da Semana 1 ainda existir, ela pode se comunicar com a Windows VM na vnet-contoso-hub-brazilsouth.
+   > **Conexao com Semana 1:** A Linux VM fica na vnet-contoso-spoke-eastus. Se o peering da Semana 1 ainda existir, ela pode se comunicar com a Windows VM na vnet-contoso-hub-eastus.
 
 4. Aba **Monitoring**: **Disable** Boot diagnostics
 
@@ -214,7 +214,7 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
    ```bash
    sudo apt-get update
    sudo apt-get install -y nginx
-   echo "<h1>Hello from vm-api-01 (vnet-contoso-spoke-brazilsouth)</h1>" | sudo tee /var/www/html/index.html
+   echo "<h1>Hello from vm-api-01 (vnet-contoso-spoke-eastus)</h1>" | sudo tee /var/www/html/index.html
    ```
 
 8. Clique em **Run** e aguarde a saida
@@ -239,7 +239,7 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
    write_files:
      - path: /var/www/html/index.html
        content: |
-         <h1>Hello from cloud-init VM (vnet-contoso-spoke-brazilsouth)</h1>
+         <h1>Hello from cloud-init VM (vnet-contoso-spoke-eastus)</h1>
          <p>Configurado automaticamente no primeiro boot</p>
    runcmd:
      - systemctl enable nginx
@@ -256,7 +256,7 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
      --size Standard_B1s \
      --admin-username localadmin \
      --admin-password '<senha-complexa>' \
-     --vnet-name vnet-contoso-spoke-brazilsouth \
+     --vnet-name vnet-contoso-spoke-eastus \
      --subnet snet-apps \
      --custom-data cloud-init.yaml \
      --public-ip-sku Standard \
@@ -326,7 +326,7 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
 
 > **Cobranca:** Cada instancia do VMSS gera cobranca. Escale para 0 ao pausar o lab.
 
-O VMSS sera implantado na snet-shared da vnet-contoso-hub-brazilsouth (Semana 1), que ja tem o NSG `nsg-snet-shared` associado.
+O VMSS sera implantado na snet-shared da vnet-contoso-hub-eastus (Semana 1), que ja tem o NSG `nsg-snet-shared` associado.
 
 1. Pesquise **Virtual machine scale sets** > **+ Create**
 
@@ -350,7 +350,7 @@ O VMSS sera implantado na snet-shared da vnet-contoso-hub-brazilsouth (Semana 1)
 
    | Setting         | Value                                         |
    | --------------- | --------------------------------------------- |
-   | Virtual network | **vnet-contoso-hub-brazilsouth** (de rg-contoso-network, Semana 1) |
+   | Virtual network | **vnet-contoso-hub-eastus** (de rg-contoso-network, Semana 1) |
    | Subnet          | **snet-shared** (10.20.10.0/24)      |
    | Load balancer   | **None** (para simplificar)                   |
 
@@ -473,7 +473,7 @@ O VMSS sera implantado na snet-shared da vnet-contoso-hub-brazilsouth (Semana 1)
    | Username             | `localadmin`                                  |
    | Password             | *senha complexa*                              |
 
-2. **Networking**: selecione **vnet-contoso-hub-brazilsouth** > subnet **snet-apps**
+2. **Networking**: selecione **vnet-contoso-hub-eastus** > subnet **snet-apps**
 
 3. **Monitoring** > **Disable** Boot diagnostics
 
@@ -554,11 +554,11 @@ O VMSS sera implantado na snet-shared da vnet-contoso-hub-brazilsouth (Semana 1)
 
 ## Modo Desafio - Bloco 2
 
-- [ ] Criar `vm-web-01` (Windows) na subnet snet-apps da **vnet-contoso-hub-brazilsouth (Semana 1)**
+- [ ] Criar `vm-web-01` (Windows) na subnet snet-apps da **vnet-contoso-hub-eastus (Semana 1)**
 - [ ] Adicionar Data Disk 32 GiB → inicializar como drive F: dentro da VM
 - [ ] **Integracao Bloco 1:** Montar File Share `contoso-files` como drive Z: na VM
 - [ ] Criar arquivo de teste no share via VM → confirmar no portal
-- [ ] Criar `vm-api-01` (Ubuntu) na subnet snet-apps da **vnet-contoso-spoke-brazilsouth (Semana 1)**
+- [ ] Criar `vm-api-01` (Ubuntu) na subnet snet-apps da **vnet-contoso-spoke-eastus (Semana 1)**
 - [ ] Instalar Nginx via Custom Script Extension / Run Command
 - [ ] Comparar tamanhos de VM e executar resize
 - [ ] Criar VMSS `vmss-contoso-web` na **snet-shared (Semana 1)** com auto-scale (CPU 75%/25%)

@@ -53,8 +53,8 @@ Bloco 3 (IaC) ◄──── Valida governanca ──────────�
                                                      ▼
 Bloco 4 (Networking) ◄──── Reusa Cloud Shell e ARM skills
   │
-  ├─ vnet-contoso-hub-brazilsouth (10.20.0.0/16) ──────────────┐
-  ├─ vnet-contoso-spoke-brazilsouth (10.30.0.0/16) via ARM ─────┤
+  ├─ vnet-contoso-hub-eastus (10.20.0.0/16) ──────────────┐
+  ├─ vnet-contoso-spoke-eastus (10.30.0.0/16) via ARM ─────┤
   ├─ NSG + ASG na snet-shared             │
   ├─ DNS publico: contoso.com (nslookup via Shell) │
   └─ DNS privado: contoso.internal ─────────────┤
@@ -62,8 +62,8 @@ Bloco 4 (Networking) ◄──── Reusa Cloud Shell e ARM skills
                                                    ▼
 Bloco 5 (Connectivity) ◄──── VMs nas VNets do Bloco 4
   │
-  ├─ vm-web-01 na vnet-contoso-hub-brazilsouth (10.20.0.0/24)
-  ├─ vm-app-01 na vnet-contoso-spoke-brazilsouth (10.30.0.0/24)
+  ├─ vm-web-01 na vnet-contoso-hub-eastus (10.20.0.0/24)
+  ├─ vm-app-01 na vnet-contoso-spoke-eastus (10.30.0.0/24)
   ├─ Peering entre as VNets do Bloco 4
   ├─ DNS privado resolve nome real da VM ✓
   ├─ contoso-user1 gerencia VMs (VM Contributor) ✓

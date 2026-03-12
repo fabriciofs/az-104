@@ -32,7 +32,7 @@ A Contoso Corp precisa de um registro privado de containers para armazenar e dis
 │  │  ├─ Custom DNS: walkthrough (CNAME + verificacao)                │    │
 │  │  ├─ TLS/SSL: walkthrough (certificado)                           │    │
 │  │  ├─ Backup: para Storage Account (stcontosoprod01)                 │    │
-│  │  └─ VNet Integration: vnet-contoso-hub-brazilsouth (Semana 1)                │    │
+│  │  └─ VNet Integration: vnet-contoso-hub-eastus (Semana 1)                │    │
 │  └──────────────────────────────────────────────────────────────────┘    │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
@@ -276,10 +276,10 @@ VNet Integration permite que o App Service acesse recursos privados na VNet (out
 
    | Setting         | Value                                         |
    | --------------- | --------------------------------------------- |
-   | Virtual network | **vnet-contoso-hub-brazilsouth** (do rg-contoso-network, Semana 1) |
+   | Virtual network | **vnet-contoso-hub-eastus** (do rg-contoso-network, Semana 1) |
    | Subnet          | Selecione ou crie uma subnet dedicada         |
 
-   > **Nota:** Se nenhuma subnet livre estiver disponivel, crie uma nova: `WebAppSubnet` (10.20.50.0/24) na vnet-contoso-hub-brazilsouth.
+   > **Nota:** Se nenhuma subnet livre estiver disponivel, crie uma nova: `WebAppSubnet` (10.20.50.0/24) na vnet-contoso-hub-eastus.
 
 3. Clique em **OK**
 
@@ -292,7 +292,7 @@ VNet Integration permite que o App Service acesse recursos privados na VNet (out
 
    > **Conceito:** VNet Integration (regional) permite que o App Service envie trafego outbound pela VNet. Isso nao expoe o App Service na VNet (para inbound, use Private Endpoints). A subnet delegada ao App Service nao pode ter outros recursos. Requer Standard ou Premium plan.
 
-   > **Conexao com Semana 1:** O App Service agora pode acessar o Storage Account via Private Endpoint (configurado no Bloco 1 da Semana 2) pela vnet-contoso-hub-brazilsouth, garantindo que o trafego nunca saia da rede Microsoft.
+   > **Conexao com Semana 1:** O App Service agora pode acessar o Storage Account via Private Endpoint (configurado no Bloco 1 da Semana 2) pela vnet-contoso-hub-eastus, garantindo que o trafego nunca saia da rede Microsoft.
 
    > **Dica AZ-104:** Na prova: VNet Integration = outbound (App Service acessa VNet). Private Endpoint = inbound (VNet acessa App Service). Requer subnet dedicada (/28 minimo). Funciona com peering e ExpressRoute.
 
@@ -309,7 +309,7 @@ VNet Integration permite que o App Service acesse recursos privados na VNet (out
 - [ ] Explorar opcoes de certificado: Managed, Key Vault, Upload
 - [ ] Configurar backup do App Service para storage account **(Bloco 1)** com schedule diario
 - [ ] Executar backup manual e verificar .zip no container
-- [ ] Configurar VNet Integration no App Service com vnet-contoso-hub-brazilsouth **(Semana 1)**
+- [ ] Configurar VNet Integration no App Service com vnet-contoso-hub-eastus **(Semana 1)**
 
 ---
 

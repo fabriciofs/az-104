@@ -16,7 +16,7 @@ Este e o bloco final onde tudo se conecta. As VMs sao implantadas nas **VNets cr
 │                rg-contoso-network (VNets do Bloco 4)                         │
 │                                                                     │
 │  ┌──────────────────────────────┐  ┌─────────────────────────────┐  │
-│  │  vnet-contoso-hub-brazilsouth            │  │  vnet-contoso-spoke-brazilsouth          │  │
+│  │  vnet-contoso-hub-eastus            │  │  vnet-contoso-spoke-eastus          │  │
 │  │  10.20.0.0/16                │  │  10.30.0.0/16               │  │
 │  │                              │  │                             │  │
 │  │  snet-shared        │  │  SensorSubnet1 (Bloco 4)    │  │
@@ -32,7 +32,7 @@ Este e o bloco final onde tudo se conecta. As VMs sao implantadas nas **VNets cr
 │  │  perimeter (NOVO)            │  ┌────────────────────────────┐   │
 │  │  10.20.1.0/24                │  │ DNS: contoso.internal   │   │
 │  │  (NVA: 10.20.1.7)            │  │ + corevm → IP real da VM   │   │
-│  └──────────────────────────────┘  │ + Link: vnet-contoso-hub-brazilsouth   │   │
+│  └──────────────────────────────┘  │ + Link: vnet-contoso-hub-eastus   │   │
 │                                    └────────────────────────────┘   │
 │                                                                     │
 │  ┌──────────────────────────────┐                                   │
@@ -54,9 +54,9 @@ Este e o bloco final onde tudo se conecta. As VMs sao implantadas nas **VNets cr
 
 Antes de criar as VMs, adicione subnets dedicadas nas VNets do Bloco 4.
 
-**snet-apps subnet na vnet-contoso-hub-brazilsouth:**
+**snet-apps subnet na vnet-contoso-hub-eastus:**
 
-1. Pesquise e selecione **Virtual Networks** > **vnet-contoso-hub-brazilsouth** (em rg-contoso-network)
+1. Pesquise e selecione **Virtual Networks** > **vnet-contoso-hub-eastus** (em rg-contoso-network)
 
 2. **Subnets** > **+ Subnet**:
 
@@ -68,9 +68,9 @@ Antes de criar as VMs, adicione subnets dedicadas nas VNets do Bloco 4.
 
 3. Clique em **Add**
 
-**snet-workloads subnet na vnet-contoso-spoke-brazilsouth:**
+**snet-workloads subnet na vnet-contoso-spoke-eastus:**
 
-4. Navegue para **vnet-contoso-spoke-brazilsouth** (em rg-contoso-network)
+4. Navegue para **vnet-contoso-spoke-eastus** (em rg-contoso-network)
 
 5. **Subnets** > **+ Subnet**:
 
@@ -110,7 +110,7 @@ Antes de criar as VMs, adicione subnets dedicadas nas VNets do Bloco 4.
 
 3. **Next: Disks >** (aceite defaults) > **Next: Networking >**
 
-4. Para Virtual network, selecione **vnet-contoso-hub-brazilsouth** (de rg-contoso-network)
+4. Para Virtual network, selecione **vnet-contoso-hub-eastus** (de rg-contoso-network)
 
    > **Nota:** VMs podem referenciar VNets de outros Resource Groups. O dropdown mostra todas as VNets acessiveis na subscription.
 
@@ -146,7 +146,7 @@ Antes de criar as VMs, adicione subnets dedicadas nas VNets do Bloco 4.
 
 3. **Next: Disks >** > **Next: Networking >**
 
-4. Virtual network: **vnet-contoso-spoke-brazilsouth** (de rg-contoso-network)
+4. Virtual network: **vnet-contoso-spoke-eastus** (de rg-contoso-network)
 
 5. Subnet: **snet-workloads (10.30.0.0/24)**
 
@@ -186,21 +186,21 @@ Antes de criar as VMs, adicione subnets dedicadas nas VNets do Bloco 4.
 
 Peering entre as VNets **do Bloco 4** para habilitar comunicacao.
 
-1. Navegue para **vnet-contoso-hub-brazilsouth** (em rg-contoso-network)
+1. Navegue para **vnet-contoso-hub-eastus** (em rg-contoso-network)
 
 2. **Settings** > **Peerings** > **+ Add**:
 
    | Setting                                          | Value                                   |
    | ------------------------------------------------ | --------------------------------------- |
    | **This virtual network**                         |                                         |
-   | Peering link name                                | `vnet-contoso-hub-brazilsouth-to-vnet-contoso-spoke-brazilsouth` |
-   | Allow access to 'vnet-contoso-spoke-brazilsouth'              | **selected**                            |
-   | Allow forwarded traffic from 'vnet-contoso-spoke-brazilsouth' | **selected**                            |
+   | Peering link name                                | `vnet-contoso-hub-eastus-to-vnet-contoso-spoke-eastus` |
+   | Allow access to 'vnet-contoso-spoke-eastus'              | **selected**                            |
+   | Allow forwarded traffic from 'vnet-contoso-spoke-eastus' | **selected**                            |
    | **Remote virtual network**                       |                                         |
-   | Peering link name                                | `vnet-contoso-spoke-brazilsouth-to-vnet-contoso-hub-brazilsouth` |
-   | Virtual network                                  | **vnet-contoso-spoke-brazilsouth (rg-contoso-network)**       |
-   | Allow access to 'vnet-contoso-hub-brazilsouth'               | **selected**                            |
-   | Allow forwarded traffic from 'vnet-contoso-hub-brazilsouth'  | **selected**                            |
+   | Peering link name                                | `vnet-contoso-spoke-eastus-to-vnet-contoso-hub-eastus` |
+   | Virtual network                                  | **vnet-contoso-spoke-eastus (rg-contoso-network)**       |
+   | Allow access to 'vnet-contoso-hub-eastus'               | **selected**                            |
+   | Allow forwarded traffic from 'vnet-contoso-hub-eastus'  | **selected**                            |
 
 3. Clique em **Add**
 
@@ -254,12 +254,12 @@ Voce atualiza a zona DNS privada do **Bloco 4** com o IP real da vm-web-01 e tes
 
 1. Navegue para a zona **contoso.internal** (em rg-contoso-network)
 
-2. Primeiro, adicione um **Virtual network link** para vnet-contoso-hub-brazilsouth:
+2. Primeiro, adicione um **Virtual network link** para vnet-contoso-hub-eastus:
 
    | Setting         | Value               |
    | --------------- | ------------------- |
    | Link name       | `coreservices-link` |
-   | Virtual network | `vnet-contoso-hub-brazilsouth`  |
+   | Virtual network | `vnet-contoso-hub-eastus`  |
 
 3. Clique em **Create** e aguarde
 
@@ -282,7 +282,7 @@ Voce atualiza a zona DNS privada do **Bloco 4** com o IP real da vm-web-01 e tes
 
 7. **Resultado esperado:** O comando retorna o IP privado da vm-web-01
 
-   > **Conexao com Bloco 4:** A zona DNS privada criada no Bloco 4 agora resolve nomes reais de VMs do Bloco 5. A vnet-contoso-spoke-brazilsouth (linkada no Bloco 4) e a vnet-contoso-hub-brazilsouth (linkada agora) podem resolver nomes nesta zona.
+   > **Conexao com Bloco 4:** A zona DNS privada criada no Bloco 4 agora resolve nomes reais de VMs do Bloco 5. A vnet-contoso-spoke-eastus (linkada no Bloco 4) e a vnet-contoso-hub-eastus (linkada agora) podem resolver nomes nesta zona.
 
 ---
 
@@ -290,7 +290,7 @@ Voce atualiza a zona DNS privada do **Bloco 4** com o IP real da vm-web-01 e tes
 
 **Criar subnet perimeter:**
 
-1. Navegue para **vnet-contoso-hub-brazilsouth** (em rg-contoso-network) > **Subnets** > **+ Subnet**:
+1. Navegue para **vnet-contoso-hub-eastus** (em rg-contoso-network) > **Subnets** > **+ Subnet**:
 
    | Setting          | Value       |
    | ---------------- | ----------- |
@@ -334,7 +334,7 @@ Voce atualiza a zona DNS privada do **Bloco 4** com o IP real da vm-web-01 e tes
 
    | Setting         | Value                            |
    | --------------- | -------------------------------- |
-   | Virtual network | **vnet-contoso-hub-brazilsouth (rg-contoso-network)** |
+   | Virtual network | **vnet-contoso-hub-eastus (rg-contoso-network)** |
    | Subnet          | **snet-apps**                    |
 
 8. Clique em **OK**
@@ -398,7 +398,7 @@ Teste final que valida todo o RBAC configurado desde o Bloco 1.
 
 **Criar GatewaySubnet:**
 
-1. Navegue para **vnet-contoso-hub-brazilsouth** (em rg-contoso-network) > **Subnets** > **+ Subnet**:
+1. Navegue para **vnet-contoso-hub-eastus** (em rg-contoso-network) > **Subnets** > **+ Subnet**:
 
    | Setting          | Value            |
    | ---------------- | ---------------- |
@@ -435,7 +435,7 @@ Teste final que valida todo o RBAC configurado desde o Bloco 1.
    | Gateway type     | **VPN**                          |
    | SKU              | **VpnGw1**                       |
    | Generation       | **Generation1**                  |
-   | Virtual network  | **vnet-contoso-hub-brazilsouth (rg-contoso-network)** |
+   | Virtual network  | **vnet-contoso-hub-eastus (rg-contoso-network)** |
    | Public IP        | `pip-vpngw-core`                 |
    | Enable active-active | **Disabled**                 |
 
@@ -516,7 +516,7 @@ Teste final que valida todo o RBAC configurado desde o Bloco 1.
 
 1. No seu computador, va para **Settings** > **Network & Internet** > **VPN**
 
-2. Conecte a VPN **vnet-contoso-hub-brazilsouth** (aparece automaticamente apos instalar o cliente)
+2. Conecte a VPN **vnet-contoso-hub-eastus** (aparece automaticamente apos instalar o cliente)
 
 3. Apos conectar, abra **PowerShell** e verifique as rotas:
 
@@ -524,11 +524,11 @@ Teste final que valida todo o RBAC configurado desde o Bloco 1.
    Get-NetRoute | Where-Object { $_.DestinationPrefix -like "10.20.*" }
    ```
 
-4. **Resultado esperado:** Voce vera rotas para `10.20.0.0/16` (vnet-contoso-hub-brazilsouth)
+4. **Resultado esperado:** Voce vera rotas para `10.20.0.0/16` (vnet-contoso-hub-eastus)
 
-5. **Note:** Voce **NAO** vera rotas para `10.30.0.0/16` (vnet-contoso-spoke-brazilsouth), mesmo com peering ativo
+5. **Note:** Voce **NAO** vera rotas para `10.30.0.0/16` (vnet-contoso-spoke-eastus), mesmo com peering ativo
 
-   > **Conceito:** O cliente VPN P2S recebe as rotas no momento do download/instalacao. O peering entre vnet-contoso-hub-brazilsouth e vnet-contoso-spoke-brazilsouth ja existe (Task 5.5), mas as rotas da vnet-contoso-spoke-brazilsouth nao estao no cliente.
+   > **Conceito:** O cliente VPN P2S recebe as rotas no momento do download/instalacao. O peering entre vnet-contoso-hub-eastus e vnet-contoso-spoke-eastus ja existe (Task 5.5), mas as rotas da vnet-contoso-spoke-eastus nao estao no cliente.
 
 ---
 
@@ -538,11 +538,11 @@ Esta task demonstra a pegadinha classica do AZ-104: **cliente P2S precisa ser re
 
 **Habilitar Gateway Transit no peering:**
 
-1. Navegue para **vnet-contoso-hub-brazilsouth** > **Peerings** > selecione `vnet-contoso-hub-brazilsouth-to-vnet-contoso-spoke-brazilsouth`
+1. Navegue para **vnet-contoso-hub-eastus** > **Peerings** > selecione `vnet-contoso-hub-eastus-to-vnet-contoso-spoke-eastus`
 
 2. Marque **Allow gateway transit** > **Save**
 
-3. Navegue para **vnet-contoso-spoke-brazilsouth** > **Peerings** > selecione `vnet-contoso-spoke-brazilsouth-to-vnet-contoso-hub-brazilsouth`
+3. Navegue para **vnet-contoso-spoke-eastus** > **Peerings** > selecione `vnet-contoso-spoke-eastus-to-vnet-contoso-hub-eastus`
 
 4. Marque **Use remote gateway** > **Save**
 
@@ -572,7 +572,7 @@ Esta task demonstra a pegadinha classica do AZ-104: **cliente P2S precisa ser re
     Get-NetRoute | Where-Object { $_.DestinationPrefix -like "10.30.*" }
     ```
 
-11. **Resultado esperado:** Agora voce vera rotas para `10.30.0.0/16` — vnet-contoso-spoke-brazilsouth acessivel via P2S!
+11. **Resultado esperado:** Agora voce vera rotas para `10.30.0.0/16` — vnet-contoso-spoke-eastus acessivel via P2S!
 
     > **PEGADINHA AZ-104:** Sempre que a topologia de rede muda (novo peering, gateway transit, novas subnets), o cliente VPN P2S precisa ser **baixado e reinstalado** para obter as rotas atualizadas. As rotas NAO se atualizam automaticamente no cliente.
 
@@ -588,7 +588,7 @@ Esta task demonstra a pegadinha classica do AZ-104: **cliente P2S precisa ser re
 
 3. Delete o Public IP **pip-vpngw-core**
 
-4. (Opcional) Remova a **GatewaySubnet** da vnet-contoso-hub-brazilsouth
+4. (Opcional) Remova a **GatewaySubnet** da vnet-contoso-hub-eastus
 
 5. Reverta o peering: remova "Allow Gateway Transit" e "Use Remote Gateways" das configuracoes de peering
 
@@ -598,8 +598,8 @@ Esta task demonstra a pegadinha classica do AZ-104: **cliente P2S precisa ser re
 
 ## Modo Desafio - Bloco 5
 
-- [ ] Adicionar subnet `snet-apps` (10.20.0.0/24) na vnet-contoso-hub-brazilsouth **(Bloco 4)**
-- [ ] Adicionar subnet `snet-workloads` (10.30.0.0/24) na vnet-contoso-spoke-brazilsouth **(Bloco 4)**
+- [ ] Adicionar subnet `snet-apps` (10.20.0.0/24) na vnet-contoso-hub-eastus **(Bloco 4)**
+- [ ] Adicionar subnet `snet-workloads` (10.30.0.0/24) na vnet-contoso-spoke-eastus **(Bloco 4)**
 - [ ] Criar `vm-web-01` em rg-contoso-compute, na subnet snet-apps da **VNet do Bloco 4**
 - [ ] Criar `vm-app-01` em rg-contoso-compute, na subnet snet-workloads da **VNet do Bloco 4**
 - [ ] Network Watcher → Unreachable
@@ -610,12 +610,12 @@ Esta task demonstra a pegadinha classica do AZ-104: **cliente P2S precisa ser re
 - [ ] Criar subnet `perimeter` + Route Table + custom route (NVA 10.20.1.7)
 - [ ] **Integracao:** Verificar NSG isolado por subnet
 - [ ] **Integracao final:** Login como contoso-user1 → gerenciar VM ✓, criar Storage ✗
-- [ ] Criar `GatewaySubnet` (/27) na vnet-contoso-hub-brazilsouth + Public IP + VPN Gateway (VpnGw1)
+- [ ] Criar `GatewaySubnet` (/27) na vnet-contoso-hub-eastus + Public IP + VPN Gateway (VpnGw1)
 - [ ] Gerar certificados (raiz + cliente) e configurar P2S com Azure certificate
-- [ ] Conectar via P2S e verificar rotas (so vnet-contoso-hub-brazilsouth)
+- [ ] Conectar via P2S e verificar rotas (so vnet-contoso-hub-eastus)
 - [ ] Habilitar Gateway Transit + Use Remote Gateways no peering
-- [ ] Verificar que cliente P2S **NAO** tem rotas da vnet-contoso-spoke-brazilsouth
-- [ ] Reinstalar cliente P2S → agora tem rotas para vnet-contoso-spoke-brazilsouth ✓
+- [ ] Verificar que cliente P2S **NAO** tem rotas da vnet-contoso-spoke-eastus
+- [ ] Reinstalar cliente P2S → agora tem rotas para vnet-contoso-spoke-eastus ✓
 - [ ] **Cleanup:** Deletar VPN Gateway + Public IP
 
 ---
@@ -674,7 +674,7 @@ UDRs sobrescrevem rotas do sistema. Se o next hop nao for alcancavel, o trafego 
 </details>
 
 ### Questao 5.4
-**Voce configurou VNet Peering entre vnet-contoso-hub-brazilsouth e vnet-contoso-spoke-brazilsouth. Voce quer que o trafego da vm-app-01 passe por um NVA na vnet-contoso-hub-brazilsouth antes de alcançar a vm-web-01. O que voce precisa configurar alem do peering?**
+**Voce configurou VNet Peering entre vnet-contoso-hub-eastus e vnet-contoso-spoke-eastus. Voce quer que o trafego da vm-app-01 passe por um NVA na vnet-contoso-hub-eastus antes de alcançar a vm-web-01. O que voce precisa configurar alem do peering?**
 
 A) Apenas um NSG na subnet de destino
 B) Uma User-Defined Route (UDR) na subnet da vm-app-01 com next hop apontando para o NVA
@@ -725,7 +725,7 @@ O cliente VPN P2S recebe a tabela de rotas no momento do download/instalacao. Mu
 </details>
 
 ### Questao 5.7
-**Voce precisa criar um VPN Gateway na vnet-contoso-hub-brazilsouth. Qual subnet e obrigatoria e qual o tamanho minimo recomendado?**
+**Voce precisa criar um VPN Gateway na vnet-contoso-hub-eastus. Qual subnet e obrigatoria e qual o tamanho minimo recomendado?**
 
 A) VPNSubnet, /28
 B) GatewaySubnet, /29

@@ -12,19 +12,19 @@ Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial de
 ## Diagrama
 
 ```
-┌───────────────────────────────────────────────────────────┐
-│                    rg-contoso-identity                              │
-│               Tag: Cost Center = 000                      │
-│          Policy: Modify (inherit tag) ← Bloco 2           │
-│          Policy: Allowed Locations (East US) ← Bloco 2    │
-│          RBAC: Reader → Guest user ← Bloco 2              │
-│                                                           │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ │
-│  │disk-iac-    │ │disk-iac-    │ │disk-iac-    │ │disk-iac-    │ │
-│  │test-01      │ │test-02      │ │test-03      │ │test-04      │ │
-│  │(Portal)     │ │(ARM Portal) │ │(ARM + PS)   │ │(ARM + CLI)  │ │
-│  │Tag: ✓       │ │Tag: ✓       │ │Tag: ✓       │ │Tag: ✓       │ │
-│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘ │
+┌───────────────────────────────────────────────────────────────────┐
+│                    rg-contoso-identity                            │
+│               Tag: Cost Center = 000                              │
+│          Policy: Modify (inherit tag) ← Bloco 2                   │
+│          Policy: Allowed Locations (East US) ← Bloco 2            │
+│          RBAC: Reader → Guest user ← Bloco 2                      │
+│                                                                   │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐  │
+│  │disk-iac-    │ │disk-iac-    │ │disk-iac-    │ │disk-iac-    │  │
+│  │test-01      │ │test-02      │ │test-03      │ │test-04      │  │
+│  │(Portal)     │ │(ARM Portal) │ │(ARM + PS)   │ │(ARM + CLI)  │  │
+│  │Tag: ✓       │ │Tag: ✓       │ │Tag: ✓       │ │Tag: ✓       │  │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘  │
 │                                                                   │
 │  ┌─────────────┐ ┌──────────────────────────────────────┐         │
 │  │disk-iac-    │ │ Testes de integracao:                │         │
@@ -33,10 +33,10 @@ Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial de
 │  │ CLI)        │ │ • Guest user → somente leitura ✓     │         │
 │  │Tag: ✓       │ └──────────────────────────────────────┘         │
 │  └─────────────┘                                                  │
-│                                                           │
-│  → Cloud Shell configurado aqui → reusado nos Blocos 4/5  │
-│  → ARM/Bicep skills → usadas no Bloco 4                   │
-└───────────────────────────────────────────────────────────┘
+│                                                                   │
+│  → Cloud Shell configurado aqui → reusado nos Blocos 4/5          │
+│  → ARM/Bicep skills → usadas no Bloco 4                           │
+└───────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -48,8 +48,8 @@ Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial de
    | Setting           | Value                                     |
    | ----------------- | ----------------------------------------- |
    | Subscription      | *sua subscription*                        |
-   | Resource Group    | `rg-contoso-identity`                               |
-   | Disk name         | `disk-iac-test-01`                             |
+   | Resource Group    | `rg-contoso-identity`                     |
+   | Disk name         | `disk-iac-test-01`                        |
    | Region            | **East US**                               |
    | Availability zone | **No infrastructure redundancy required** |
    | Source type       | **None**                                  |
@@ -92,11 +92,11 @@ Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial de
 
 8. Complete o deployment:
 
-   | Setting        | Value         |
-   | -------------- | ------------- |
-   | Resource Group | `rg-contoso-identity`   |
-   | Region         | **East US**   |
-   | Disk_name      | `disk-iac-test-02` |
+   | Setting        | Value                 |
+   | -------------- | --------------------- |
+   | Resource Group | `rg-contoso-identity` |
+   | Region         | **East US**           |
+   | Disk_name      | `disk-iac-test-02`    |
 
 9. Clique em **Review + Create** > **Create**
 
@@ -118,7 +118,7 @@ Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial de
 
    | Setting         | Value                                                      |
    | --------------- | ---------------------------------------------------------- |
-   | Resource Group  | **rg-contoso-identity**                                              |
+   | Resource Group  | **rg-contoso-identity**                                    |
    | Region          | *sua regiao*                                               |
    | Storage account | *nome unico globalmente (3-24 chars, lowercase + numeros)* |
    | File share      | `fs-cloudshell`                                            |

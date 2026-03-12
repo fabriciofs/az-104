@@ -19,7 +19,7 @@ Como passo final, voce implanta Azure Container Apps — uma plataforma serverle
 │  │  Container Apps Environment: cae-contoso-prod                     │  │
 │  │  (Ambiente gerenciado para Container Apps)                 │  │
 │  │                                                            │  │
-│  │  VNet Integration: vnet-contoso-hub-brazilsouth (Semana 1)             │  │
+│  │  VNet Integration: vnet-contoso-hub-eastus (Semana 1)             │  │
 │  │  ou subnet dedicada                                        │  │
 │  │                                                            │  │
 │  │  ┌──────────────────────────────────────────────────────┐  │  │
@@ -70,12 +70,12 @@ O environment define a infraestrutura compartilhada onde os Container Apps execu
    | Setting                      | Value                                                                             |
    | ---------------------------- | --------------------------------------------------------------------------------- |
    | Use your own virtual network | **Yes**                                                                           |
-   | Virtual network              | **vnet-contoso-hub-brazilsouth** (de rg-contoso-network, Semana 1)                                     |
+   | Virtual network              | **vnet-contoso-hub-eastus** (de rg-contoso-network, Semana 1)                                     |
    | Infrastructure subnet        | *Crie uma nova subnet dedicada* `snet-containers` (10.20.30.0/23, minimo /23) |
 
-   > **Nota:** Container Apps requer uma subnet dedicada com tamanho minimo /23. Se a vnet-contoso-hub-brazilsouth nao tiver espaco disponivel ou nao existir, crie sem VNet integration (selecione **No**) e prossiga.
+   > **Nota:** Container Apps requer uma subnet dedicada com tamanho minimo /23. Se a vnet-contoso-hub-eastus nao tiver espaco disponivel ou nao existir, crie sem VNet integration (selecione **No**) e prossiga.
 
-   > **Conexao com Semana 1:** O Container Apps Environment esta integrado a vnet-contoso-hub-brazilsouth, permitindo comunicacao com recursos na VNet e VNets peered (vnet-contoso-spoke-brazilsouth).
+   > **Conexao com Semana 1:** O Container Apps Environment esta integrado a vnet-contoso-hub-eastus, permitindo comunicacao com recursos na VNet e VNets peered (vnet-contoso-spoke-eastus).
 
 4. Aba **Monitoring**: selecione **Do not create** para Log Analytics (simplificar) ou crie um novo workspace
 
@@ -242,7 +242,7 @@ O environment define a infraestrutura compartilhada onde os Container Apps execu
 ## Modo Desafio - Bloco 5
 
 - [ ] Criar Container Apps Environment `cae-contoso-prod` no rg-contoso-compute
-- [ ] **Integracao Semana 1:** Configurar VNet Integration com vnet-contoso-hub-brazilsouth (subnet dedicada /23)
+- [ ] **Integracao Semana 1:** Configurar VNet Integration com vnet-contoso-hub-eastus (subnet dedicada /23)
 - [ ] Criar Container App `ca-contoso-api` com imagem `containerapps-helloworld`
 - [ ] **Integracao Bloco 1:** Adicionar env var com connection string do Storage Account
 - [ ] Acessar Application URL e confirmar resposta

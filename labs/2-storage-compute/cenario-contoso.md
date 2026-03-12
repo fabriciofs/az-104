@@ -27,7 +27,7 @@ Ao final, voce tera **um ambiente corporativo completo** onde armazenamento, com
 ```
 iam-gov-net (Semana 1)
   │
-  ├─ VNets (vnet-contoso-hub-brazilsouth, vnet-contoso-spoke-brazilsouth) ─────────┐
+  ├─ VNets (vnet-contoso-hub-eastus, vnet-contoso-spoke-eastus) ─────────┐
   ├─ NSGs, DNS zones ─────────────────────────────────────┤
   ├─ RBAC, Policies ──────────────────────────────────────┤
   └─ Users, Groups ───────────────────────────────────────┤

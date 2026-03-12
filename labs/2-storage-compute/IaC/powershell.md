@@ -517,7 +517,7 @@ $subnetConfig = New-AzVirtualNetworkSubnetConfig `
 
 $vnet = New-AzVirtualNetwork `
     -ResourceGroupName $rg6 `
-    -Name "vnet-contoso-hub-brazilsouth" `
+    -Name "vnet-contoso-hub-eastus" `
     -Location $location `
     -AddressPrefix "10.0.0.0/16" `
     -Subnet $subnetConfig
@@ -591,7 +591,7 @@ Write-Host "  Definicao: allow-contoso-storage"
 Write-Host "  Recurso permitido: $storageId"
 
 # Associar a policy a subnet que tem Service Endpoint habilitado
-$vnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub-brazilsouth" -ResourceGroupName $rg6
+$vnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub-eastus" -ResourceGroupName $rg6
 $subnet = Get-AzVirtualNetworkSubnetConfig -Name "default" -VirtualNetwork $vnet
 $subnet.ServiceEndpointPolicies = @($policy)
 Set-AzVirtualNetwork -VirtualNetwork $vnet
@@ -620,7 +620,7 @@ Write-Host "Policy associada a subnet 'default'"
 
 # Criar subnet dedicada para Private Endpoints
 # Private Endpoints precisam de subnet propria (boa pratica)
-$vnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub-brazilsouth" -ResourceGroupName $rg6
+$vnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub-eastus" -ResourceGroupName $rg6
 
 Add-AzVirtualNetworkSubnetConfig `
     -Name "private-endpoints" `
@@ -629,7 +629,7 @@ Add-AzVirtualNetworkSubnetConfig `
 
 # Aplicar a mudanca na VNet (padrao PowerShell: Set-Az* para persistir)
 $vnet | Set-AzVirtualNetwork
-$vnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub-brazilsouth" -ResourceGroupName $rg6
+$vnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub-eastus" -ResourceGroupName $rg6
 
 Write-Host "Subnet 'private-endpoints' criada"
 
@@ -682,7 +682,7 @@ New-AzPrivateDnsVirtualNetworkLink `
     -VirtualNetworkId $vnet.Id `
     -EnableRegistration:$false
 
-Write-Host "DNS Zone vinculada a VNet vnet-contoso-hub-brazilsouth"
+Write-Host "DNS Zone vinculada a VNet vnet-contoso-hub-eastus"
 
 # Criar registro DNS para o Private Endpoint
 # Mapeia: storageaccount.privatelink.blob.core.windows.net → IP privado
@@ -920,7 +920,7 @@ $subnetVm = New-AzVirtualNetworkSubnetConfig `
 
 $vnetVm = New-AzVirtualNetwork `
     -ResourceGroupName $rg7 `
-    -Name "vnet-contoso-hub-brazilsouth" `
+    -Name "vnet-contoso-hub-eastus" `
     -Location $location `
     -AddressPrefix "10.1.0.0/16" `
     -Subnet $subnetVm
@@ -1057,7 +1057,7 @@ $nsgLinux = New-AzNetworkSecurityGroup `
 
 # Criar NIC para VM Linux
 # Reutilizando a mesma VNet do Bloco 2
-$vnetVm = Get-AzVirtualNetwork -Name "vnet-contoso-hub-brazilsouth" -ResourceGroupName $rg7
+$vnetVm = Get-AzVirtualNetwork -Name "vnet-contoso-hub-eastus" -ResourceGroupName $rg7
 $subnetRef = Get-AzVirtualNetworkSubnetConfig -Name "vm-subnet" -VirtualNetwork $vnetVm
 
 $nicLinux = New-AzNetworkInterface `
@@ -1329,7 +1329,7 @@ $securePassword = ConvertTo-SecureString $AdminPassword -AsPlainText -Force
 $cred = New-Object System.Management.Automation.PSCredential("localadmin", $securePassword)
 
 # Referenciar subnet existente
-$vnet = Get-AzVirtualNetwork -Name "vnet-contoso-spoke-brazilsouth" -ResourceGroupName "rg-contoso-network"
+$vnet = Get-AzVirtualNetwork -Name "vnet-contoso-spoke-eastus" -ResourceGroupName "rg-contoso-network"
 $subnet = $vnet.Subnets | Where-Object { $_.Name -eq "Manufacturing" }
 
 # Criar PIP
@@ -1404,13 +1404,13 @@ Invoke-AzVMRunCommand `
 # Diferente de VMs individuais, o VMSS gerencia o ciclo de vida
 
 # Criar subnet dedicada para o VMSS
-$vnetVm = Get-AzVirtualNetwork -Name "vnet-contoso-hub-brazilsouth" -ResourceGroupName $rg7
+$vnetVm = Get-AzVirtualNetwork -Name "vnet-contoso-hub-eastus" -ResourceGroupName $rg7
 Add-AzVirtualNetworkSubnetConfig `
     -Name "vmss-subnet" `
     -AddressPrefix "10.1.1.0/24" `
     -VirtualNetwork $vnetVm
 $vnetVm | Set-AzVirtualNetwork
-$vnetVm = Get-AzVirtualNetwork -Name "vnet-contoso-hub-brazilsouth" -ResourceGroupName $rg7
+$vnetVm = Get-AzVirtualNetwork -Name "vnet-contoso-hub-eastus" -ResourceGroupName $rg7
 
 # Criar Load Balancer para o VMSS
 $lbPublicIp = New-AzPublicIpAddress `
@@ -3318,7 +3318,7 @@ Write-Host "Verifique .zip no container webapp-backups de $storage1Name"
 # Requer subnet dedicada (/28 minimo)
 
 $vnetRg = "rg-contoso-network"
-$vnetName = "vnet-contoso-hub-brazilsouth"
+$vnetName = "vnet-contoso-hub-eastus"
 
 # 1. Criar subnet dedicada (delegada ao App Service)
 $vnet = Get-AzVirtualNetwork -ResourceGroupName $vnetRg -Name $vnetName -ErrorAction SilentlyContinue
@@ -3364,7 +3364,7 @@ Write-Host "`nO App Service pode acessar Private Endpoints e VMs na VNet"
 - [ ] Explorar Custom Domain no App Service — CNAME + TXT verification
 - [ ] Configurar HTTPS Only + TLS 1.2 com `Set-AzWebApp`
 - [ ] Configurar backup com schedule diario para Storage Account **(Bloco 1)**
-- [ ] Configurar VNet Integration com vnet-contoso-hub-brazilsouth **(Semana 1)**
+- [ ] Configurar VNet Integration com vnet-contoso-hub-eastus **(Semana 1)**
 
 ---
 

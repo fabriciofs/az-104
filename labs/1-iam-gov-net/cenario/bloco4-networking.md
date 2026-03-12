@@ -7,55 +7,55 @@
 
 ## Contexto
 
-Com IaC dominado e Cloud Shell configurado (Bloco 3), voce constroi a infraestrutura de rede. As VNets criadas aqui serao **usadas no Bloco 5** para implantar VMs. O deploy da vnet-contoso-spoke-brazilsouth via ARM template reutiliza os skills do Bloco 3. O nslookup usa o Cloud Shell ja configurado.
+Com IaC dominado e Cloud Shell configurado (Bloco 3), voce constroi a infraestrutura de rede. As VNets criadas aqui serao **usadas no Bloco 5** para implantar VMs. O deploy da vnet-contoso-spoke-eastus via ARM template reutiliza os skills do Bloco 3. O nslookup usa o Cloud Shell ja configurado.
 
 ## Diagrama
 
 ```
-┌────────────────────────────────────────────────────────────────────┐
-│                          rg-contoso-network                                 │
-│                                                                    │
-│  ┌──────────────────────────────┐  ┌────────────────────────────┐  │
-│  │  vnet-contoso-hub-brazilsouth            │  │  vnet-contoso-spoke-brazilsouth         │  │
-│  │  10.20.0.0/16                │  │  10.30.0.0/16              │  │
-│  │                              │  │  (deploy via ARM ← Bloco 3)│  │
-│  │  ┌────────────────────────┐  │  │                            │  │
-│  │  │snet-shared    │  │  │  ┌─────────────────────┐   │  │
-│  │  │ 10.20.10.0/24          │  │  │  │ SensorSubnet1       │   │  │
-│  │  │ ← NSG: nsg-snet-shared     │  │  │  │ 10.30.20.0/24       │   │  │
-│  │  └────────────────────────┘  │  │  └─────────────────────┘   │  │
-│  │  ┌────────────────────────┐  │  │  ┌─────────────────────┐   │  │
-│  │  │ snet-data         │  │  │  │ SensorSubnet2       │   │  │
-│  │  │ 10.20.20.0/24          │  │  │  │ 10.30.21.0/24       │   │  │
-│  │  └────────────────────────┘  │  │  └─────────────────────┘   │  │
-│  └──────────────────────────────┘  └────────────────────────────┘  │
-│                                                                    │
-│  → No Bloco 5: subnets adicionais para VMs nestas VNets            │
-│  → No Bloco 5: peering entre estas VNets                           │
-│                                                                    │
-│  ┌──────────────┐  ┌──────────────────────────────────────────┐    │
-│  │ ASG: asg-web │  │ DNS Zones:                               │    │
-│  └──────────────┘  │ • Public:  contoso.com (A: www)          │    │
-│                    │ • Private: contoso.internal           │    │
-│                    │   └─ Link: vnet-contoso-spoke-brazilsouth             │    │
-│                    │   → No Bloco 5: record com IP real da VM │    │
-│                    └──────────────────────────────────────────┘    │
-└────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                          rg-contoso-network                          │
+│                                                                      │
+│  ┌──────────────────────────────┐  ┌──────────────────────────────┐  │
+│  │  vnet-contoso-hub-eastus.    │  │  vnet-contoso-spoke-eastus   │  │
+│  │  10.20.0.0/16                │  │  10.30.0.0/16                │  │
+│  │                              │  │  (deploy via ARM ← Bloco 3)  │  │
+│  │  ┌────────────────────────┐  │  │                              │  │
+│  │  │snet-shared             │  │  │  ┌─────────────────────┐     │  │
+│  │  │ 10.20.10.0/24          │  │  │  │ SensorSubnet1       │     │  │
+│  │  │ ← NSG: nsg-snet-shared │  │  │  │ 10.30.20.0/24       │     │  │
+│  │  └────────────────────────┘  │  │  └─────────────────────┘     │  │
+│  │  ┌────────────────────────┐  │  │  ┌─────────────────────┐     │  │
+│  │  │ snet-data              │  │  │  │ SensorSubnet2       │     │  │
+│  │  │ 10.20.20.0/24          │  │  │  │ 10.30.21.0/24       │     │  │
+│  │  └────────────────────────┘  │  │  └─────────────────────┘     │  │
+│  └──────────────────────────────┘  └──────────────────────────────┘  │
+│                                                                      │
+│  → No Bloco 5: subnets adicionais para VMs nestas VNets              │
+│  → No Bloco 5: peering entre estas VNets                             │
+│                                                                      │
+│  ┌──────────────┐  ┌──────────────────────────────────────────┐      │
+│  │ ASG: asg-web │  │ DNS Zones:                               │      │
+│  └──────────────┘  │ • Public:  contoso.com (A: www)          │      │
+│                    │ • Private: contoso.internal              │      │
+│                    │   └─ Link: vnet-contoso-spoke-eastus.    │      │
+│                    │   → No Bloco 5: record com IP real da VM │      │
+│                    └──────────────────────────────────────────┘      │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-### Task 4.1: Criar VNet vnet-contoso-hub-brazilsouth via portal
+### Task 4.1: Criar VNet vnet-contoso-hub-eastus via portal
 
 1. Pesquise e selecione **Virtual Networks** > **Create**
 
 2. Aba **Basics**:
 
-   | Setting        | Value                            |
-   | -------------- | -------------------------------- |
+   | Setting        | Value                                     |
+   | -------------- | ----------------------------------------- |
    | Resource Group | `rg-contoso-network` (crie se necessario) |
-   | Name           | `vnet-contoso-hub-brazilsouth`               |
-   | Region         | **(US) East US**                 |
+   | Name           | `vnet-contoso-hub-eastus`                 |
+   | Region         | **(US) East US**                          |
 
 3. Aba **IP Addresses**: IPv4 address space = `10.20.0.0/16`
 
@@ -63,14 +63,14 @@ Com IaC dominado e Cloud Shell configurado (Bloco 3), voce constroi a infraestru
 
 5. **+ Add a subnet** para cada:
 
-   | Subnet                   | Setting          | Value                  |
-   | ------------------------ | ---------------- | ---------------------- |
+   | Subnet          | Setting          | Value         |
+   | --------------- | ---------------- | ------------- |
    | **snet-shared** | Subnet name      | `snet-shared` |
-   |                          | Starting address | `10.20.10.0`           |
-   |                          | Size             | `/24`                  |
-   | **snet-data**       | Subnet name      | `snet-data`       |
-   |                          | Starting address | `10.20.20.0`           |
-   |                          | Size             | `/24`                  |
+   |                 | Starting address | `10.20.10.0`  |
+   |                 | Size             | `/24`         |
+   | **snet-data**   | Subnet name      | `snet-data`   |
+   |                 | Starting address | `10.20.20.0`  |
+   |                 | Size             | `/24`         |
 
    > **Conceito:** Cinco IPs sao reservados em cada subnet Azure. Uma /24 tem 251 IPs utilizaveis.
 
@@ -86,19 +86,19 @@ Com IaC dominado e Cloud Shell configurado (Bloco 3), voce constroi a infraestru
 
 Voce aprende a calcular quantos IPs estao disponiveis em cada tamanho de subnet no Azure.
 
-1. Navegue para **vnet-contoso-hub-brazilsouth** > **Subnets**
+1. Navegue para **vnet-contoso-hub-eastus** > **Subnets**
 
 2. Observe a coluna **Available IPs** para **snet-shared** (/24)
 
 3. Note que o valor e **251** e nao 256 — o Azure reserva **5 IPs** em cada subnet:
 
-   | IP reservado          | Finalidade                                |
-   | --------------------- | ----------------------------------------- |
-   | `.0`                  | Endereco de rede                          |
-   | `.1`                  | Gateway padrao                            |
-   | `.2`                  | Mapeamento DNS do Azure                   |
-   | `.3`                  | Mapeamento DNS do Azure                   |
-   | `.255` (ultimo da /24)| Broadcast                                 |
+   | IP reservado           | Finalidade              |
+   | ---------------------- | ----------------------- |
+   | `.0`                   | Endereco de rede        |
+   | `.1`                   | Gateway padrao          |
+   | `.2`                   | Mapeamento DNS do Azure |
+   | `.3`                   | Mapeamento DNS do Azure |
+   | `.255` (ultimo da /24) | Broadcast               |
 
 4. Consulte a tabela de referencia para subnets comuns:
 
@@ -115,14 +115,14 @@ Voce aprende a calcular quantos IPs estao disponiveis em cada tamanho de subnet 
 
 ---
 
-### Task 4.2: Criar VNet vnet-contoso-spoke-brazilsouth via ARM template
+### Task 4.2: Criar VNet vnet-contoso-spoke-eastus via ARM template
 
 Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNet.
 
-> **Voce pode:** (A) editar o template exportado da vnet-contoso-hub-brazilsouth, ou (B) usar o template pronto abaixo.
+> **Voce pode:** (A) editar o template exportado da vnet-contoso-hub-eastus, ou (B) usar o template pronto abaixo.
 
 **Se escolher o caminho A** — edite fazendo estas substituicoes:
-- `vnet-contoso-hub-brazilsouth` → `vnet-contoso-spoke-brazilsouth`
+- `vnet-contoso-hub-eastus` → `vnet-contoso-spoke-eastus`
 - `10.20.0.0` → `10.30.0.0`
 - `snet-shared` → `SensorSubnet1`
 - `10.20.10.0/24` → `10.30.20.0/24`
@@ -131,15 +131,15 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
 
 **Se escolher o caminho B** — use os templates prontos:
 
-**`template.json` (vnet-contoso-spoke-brazilsouth):**
+**`template.json` (vnet-contoso-spoke-eastus):**
 
 ```json
 {
     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
-        "virtualNetworks_vnet-contoso-spoke-brazilsouth_name": {
-            "defaultValue": "vnet-contoso-spoke-brazilsouth",
+        "virtualNetworks_vnet-contoso-spoke-eastus_name": {
+            "defaultValue": "vnet-contoso-spoke-eastus",
             "type": "String"
         }
     },
@@ -148,7 +148,7 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
         {
             "type": "Microsoft.Network/virtualNetworks",
             "apiVersion": "2023-05-01",
-            "name": "[parameters('virtualNetworks_vnet-contoso-spoke-brazilsouth_name')]",
+            "name": "[parameters('virtualNetworks_vnet-contoso-spoke-eastus_name')]",
             "location": "eastus",
             "properties": {
                 "addressSpace": {
@@ -163,7 +163,7 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
                 "subnets": [
                     {
                         "name": "SensorSubnet1",
-                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworks_vnet-contoso-spoke-brazilsouth_name'), 'SensorSubnet1')]",
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworks_vnet-contoso-spoke-eastus_name'), 'SensorSubnet1')]",
                         "properties": {
                             "addressPrefixes": [
                                 "10.30.20.0/24"
@@ -177,7 +177,7 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
                     },
                     {
                         "name": "SensorSubnet2",
-                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworks_vnet-contoso-spoke-brazilsouth_name'), 'SensorSubnet2')]",
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworks_vnet-contoso-spoke-eastus_name'), 'SensorSubnet2')]",
                         "properties": {
                             "addressPrefixes": [
                                 "10.30.21.0/24"
@@ -197,9 +197,9 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
         {
             "type": "Microsoft.Network/virtualNetworks/subnets",
             "apiVersion": "2023-05-01",
-            "name": "[concat(parameters('virtualNetworks_vnet-contoso-spoke-brazilsouth_name'), '/SensorSubnet1')]",
+            "name": "[concat(parameters('virtualNetworks_vnet-contoso-spoke-eastus_name'), '/SensorSubnet1')]",
             "dependsOn": [
-                "[resourceId('Microsoft.Network/virtualNetworks', parameters('virtualNetworks_vnet-contoso-spoke-brazilsouth_name'))]"
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('virtualNetworks_vnet-contoso-spoke-eastus_name'))]"
             ],
             "properties": {
                 "addressPrefixes": [
@@ -214,9 +214,9 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
         {
             "type": "Microsoft.Network/virtualNetworks/subnets",
             "apiVersion": "2023-05-01",
-            "name": "[concat(parameters('virtualNetworks_vnet-contoso-spoke-brazilsouth_name'), '/SensorSubnet2')]",
+            "name": "[concat(parameters('virtualNetworks_vnet-contoso-spoke-eastus_name'), '/SensorSubnet2')]",
             "dependsOn": [
-                "[resourceId('Microsoft.Network/virtualNetworks', parameters('virtualNetworks_vnet-contoso-spoke-brazilsouth_name'))]"
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('virtualNetworks_vnet-contoso-spoke-eastus_name'))]"
             ],
             "properties": {
                 "addressPrefixes": [
@@ -239,8 +239,8 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
-        "virtualNetworks_vnet-contoso-spoke-brazilsouth_name": {
-            "value": "vnet-contoso-spoke-brazilsouth"
+        "virtualNetworks_vnet-contoso-spoke-eastus_name": {
+            "value": "vnet-contoso-spoke-eastus"
         }
     }
 }
@@ -256,7 +256,7 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
 
 4. **Review + create** > **Create**
 
-5. Confirme que a vnet-contoso-spoke-brazilsouth e subnets foram criadas
+5. Confirme que a vnet-contoso-spoke-eastus e subnets foram criadas
 
    > **Conexao com Bloco 3:** Voce usou as mesmas skills de ARM template aprendidas no Bloco 3, mas agora para criar infraestrutura de rede.
 
@@ -268,11 +268,11 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
 
 1. Pesquise **Application security groups** > **Create**:
 
-   | Setting        | Value         |
-   | -------------- | ------------- |
+   | Setting        | Value                  |
+   | -------------- | ---------------------- |
    | Resource group | **rg-contoso-network** |
-   | Name           | `asg-web`     |
-   | Region         | **East US**   |
+   | Name           | `asg-web`              |
+   | Region         | **East US**            |
 
 2. **Review + create** > **Create**
 
@@ -280,11 +280,11 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
 
 3. Pesquise **Network security groups** > **+ Create**:
 
-   | Setting        | Value         |
-   | -------------- | ------------- |
+   | Setting        | Value                  |
+   | -------------- | ---------------------- |
    | Resource group | **rg-contoso-network** |
-   | Name           | `nsg-snet-shared` |
-   | Region         | **East US**   |
+   | Name           | `nsg-snet-shared`      |
+   | Region         | **East US**            |
 
 4. **Review + create** > **Create** > **Go to resource**
 
@@ -294,10 +294,10 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
 
 1. No NSG **nsg-snet-shared**, em **Settings** > **Subnets** > **Associate**:
 
-   | Setting         | Value                            |
-   | --------------- | -------------------------------- |
-   | Virtual network | **vnet-contoso-hub-brazilsouth (rg-contoso-network)** |
-   | Subnet          | **snet-shared**         |
+   | Setting         | Value                                            |
+   | --------------- | ------------------------------------------------ |
+   | Virtual network | **vnet-contoso-hub-eastus (rg-contoso-network)** |
+   | Subnet          | **snet-shared**                                  |
 
 2. Clique em **OK**
 
@@ -351,7 +351,7 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
 
    | Setting        | Value                                          |
    | -------------- | ---------------------------------------------- |
-   | Resource group | **rg-contoso-network**                                  |
+   | Resource group | **rg-contoso-network**                         |
    | Name           | `contoso.com` (ajuste se ja estiver reservado) |
    | Region         | **Global** (DNS zones sao recursos globais)    |
 
@@ -386,11 +386,11 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
 
 1. Pesquise **Private dns zones** > **+ Create**:
 
-   | Setting        | Value                 |
-   | -------------- | --------------------- |
-   | Resource group | **rg-contoso-network**         |
-   | Name           | `contoso.internal` |
-   | Region         | **Global**            |
+   | Setting        | Value                  |
+   | -------------- | ---------------------- |
+   | Resource group | **rg-contoso-network** |
+   | Name           | `contoso.internal`     |
+   | Region         | **Global**             |
 
 2. **Review + create** > **Create** > **Go to resource**
 
@@ -398,10 +398,10 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
 
 4. **DNS Management** > **Virtual network links** > configure:
 
-   | Setting         | Value                |
-   | --------------- | -------------------- |
-   | Link name       | `manufacturing-link` |
-   | Virtual network | `vnet-contoso-spoke-brazilsouth`  |
+   | Setting         | Value                       |
+   | --------------- | --------------------------- |
+   | Link name       | `manufacturing-link`        |
+   | Virtual network | `vnet-contoso-spoke-eastus` |
 
 5. Clique em **Create** e aguarde
 
@@ -414,19 +414,19 @@ Voce reutiliza os **skills de ARM template do Bloco 3** para criar a segunda VNe
    | TTL        | `1`        |
    | IP address | `10.1.1.4` |
 
-   > **Conexao com Bloco 5:** No Bloco 5, voce adicionara um registro com o IP **real** da vm-web-01 e testara a resolucao de nome a partir da vm-app-01. Voce tambem adicionara um link para vnet-contoso-hub-brazilsouth.
+   > **Conexao com Bloco 5:** No Bloco 5, voce adicionara um registro com o IP **real** da vm-web-01 e testara a resolucao de nome a partir da vm-app-01. Voce tambem adicionara um link para vnet-contoso-hub-eastus.
 
 ---
 
 ## Modo Desafio - Bloco 4
 
-- [ ] Criar VNet `vnet-contoso-hub-brazilsouth` (10.20.0.0/16) com snet-shared e snet-data
+- [ ] Criar VNet `vnet-contoso-hub-eastus` (10.20.0.0/16) com snet-shared e snet-data
 - [ ] Verificar IPs disponiveis na snet-shared e calcular para /24, /25, /26, /27, /28, /29
-- [ ] Exportar template → criar `vnet-contoso-spoke-brazilsouth` (10.30.0.0/16) via ARM (**skills do Bloco 3**)
+- [ ] Exportar template → criar `vnet-contoso-spoke-eastus` (10.30.0.0/16) via ARM (**skills do Bloco 3**)
 - [ ] Criar ASG `asg-web` e NSG `nsg-snet-shared`
 - [ ] Associar NSG a snet-shared + regras inbound/outbound
 - [ ] Criar DNS publica `contoso.com` + nslookup via **Cloud Shell (Bloco 3)**
-- [ ] Criar DNS privada `contoso.internal` + link para vnet-contoso-spoke-brazilsouth
+- [ ] Criar DNS privada `contoso.internal` + link para vnet-contoso-spoke-eastus
 
 ---
 

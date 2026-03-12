@@ -7,7 +7,7 @@
 
 ## Contexto
 
-A Contoso Corp precisa de armazenamento centralizado para dados corporativos. Voce cria uma Storage Account que sera usada por todos os blocos seguintes: blobs para dados de aplicacoes (Blocos 3 e 5), file shares montados em containers (Bloco 4) e discos gerenciados para VMs (Bloco 2). A seguranca de rede integra-se com as VNets criadas na Semana 1 — voce configurara Service Endpoints e Private Endpoints na vnet-contoso-hub-brazilsouth/snet-shared.
+A Contoso Corp precisa de armazenamento centralizado para dados corporativos. Voce cria uma Storage Account que sera usada por todos os blocos seguintes: blobs para dados de aplicacoes (Blocos 3 e 5), file shares montados em containers (Bloco 4) e discos gerenciados para VMs (Bloco 2). A seguranca de rede integra-se com as VNets criadas na Semana 1 — voce configurara Service Endpoints e Private Endpoints na vnet-contoso-hub-eastus/snet-shared.
 
 ## Diagrama
 
@@ -33,7 +33,7 @@ A Contoso Corp precisa de armazenamento centralizado para dados corporativos. Vo
 │  │                                                              │  │
 │  │  Networking:                                                 │  │
 │  │  • Service Endpoint: snet-shared (Semana 1)         │  │
-│  │  • Private Endpoint: vnet-contoso-hub-brazilsouth (Semana 1)             │  │
+│  │  • Private Endpoint: vnet-contoso-hub-eastus (Semana 1)             │  │
 │  │  • SAS Token configurado                                     │  │
 │  │                                                              │  │
 │  │  → Usado nos Blocos 2-5 para dados, file shares e config     │  │
@@ -256,7 +256,7 @@ O file share sera montado como unidade de rede nas VMs (Bloco 2) e como volume n
 
 ### Task 1.6: Configurar Service Endpoint na VNet da Semana 1
 
-Voce restringe o acesso a Storage Account para aceitar trafego apenas da snet-shared criada na Semana 1 (vnet-contoso-hub-brazilsouth).
+Voce restringe o acesso a Storage Account para aceitar trafego apenas da snet-shared criada na Semana 1 (vnet-contoso-hub-eastus).
 
 1. Navegue para a **Storage Account** > **Security + networking** > **Networking**
 
@@ -267,7 +267,7 @@ Voce restringe o acesso a Storage Account para aceitar trafego apenas da snet-sh
    | Setting         | Value                                         |
    | --------------- | --------------------------------------------- |
    | Subscription    | *sua subscription*                            |
-   | Virtual network | **vnet-contoso-hub-brazilsouth** (do rg-contoso-network, Semana 1) |
+   | Virtual network | **vnet-contoso-hub-eastus** (do rg-contoso-network, Semana 1) |
    | Subnets         | **snet-shared**                      |
 
    > **Nota:** Se a VNet da Semana 1 nao existir mais, crie uma nova VNet `StorageVnet` (10.50.0.0/16) com subnet `StorageSubnet` (10.50.0.0/24) no rg-contoso-storage e use-a.
@@ -315,7 +315,7 @@ Sem uma policy, a subnet com Service Endpoint para `Microsoft.Storage` pode aces
 
 5. Clique em **Add** e depois **Review + create** > **Create**
 
-6. Agora associe a policy a subnet. Navegue para **Virtual networks** > **vnet-contoso-hub-brazilsouth** > **Subnets** > **snet-shared**
+6. Agora associe a policy a subnet. Navegue para **Virtual networks** > **vnet-contoso-hub-eastus** > **Subnets** > **snet-shared**
 
 7. Em **Service endpoint policy**, selecione **policy-storage-contoso**
 
@@ -359,7 +359,7 @@ O Private Endpoint atribui um IP privado da VNet ao storage, eliminando exposica
 
    | Setting         | Value                                         |
    | --------------- | --------------------------------------------- |
-   | Virtual network | **vnet-contoso-hub-brazilsouth** (do rg-contoso-network, Semana 1) |
+   | Virtual network | **vnet-contoso-hub-eastus** (do rg-contoso-network, Semana 1) |
    | Subnet          | **snet-shared**                      |
 
    > **Nota:** Se a VNet da Semana 1 nao existir, use a VNet alternativa criada na Task 1.6.
@@ -376,7 +376,7 @@ O Private Endpoint atribui um IP privado da VNet ao storage, eliminando exposica
 
    > **Conceito:** Private Endpoints usam Azure Private Link para projetar o servico na sua VNet. O DNS e atualizado para resolver o FQDN publico para o IP privado. Diferente de Service Endpoints, o trafego usa um IP da sua subnet.
 
-   > **Conexao com Semana 1:** O Private Endpoint esta na snet-shared da vnet-contoso-hub-brazilsouth. VMs nessa VNet (ou VNets peered) acessarao o storage via IP privado, sem sair da rede Microsoft.
+   > **Conexao com Semana 1:** O Private Endpoint esta na snet-shared da vnet-contoso-hub-eastus. VMs nessa VNet (ou VNets peered) acessarao o storage via IP privado, sem sair da rede Microsoft.
 
 ---
 
@@ -422,7 +422,7 @@ O Private Endpoint atribui um IP privado da VNet ao storage, eliminando exposica
 - [ ] Copiar script de conexao Windows para uso no Bloco 2
 - [ ] Configurar Lifecycle Management: Cool (30d), Archive (90d)
 - [ ] Configurar Immutability policy (7 dias) no container `data`
-- [ ] **Integracao Semana 1:** Service Endpoint na snet-shared da vnet-contoso-hub-brazilsouth
+- [ ] **Integracao Semana 1:** Service Endpoint na snet-shared da vnet-contoso-hub-eastus
 - [ ] Criar Service Endpoint Policy restringindo acesso apenas a Storage Account da Contoso
 - [ ] Associar a policy na snet-shared
 - [ ] **Integracao Semana 1:** Private Endpoint (blob) na snet-shared

@@ -353,7 +353,7 @@ Voce usa o Network Watcher para diagnosticar regras NSG nas VNets da Semana 1.
    | Virtual machine        | **vm-web-01**                                           |
    | Network interface      | *selecione a NIC da VM*                                    |
    | Source IP address      | *IP privado da vm-web-01*                               |
-   | Destination IP address | `10.30.0.4` (IP simulado na vnet-contoso-spoke-brazilsouth da Semana 1) |
+   | Destination IP address | `10.30.0.4` (IP simulado na vnet-contoso-spoke-eastus da Semana 1) |
 
 3. Clique em **Next hop**
 
