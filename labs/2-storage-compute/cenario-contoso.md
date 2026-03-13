@@ -27,7 +27,7 @@ Ao final, voce tera **um ambiente corporativo completo** onde armazenamento, com
 ```
 iam-gov-net (Semana 1)
   │
-  ├─ VNets (vnet-contoso-hub-eastus, vnet-contoso-spoke-eastus) ─────────┐
+  ├─ VNets (vnet-contoso-hub, vnet-contoso-spoke) ────────┐
   ├─ NSGs, DNS zones ─────────────────────────────────────┤
   ├─ RBAC, Policies ──────────────────────────────────────┤
   └─ Users, Groups ───────────────────────────────────────┤
@@ -35,7 +35,7 @@ iam-gov-net (Semana 1)
                                                           ▼
 Bloco 1 (Storage)
   │
-  ├─ Storage Account (stcontosoprod01) ──────┐
+  ├─ Storage Account (stcontosoprod01) ────┐
   ├─ Blob Container ───────────────────────┤
   ├─ File Share (contoso-files) ───────────┤
   ├─ Private Endpoint (na VNet) ───────────┤

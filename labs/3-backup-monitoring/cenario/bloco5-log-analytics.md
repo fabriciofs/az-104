@@ -12,51 +12,55 @@ O Azure Monitor coleta metricas basicas automaticamente, mas para observabilidad
 ## Diagrama
 
 ```
-┌────────────────────────────────────────────────────────────────────┐
-│                    Log Analytics & Observabilidade                 │
-│                                                                    │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │  Log Analytics Workspace: law-contoso-prod (rg-contoso-management)       │  │
-│  │                                                              │  │
-│  │  Data Sources:                                               │  │
-│  │  ├─ vm-web-01  (Semana 2) ◄── Azure Monitor Agent         │  │
-│  │  ├─ vm-api-01 (Semana 2) ◄── Azure Monitor Agent        │  │
-│  │  └─ Activity Log ◄── Diagnostic Settings                     │  │
-│  │                                                              │  │
-│  │  Queries (KQL):                                              │  │
-│  │  ├─ Heartbeat: verificar conectividade dos agentes           │  │
-│  │  ├─ Perf: metricas de CPU, memoria, disco                    │  │
-│  │  ├─ Event: logs de eventos Windows                           │  │
-│  │  └─ InsightsMetrics: dados de VM Insights                    │  │
-│  └──────────────────────────────────────────────────────────────┘  │
-│                                                                    │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │  VM Insights                                                 │  │
-│  │                                                              │  │
-│  │  ├─ Performance: CPU, memoria, disco, rede das VMs           │  │
-│  │  └─ Map: dependencias entre VMs e servicos                   │  │
-│  │     ├─ vm-web-01 → conexoes de rede                       │  │
-│  │     └─ vm-api-01 → processos e portas                   │  │
-│  └──────────────────────────────────────────────────────────────┘  │
-│                                                                    │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │  Network Watcher (Semana 1 — VNets)                          │  │
-│  │                                                              │  │
-│  │  ├─ IP Flow Verify: testar NSG rules nas VNets               │  │
-│  │  ├─ Next Hop: verificar routing (route tables da Semana 1)   │  │
-│  │  ├─ Connection Troubleshoot: testar conectividade            │  │
-│  │  │  (entre VMs da Semana 2 via VNets da Semana 1)            │  │
-│  │  ├─ NSG Flow Logs: trafego nos NSGs da Semana 1              │  │
-│  │  └─ Topology: visualizar VNets + subnets + NSGs + VMs        │  │
-│  └──────────────────────────────────────────────────────────────┘  │
-│                                                                    │
-│  → Integra recursos de TODAS as semanas (1, 2 e 3)                 │
-└────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│                    Log Analytics & Observabilidade                       │
+│                                                                          │
+│  ┌────────────────────────────────────────────────────────────────────┐  │
+│  │  Log Analytics Workspace: law-contoso-prod (rg-contoso-management) │  │
+│  │                                                                    │  │
+│  │  Data Sources:                                                     │  │
+│  │  ├─ vm-web-01  (Semana 2) ◄── Azure Monitor Agent                  │  │
+│  │  ├─ vm-api-01 (Semana 2) ◄── Azure Monitor Agent                   │  │
+│  │  └─ Activity Log ◄── Diagnostic Settings                           │  │
+│  │                                                                    │  │
+│  │  Queries (KQL):                                                    │  │
+│  │  ├─ Heartbeat: verificar conectividade dos agentes                 │  │
+│  │  ├─ Perf: metricas de CPU, memoria, disco                          │  │
+│  │  ├─ Event: logs de eventos Windows                                 │  │
+│  │  └─ InsightsMetrics: dados de VM Insights                          │  │
+│  └────────────────────────────────────────────────────────────────────┘  │
+│                                                                          │
+│  ┌────────────────────────────────────────────────────────────────────┐  │
+│  │  VM Insights                                                       │  │
+│  │                                                                    │  │
+│  │  ├─ Performance: CPU, memoria, disco, rede das VMs                 │  │
+│  │  └─ Map: dependencias entre VMs e servicos                         │  │
+│  │     ├─ vm-web-01 → conexoes de rede                                │  │
+│  │     └─ vm-api-01 → processos e portas                              │  │
+│  └────────────────────────────────────────────────────────────────────┘  │
+│                                                                          │
+│  ┌────────────────────────────────────────────────────────────────────┐  │
+│  │  Network Watcher (Semana 1 — VNets)                                │  │
+│  │                                                                    │  │
+│  │  ├─ IP Flow Verify: testar NSG rules nas VNets                     │  │
+│  │  ├─ Next Hop: verificar routing (route tables da Semana 1)         │  │
+│  │  ├─ Connection Troubleshoot: testar conectividade                  │  │
+│  │  │  (entre VMs da Semana 2 via VNets da Semana 1)                  │  │
+│  │  ├─ NSG Flow Logs: trafego nos NSGs da Semana 1                    │  │
+│  │  └─ Topology: visualizar VNets + subnets + NSGs + VMs              │  │
+│  └────────────────────────────────────────────────────────────────────┘  │
+│                                                                          │
+│  → Integra recursos de TODAS as semanas (1, 2 e 3)                       │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ### Task 5.1: Criar Log Analytics Workspace
+
+O Log Analytics Workspace e o **repositorio central** de todos os logs e metricas avancadas no Azure. Tudo que voce quer analisar — logs de VMs, Activity Log, metricas guest, NSG flow logs — vai parar aqui. E o equivalente a um "data warehouse de observabilidade" que voce consulta com KQL.
+
+**Analogia:** Se o Azure Monitor Metrics e um termometro (leitura instantanea), o Log Analytics e o prontuario completo do paciente (historico, exames, correlacoes).
 
 > **Cobranca:** O workspace gera cobranca por GB de dados ingeridos.
 
@@ -64,18 +68,18 @@ O Azure Monitor coleta metricas basicas automaticamente, mas para observabilidad
 
 2. Configure:
 
-   | Setting        | Value              |
-   | -------------- | ------------------ |
-   | Subscription   | *sua subscription* |
+   | Setting        | Value                   |
+   | -------------- | ----------------------- |
+   | Subscription   | *sua subscription*      |
    | Resource group | `rg-contoso-management` |
-   | Name           | `law-contoso-prod`        |
-   | Region         | **East US**        |
+   | Name           | `law-contoso-prod`      |
+   | Region         | **East US**             |
 
 3. Clique em **Review + Create** > **Create** > **Go to resource**
 
 4. Explore o blade **General** > **Usage and estimated costs**
 
-   > **Conceito:** O Log Analytics Workspace e o repositorio central de logs no Azure Monitor. Todos os dados (metricas guest, logs, eventos) sao enviados para ca e consultados via KQL (Kusto Query Language).
+   > **Conceito:** O Log Analytics Workspace e o repositorio central de logs no Azure Monitor. Todos os dados (metricas guest, logs, eventos) sao enviados para ca e consultados via KQL (Kusto Query Language). O pricing padrao e **pay-per-GB** de dados ingeridos, com retencao gratuita de 31 dias. Dados alem de 31 dias tem custo adicional.
 
    > **Conexao com Bloco 4:** O workspace complementa os alertas do Bloco 4. Alertas de metrica monitoram valores em tempo real; Log Analytics permite analise historica e correlacao de eventos.
 
@@ -83,7 +87,9 @@ O Azure Monitor coleta metricas basicas automaticamente, mas para observabilidad
 
 ### Task 5.2: Conectar VMs ao workspace (Azure Monitor Agent)
 
-Voce habilita a coleta de logs e metricas guest das VMs da Semana 2.
+Para coletar dados de **dentro** das VMs (metricas guest como memoria, logs do SO, eventos Windows), voce precisa instalar o Azure Monitor Agent (AMA) e configurar **Data Collection Rules (DCR)**. A DCR define exatamente **quais dados** coletar e **para onde** enviar.
+
+**Analogia:** O agente e um "sensor" instalado na VM. A DCR e a "ficha de configuracao" do sensor — diz o que medir e para onde reportar.
 
 1. No workspace **law-contoso-prod**, va para **Settings** > **Agents**
 
@@ -91,7 +97,7 @@ Voce habilita a coleta de logs e metricas guest das VMs da Semana 2.
 
 3. **Metodo alternativo (recomendado):** Habilitar via VM Insights (Task 5.3) que instala o agente automaticamente
 
-   > **Conceito:** O Azure Monitor Agent (AMA) substitui os agentes legados (MMA/OMS e Dependency Agent). O AMA usa **Data Collection Rules (DCR)** para definir quais dados coletar e para onde enviar.
+   > **Conceito:** O Azure Monitor Agent (AMA) substitui os agentes legados (MMA/OMS e Dependency Agent). O AMA usa **Data Collection Rules (DCR)** para definir quais dados coletar e para onde enviar. Na prova, se a questao mencionar "Log Analytics agent" ou "MMA", saiba que e o legado — o atual e o AMA.
 
 **Criar Data Collection Rule:**
 
@@ -99,13 +105,15 @@ Voce habilita a coleta de logs e metricas guest das VMs da Semana 2.
 
 5. Aba **Basics**:
 
-   | Setting        | Value              |
-   | -------------- | ------------------ |
-   | Rule Name      | `dcr-contoso-perf`        |
-   | Subscription   | *sua subscription* |
+   | Setting        | Value                   |
+   | -------------- | ----------------------- |
+   | Rule Name      | `dcr-contoso-perf`      |
+   | Subscription   | *sua subscription*      |
    | Resource Group | `rg-contoso-management` |
-   | Region         | **East US**        |
-   | Platform Type  | **All**            |
+   | Region         | **East US**             |
+   | Platform Type  | **All**                 |
+
+   > **Platform Type = All** significa que a DCR coleta dados de VMs Windows E Linux. Se voce selecionar Windows ou Linux, a DCR so se aplica a VMs daquela plataforma.
 
 6. Aba **Resources**: clique em **+ Add resources**
 
@@ -126,6 +134,8 @@ Voce habilita a coleta de logs e metricas guest das VMs da Semana 2.
 
    Destination: **Azure Monitor Logs** > `law-contoso-prod`
 
+   > **Basic** seleciona os contadores mais comuns automaticamente. **Custom** permite selecionar contadores especificos e definir a frequencia de coleta (sampling interval). Em producao, ajuste o sampling interval para balancear granularidade vs custo de ingestao.
+
 10. **+ Add data source** novamente:
 
     **Data Source 2 — Windows Event Logs:**
@@ -137,6 +147,8 @@ Voce habilita a coleta de logs e metricas guest das VMs da Semana 2.
 
     Destination: **Azure Monitor Logs** > `law-contoso-prod`
 
+    > Voce seleciona quais niveis de evento coletar. Em producao, evite coletar **Information** e **Verbose** a menos que necessario — eles geram muito volume e aumentam o custo de ingestao.
+
 11. Clique em **Review + create** > **Create**
 
 12. Aguarde alguns minutos para o agente ser instalado nas VMs
@@ -144,6 +156,8 @@ Voce habilita a coleta de logs e metricas guest das VMs da Semana 2.
 ---
 
 ### Task 5.3: Habilitar VM Insights
+
+VM Insights e uma solucao pre-configurada que combina metricas de performance (CPU, memoria, disco, rede de dentro da VM) com um **mapa de dependencias** que mostra conexoes entre VMs e servicos. E a forma mais rapida de ter visibilidade completa das suas VMs.
 
 1. Navegue para **vm-web-01** (em rg-contoso-compute)
 
@@ -153,8 +167,8 @@ Voce habilita a coleta de logs e metricas guest das VMs da Semana 2.
 
 4. Configure:
 
-   | Setting                            | Value                        |
-   | ---------------------------------- | ---------------------------- |
+   | Setting                            | Value                               |
+   | ---------------------------------- | ----------------------------------- |
    | Log Analytics Workspace            | `law-contoso-prod`                  |
    | Data collection rule (if prompted) | `dcr-contoso-perf` ou crie uma nova |
 
@@ -173,13 +187,13 @@ Voce habilita a coleta de logs e metricas guest das VMs da Semana 2.
    - **Performance:** CPU, memoria, disco, rede (metricas guest via agente)
    - **Map:** dependencias de rede, processos, portas
 
-   > **Conceito:** VM Insights usa o Azure Monitor Agent para coletar metricas de performance e o Dependency Agent para mapear conexoes de rede. O Map mostra processos, portas e conexoes entre VMs e servicos externos.
+   > **Conceito:** VM Insights usa o Azure Monitor Agent para coletar metricas de performance e o Dependency Agent para mapear conexoes de rede. O Map mostra processos, portas e conexoes entre VMs e servicos externos. O Map e especialmente util para entender a arquitetura de uma aplicacao distribuida — ele descobre automaticamente quais VMs falam com quais portas.
 
 ---
 
 ### Task 5.3b: Comparar metricas Host vs Guest
 
-Voce compara as metricas disponiveis com e sem agente para entender a diferenca entre Host e Guest metrics.
+Esta task demonstra uma das distincoes mais cobradas na prova: a diferenca entre metricas que vem do **hypervisor** (Host) e metricas que vem de **dentro da VM** (Guest). A metrica de **memoria** e o caso classico — ela nao aparece sem agente.
 
 1. Navegue para **vm-web-01** > **Monitoring** > **Metrics**
 
@@ -204,10 +218,12 @@ Voce compara as metricas disponiveis com e sem agente para entender a diferenca 
 
 6. Compare as metricas disponiveis em cada categoria:
 
-   | Categoria         | Metricas disponives                         | Requer agente? |
-   | ----------------- | ------------------------------------------- | -------------- |
-   | **Host metrics**  | CPU, Network In/Out, Disk Read/Write, IOPS  | Nao            |
-   | **Guest metrics** | Memoria, Processos, Logs do SO, Filesystem  | Sim (AMA)      |
+   | Categoria         | Metricas disponives                        | Requer agente? |
+   | ----------------- | ------------------------------------------ | -------------- |
+   | **Host metrics**  | CPU, Network In/Out, Disk Read/Write, IOPS | Nao            |
+   | **Guest metrics** | Memoria, Processos, Logs do SO, Filesystem | Sim (AMA)      |
+
+   > **Por que CPU aparece sem agente mas memoria nao?** O hypervisor do Azure sabe quanta CPU a VM esta usando (ele que aloca os cores). Mas a memoria e gerenciada pelo SO da VM — o hypervisor aloca X GB para a VM, mas nao sabe quanto dela o SO realmente esta usando. Para saber isso, precisa de um agente dentro da VM.
 
 7. Volte para o grafico e adicione **Network In Total** (Host) ao lado da metrica Guest para visualizar ambas
 
@@ -218,6 +234,8 @@ Voce compara as metricas disponiveis com e sem agente para entender a diferenca 
 ---
 
 ### Task 5.4: Executar queries KQL no Log Analytics
+
+KQL (Kusto Query Language) e a linguagem que voce usa para consultar dados no Log Analytics. E semelhante a SQL, mas com operadores otimizados para dados de series temporais. Na prova, voce pode ver queries KQL basicas — nao precisa decorar a sintaxe toda, mas entenda os operadores principais.
 
 1. Navegue para **law-contoso-prod** > **General** > **Logs**
 
@@ -233,6 +251,8 @@ Heartbeat
 | project Computer, LastHeartbeat, MinutesSinceLastHeartbeat = datetime_diff('minute', now(), max_TimeGenerated)
 ```
 
+> **O que faz:** Mostra a ultima vez que cada VM enviou um heartbeat (sinal de "estou vivo"). Se uma VM para de enviar heartbeats, significa que o agente caiu ou a VM esta offline. `summarize` agrupa os dados e `max()` pega o registro mais recente.
+
 4. Verifique que ambas as VMs aparecem (vm-web-01 e vm-api-01)
 
 **Query 2 — Performance de CPU (ultimas 4 horas):**
@@ -244,6 +264,8 @@ Perf
 | summarize AvgCPU = avg(CounterValue) by bin(TimeGenerated, 5m), Computer
 | render timechart
 ```
+
+> **O que faz:** Busca dados de CPU das ultimas 4 horas, calcula a media a cada 5 minutos (`bin(TimeGenerated, 5m)`) e renderiza um grafico de linhas. `where` filtra, `summarize` agrega, `render` visualiza.
 
 5. Observe o grafico de CPU de ambas as VMs
 
@@ -258,6 +280,8 @@ Event
 | take 10
 ```
 
+> **O que faz:** Lista os 10 maiores geradores de erros no Event Log do Windows nas ultimas 24 horas. `count()` conta registros, `order by desc` ordena do maior para o menor, `take 10` limita a 10 resultados.
+
 **Query 4 — Top processos por CPU (VM Insights):**
 
 ```kql
@@ -268,15 +292,15 @@ InsightsMetrics
 | render timechart
 ```
 
-> **Conceito:** KQL (Kusto Query Language) e a linguagem de consulta do Azure Monitor. Ela permite filtrar, agregar, correlacionar e visualizar dados de logs e metricas.
+> **Conceito:** KQL (Kusto Query Language) e a linguagem de consulta do Azure Monitor. Ela permite filtrar, agregar, correlacionar e visualizar dados de logs e metricas. Os operadores mais importantes para a prova sao: `where` (filtro), `summarize` (agregacao), `project` (selecao de colunas), `render` (visualizacao), `ago()` (intervalo de tempo) e `bin()` (agrupamento temporal).
 
-> **Dica AZ-104:** Na prova, voce pode ver queries KQL basicas. Foque em operadores: `where`, `summarize`, `project`, `render`, `ago()`, `bin()`.
+> **Dica AZ-104:** Na prova, voce pode ver queries KQL basicas. Foque em operadores: `where`, `summarize`, `project`, `render`, `ago()`, `bin()`. Nao precisa escrever queries do zero, mas entenda o que cada operador faz.
 
 ---
 
 ### Task 5.5: Configurar Diagnostic Settings para Activity Log
 
-Voce envia o Activity Log para o workspace, permitindo queries KQL sobre operacoes de gerenciamento de todas as semanas.
+Diagnostic Settings conectam dados da **plataforma Azure** ao Log Analytics. Ate agora, o Activity Log so era visivel no portal (retencao de 90 dias). Ao enviar para o workspace, voce ganha: retencao customizavel, queries KQL e correlacao com outros dados.
 
 1. Pesquise e selecione **Monitor** > **Activity Log**
 
@@ -288,11 +312,13 @@ Voce envia o Activity Log para o workspace, permitindo queries KQL sobre operaco
 
    | Setting                                      | Value                                                                      |
    | -------------------------------------------- | -------------------------------------------------------------------------- |
-   | Diagnostic setting name                      | `diag-activity-to-law`                                                    |
+   | Diagnostic setting name                      | `diag-activity-to-law`                                                     |
    | Log categories                               | **Selecione todas** (Administrative, Security, ServiceHealth, Alert, etc.) |
    | Destination: Send to Log Analytics workspace | **Checked**                                                                |
    | Subscription                                 | *sua subscription*                                                         |
-   | Log Analytics workspace                      | `law-contoso-prod`                                                                |
+   | Log Analytics workspace                      | `law-contoso-prod`                                                         |
+
+   > **Diagnostic Settings** vs **Data Collection Rules** — uma distincao importante: DCR coleta dados de **dentro das VMs** (guest). Diagnostic Settings coleta dados de **recursos Azure** (platform logs e metricas). Sao mecanismos complementares, nao concorrentes.
 
 5. Clique em **Save**
 
@@ -308,11 +334,15 @@ AzureActivity
 | take 20
 ```
 
+> **O que faz:** Mostra as 20 operacoes mais frequentes na ultima hora, agrupadas por nome da operacao e status (Succeeded, Failed, etc.). Util para entender a atividade recente no ambiente.
+
 ---
 
 ### Task 5.6: Network Watcher — IP Flow Verify
 
-Voce usa o Network Watcher para diagnosticar regras NSG nas VNets da Semana 1.
+O Network Watcher e o conjunto de ferramentas de diagnostico de rede do Azure. **IP Flow Verify** responde a pergunta: "Se um pacote com essas caracteristicas chegar nessa NIC, o NSG vai permitir ou bloquear?"
+
+E a ferramenta ideal para troubleshooting de NSG — em vez de revisar dezenas de regras manualmente, voce testa um cenario especifico e o Azure diz exatamente qual regra esta atuando.
 
 1. Pesquise e selecione **Network Watcher**
 
@@ -320,17 +350,19 @@ Voce usa o Network Watcher para diagnosticar regras NSG nas VNets da Semana 1.
 
 3. Configure:
 
-   | Setting           | Value                                                          |
-   | ----------------- | -------------------------------------------------------------- |
-   | Subscription      | *sua subscription*                                             |
-   | Resource group    | `rg-contoso-compute`                                                    |
-   | Virtual machine   | **vm-web-01**                                               |
-   | Network interface | *selecione a NIC da VM*                                        |
-   | Protocol          | **TCP**                                                        |
-   | Direction         | **Inbound**                                                    |
-   | Local port        | `3389`                                                         |
+   | Setting           | Value                                                 |
+   | ----------------- | ----------------------------------------------------- |
+   | Subscription      | *sua subscription*                                    |
+   | Resource group    | `rg-contoso-compute`                                  |
+   | Virtual machine   | **vm-web-01**                                         |
+   | Network interface | *selecione a NIC da VM*                               |
+   | Protocol          | **TCP**                                               |
+   | Direction         | **Inbound**                                           |
+   | Local port        | `3389`                                                |
    | Remote IP address | `10.20.10.5` (IP simulado na snet-shared da Semana 1) |
-   | Remote port       | `*`                                                            |
+   | Remote port       | `*`                                                   |
+
+   > **O que estamos testando:** "Se um pacote TCP chegar na porta 3389 (RDP) da vm-web-01, vindo do IP 10.20.10.5, o NSG vai permitir?" O resultado mostra **qual regra** do NSG esta atuando — isso e mais util do que simplesmente "allowed/denied".
 
 4. Clique em **Check**
 
@@ -342,18 +374,20 @@ Voce usa o Network Watcher para diagnosticar regras NSG nas VNets da Semana 1.
 
 ### Task 5.7: Network Watcher — Next Hop
 
+**Next Hop** responde a pergunta: "Se um pacote sair dessa VM com destino a esse IP, para onde ele vai?" E a ferramenta para diagnosticar problemas de roteamento — mostra se o pacote vai pelo peering, por um NVA, para a internet, ou e descartado.
+
 1. Em **Network Watcher** > **Network diagnostic tools** > **Next hop**
 
 2. Configure:
 
-   | Setting                | Value                                                      |
-   | ---------------------- | ---------------------------------------------------------- |
-   | Subscription           | *sua subscription*                                         |
-   | Resource group         | `rg-contoso-compute`                                                |
-   | Virtual machine        | **vm-web-01**                                           |
-   | Network interface      | *selecione a NIC da VM*                                    |
-   | Source IP address      | *IP privado da vm-web-01*                               |
-   | Destination IP address | `10.30.0.4` (IP simulado na vnet-contoso-spoke-eastus da Semana 1) |
+   | Setting                | Value                                                       |
+   | ---------------------- | ----------------------------------------------------------- |
+   | Subscription           | *sua subscription*                                          |
+   | Resource group         | `rg-contoso-compute`                                        |
+   | Virtual machine        | **vm-web-01**                                               |
+   | Network interface      | *selecione a NIC da VM*                                     |
+   | Source IP address      | *IP privado da vm-web-01*                                   |
+   | Destination IP address | `10.30.0.4` (IP simulado na vnet-contoso-spoke da Semana 1) |
 
 3. Clique em **Next hop**
 
@@ -368,22 +402,26 @@ Voce usa o Network Watcher para diagnosticar regras NSG nas VNets da Semana 1.
 
    > **Conexao com Semana 1:** O Next Hop mostra como as route tables e peerings configurados na Semana 1 afetam o trafego. Se voce configurou UDRs com next hop "Virtual appliance", o resultado mostrara isso.
 
+   > **Dica AZ-104:** Na prova, "qual ferramenta para verificar o proximo salto do trafego?" → **Next Hop** (Network Watcher). "Qual ferramenta para verificar se um NSG esta bloqueando?" → **IP Flow Verify**.
+
 ---
 
 ### Task 5.8: Network Watcher — Connection Troubleshoot (cross-VNet)
+
+**Connection Troubleshoot** vai alem do Next Hop — ele tenta uma conexao real entre dois endpoints e mostra **cada hop no caminho**, incluindo latencia e possíveis bloqueios. E o equivalente a um `traceroute` + `telnet` integrado ao Azure.
 
 1. Em **Network Watcher** > **Network diagnostic tools** > **Connection troubleshoot**
 
 2. Configure:
 
-   | Setting                 | Value                          |
-   | ----------------------- | ------------------------------ |
-   | Source type             | **Virtual machine**            |
-   | Virtual machine         | **vm-web-01**               |
-   | Destination type        | **Specify manually**           |
+   | Setting                 | Value                     |
+   | ----------------------- | ------------------------- |
+   | Source type             | **Virtual machine**       |
+   | Virtual machine         | **vm-web-01**             |
+   | Destination type        | **Specify manually**      |
    | URI, FQDN or IP address | *IP privado de vm-api-01* |
-   | Destination port        | `22` (SSH)                     |
-   | Protocol                | **TCP**                        |
+   | Destination port        | `22` (SSH)                |
+   | Protocol                | **TCP**                   |
 
 3. Clique em **Check**
 
@@ -391,17 +429,21 @@ Voce usa o Network Watcher para diagnosticar regras NSG nas VNets da Semana 1.
 
    > **Conexao com Semanas 1-2:** Este teste verifica a comunicacao entre VMs da Semana 2 usando a infraestrutura de rede da Semana 1 (VNets, peering, NSGs, route tables). O Network Watcher mostra cada hop no caminho, incluindo NSGs e route tables.
 
+   > Se o resultado for **Unreachable**, o Connection Troubleshoot mostra **onde** a conexao falha — no NSG? Na route table? No firewall da VM? Isso economiza horas de troubleshooting manual.
+
 ---
 
 ### Task 5.9: Network Watcher — Topology
+
+**Topology** gera um diagrama visual da sua infraestrutura de rede. E util para documentacao, revisao de seguranca (subnets sem NSG?) e para entender a arquitetura quando voce herda um ambiente que nao conhece.
 
 1. Em **Network Watcher** > **Monitoring** > **Topology**
 
 2. Configure:
 
-   | Setting        | Value                           |
-   | -------------- | ------------------------------- |
-   | Subscription   | *sua subscription*              |
+   | Setting        | Value                                    |
+   | -------------- | ---------------------------------------- |
+   | Subscription   | *sua subscription*                       |
    | Resource Group | `rg-contoso-network` (VNets da Semana 1) |
 
 3. Observe o diagrama visual mostrando:
@@ -419,7 +461,9 @@ Voce usa o Network Watcher para diagnosticar regras NSG nas VNets da Semana 1.
 
 ### Task 5.9b: Configurar NSG Flow Logs com Traffic Analytics
 
-Voce habilita Flow Logs em um NSG da Semana 1 para capturar e analisar o trafego de rede.
+NSG Flow Logs capturam informacoes detalhadas sobre **cada fluxo de trafego** que passa pelos NSGs — origem, destino, porta, protocolo, acao (allow/deny). **Traffic Analytics** processa esses logs e gera dashboards visuais com insights de seguranca e performance.
+
+**Analogia:** Flow Logs sao como cameras de seguranca gravando quem entra e sai. Traffic Analytics e o sistema que analisa as gravacoes e gera relatorios ("90% do trafego e web, 3 tentativas de acesso bloqueadas, etc.").
 
 1. Pesquise e selecione **Network Watcher** > **Logs** > **Flow logs**
 
@@ -427,21 +471,25 @@ Voce habilita Flow Logs em um NSG da Semana 1 para capturar e analisar o trafego
 
 3. Aba **Basics**:
 
-   | Setting             | Value                                        |
-   | ------------------- | -------------------------------------------- |
-   | Subscription        | *sua subscription*                           |
-   | NSG                 | *selecione um NSG da Semana 1 (ex: nsg-snet-shared)* |
-   | Storage Account     | *selecione um storage account existente*     |
-   | Retention (days)    | `30`                                         |
-   | Flow Logs version   | **Version 2**                                |
+   | Setting           | Value                                                |
+   | ----------------- | ---------------------------------------------------- |
+   | Subscription      | *sua subscription*                                   |
+   | NSG               | *selecione um NSG da Semana 1 (ex: nsg-snet-shared)* |
+   | Storage Account   | *selecione um storage account existente*             |
+   | Retention (days)  | `30`                                                 |
+   | Flow Logs version | **Version 2**                                        |
+
+   > **Version 1** registra apenas IP origem/destino, porta e acao (allow/deny). **Version 2** adiciona bytes transferidos, pacotes e estado da conexao — muito mais util para analise. Traffic Analytics **requer** Version 2.
 
 4. Aba **Analytics**:
 
-   | Setting                     | Value           |
-   | --------------------------- | --------------- |
-   | Enable Traffic Analytics    | **Checked**     |
-   | Traffic Analytics workspace | `law-contoso-prod`     |
-   | Processing interval         | **Every 10 min** |
+   | Setting                     | Value              |
+   | --------------------------- | ------------------ |
+   | Enable Traffic Analytics    | **Checked**        |
+   | Traffic Analytics workspace | `law-contoso-prod` |
+   | Processing interval         | **Every 10 min**   |
+
+   > **Processing interval** define com que frequencia os flow logs sao processados no Log Analytics. 10 minutos e o intervalo mais granular. 60 minutos e mais economico (menos queries no workspace).
 
 5. Clique em **Review + create** > **Create**
 
@@ -460,7 +508,9 @@ Voce habilita Flow Logs em um NSG da Semana 1 para capturar e analisar o trafego
 
 ### Task 5.10: Criar alerta de log query (KQL)
 
-Voce cria um alerta baseado em query KQL que dispara quando VMs param de enviar heartbeats.
+Alertas de log query sao o terceiro tipo de alerta (alem de metrica e Activity Log). Eles executam uma query KQL periodicamente e disparam quando o resultado atende ao criterio. Sao os mais flexiveis — voce pode criar alertas para qualquer coisa que consiga consultar via KQL.
+
+Nesta task, voce cria um alerta que dispara quando VMs param de enviar heartbeats — indicando que o agente caiu ou a VM esta offline.
 
 > **Cobranca:** Alert rules geram cobranca minima por sinal monitorado.
 
@@ -478,6 +528,8 @@ Voce cria um alerta baseado em query KQL que dispara quando VMs param de enviar 
    | where LastHeartbeat < ago(5m)
    ```
 
+   > **O que faz:** Busca o ultimo heartbeat de cada VM e filtra as que nao enviaram heartbeat nos ultimos 5 minutos. Se alguma VM aparecer no resultado, significa que esta offline ou com problema no agente.
+
 5. Configure:
 
    | Setting            | Value            |
@@ -488,6 +540,8 @@ Voce cria um alerta baseado em query KQL que dispara quando VMs param de enviar 
    | Threshold value    | `0`              |
    | Frequency          | **5 minutes**    |
    | Lookback period    | **5 minutes**    |
+
+   > **Threshold > 0** significa: se a query retornar qualquer resultado (alguma VM sem heartbeat), dispara o alerta. Se todas as VMs estiverem enviando heartbeats, a query retorna 0 linhas e o alerta nao dispara.
 
 6. Clique em **Next: Actions** > selecione **ag-contoso-ops** (do Bloco 4)
 
@@ -500,11 +554,16 @@ Voce cria um alerta baseado em query KQL que dispara quando VMs param de enviar 
    | Severity        | **1 - Error**                            |
    | Alert rule name | `alert-vm-heartbeat-lost`                |
    | Description     | `Alert when VM stops sending heartbeats` |
-   | Resource group  | `rg-contoso-management`                       |
+   | Resource group  | `rg-contoso-management`                  |
 
 8. Clique em **Review + create** > **Create**
 
-   > **Conceito:** Alertas de log query (Custom Log Search) executam queries KQL periodicamente. Quando a query retorna resultados que atendem ao threshold, o alerta dispara. Sao mais flexiveis que alertas de metrica, mas tem maior latencia (frequencia minima de 5 minutos).
+   > **Conceito:** Alertas de log query (Custom Log Search) executam queries KQL periodicamente. Quando a query retorna resultados que atendem ao threshold, o alerta dispara. Sao mais flexiveis que alertas de metrica (podem correlacionar dados de multiplas tabelas), mas tem maior latencia (frequencia minima de 1 minuto, tipicamente 5 minutos).
+
+   > **Resumo dos 3 tipos de alerta:**
+   > - **Metric alert** → monitora metricas numericas em tempo real (CPU, Network)
+   > - **Activity Log alert** → monitora operacoes de gerenciamento (delete, create)
+   > - **Log query alert** → monitora qualquer dado via KQL (mais flexivel, maior latencia)
 
 ---
 

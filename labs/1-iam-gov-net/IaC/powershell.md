@@ -93,9 +93,9 @@ $diskSizeGB = 32
 $diskSku    = "Standard_LRS"    # Standard HDD
 
 # --- Networking (Bloco 4) ---
-$vnetCore         = "vnet-contoso-hub-eastus"
+$vnetCore         = "vnet-contoso-hub"
 $vnetCorePrefix   = "10.20.0.0/16"
-$vnetMfg          = "vnet-contoso-spoke-eastus"
+$vnetMfg          = "vnet-contoso-spoke"
 $vnetMfgPrefix    = "10.30.0.0/16"
 
 $subnetShared     = "snet-shared"
@@ -165,8 +165,8 @@ Bloco 3 (IaC) ◄──── Valida governanca ──────────�
                                                      ▼
 Bloco 4 (Networking) ◄──── Cria infraestrutura de rede
   │
-  ├─ vnet-contoso-hub-eastus (10.20.0.0/16) ──────────────┐
-  ├─ vnet-contoso-spoke-eastus (10.30.0.0/16) ─────────────┤
+  ├─ vnet-contoso-hub (10.20.0.0/16) ──────────────┐
+  ├─ vnet-contoso-spoke (10.30.0.0/16) ─────────────┤
   ├─ NSG + ASG na snet-shared             │
   ├─ DNS publico: contoso.com                      │
   └─ DNS privado: contoso.internal ─────────────┤
@@ -174,8 +174,8 @@ Bloco 4 (Networking) ◄──── Cria infraestrutura de rede
                                                    ▼
 Bloco 5 (Connectivity) ◄──── VMs nas VNets do Bloco 4
   │
-  ├─ vm-web-01 na vnet-contoso-hub-eastus (10.20.0.0/24)
-  ├─ vm-app-01 na vnet-contoso-spoke-eastus (10.30.0.0/24)
+  ├─ vm-web-01 na vnet-contoso-hub (10.20.0.0/24)
+  ├─ vm-app-01 na vnet-contoso-spoke (10.30.0.0/24)
   ├─ Peering entre as VNets do Bloco 4
   ├─ DNS privado resolve nome real da VM ✓
   ├─ contoso-user1 gerencia VMs (VM Contributor) ✓
@@ -1443,11 +1443,11 @@ D) `New-AzManagedDisk`
 
 ---
 
-### Task 4.1: Criar VNet vnet-contoso-hub-eastus
+### Task 4.1: Criar VNet vnet-contoso-hub
 
 ```powershell
 # ============================================================
-# TASK 4.1 - Criar vnet-contoso-hub-eastus com 2 subnets
+# TASK 4.1 - Criar vnet-contoso-hub com 2 subnets
 # ============================================================
 
 # Criar RG para networking
@@ -1488,11 +1488,11 @@ $vnetCoreObj.Subnets | ForEach-Object {
 
 ---
 
-### Task 4.2: Criar VNet vnet-contoso-spoke-eastus
+### Task 4.2: Criar VNet vnet-contoso-spoke
 
 ```powershell
 # ============================================================
-# TASK 4.2 - Criar vnet-contoso-spoke-eastus com 2 subnets
+# TASK 4.2 - Criar vnet-contoso-spoke com 2 subnets
 # ============================================================
 
 $subSensor1 = New-AzVirtualNetworkSubnetConfig `
@@ -1676,7 +1676,7 @@ $privateDns = New-AzPrivateDnsZone `
 Write-Host "DNS Zone privada criada: $($privateDns.Name)"
 Write-Host "Nota: zonas privadas NAO tem name servers publicos."
 
-# Criar Virtual Network Link para vnet-contoso-spoke-eastus
+# Criar Virtual Network Link para vnet-contoso-spoke
 # New-AzPrivateDnsVirtualNetworkLink: vincula VNet a zona privada
 # -EnableRegistration $false: nao registra VMs automaticamente
 $link = New-AzPrivateDnsVirtualNetworkLink `
@@ -1686,7 +1686,7 @@ $link = New-AzPrivateDnsVirtualNetworkLink `
     -VirtualNetworkId $vnetMfgObj.Id `
     -EnableRegistration $false
 
-Write-Host "Link criado: vnet-contoso-spoke-eastus → $dnsPrivate"
+Write-Host "Link criado: vnet-contoso-spoke → $dnsPrivate"
 
 # Criar registro A placeholder: sensorvm.contoso.internal → 10.1.1.4
 $privateRecord = New-AzPrivateDnsRecordSet `
@@ -1703,18 +1703,18 @@ Write-Host "Registro A placeholder: sensorvm.$dnsPrivate → 10.1.1.4"
 ```
 
 > **Conexao com Bloco 5:** No Bloco 5, adicionaremos registro com IP **real** da
-> vm-web-01 e link para vnet-contoso-hub-eastus.
+> vm-web-01 e link para vnet-contoso-hub.
 
 ---
 
 ## Modo Desafio - Bloco 4
 
-- [ ] Criar `vnet-contoso-hub-eastus` (10.20.0.0/16) com `New-AzVirtualNetwork` + 2 subnets
-- [ ] Criar `vnet-contoso-spoke-eastus` (10.30.0.0/16) com 2 subnets
+- [ ] Criar `vnet-contoso-hub` (10.20.0.0/16) com `New-AzVirtualNetwork` + 2 subnets
+- [ ] Criar `vnet-contoso-spoke` (10.30.0.0/16) com 2 subnets
 - [ ] Criar ASG `asg-web` e NSG `nsg-snet-shared`
 - [ ] Associar NSG a snet-shared + regras AllowASG e DenyInternetOutbound
 - [ ] Criar DNS publica `contoso.com` + registro A `www`
-- [ ] Criar DNS privada `contoso.internal` + link para vnet-contoso-spoke-eastus
+- [ ] Criar DNS privada `contoso.internal` + link para vnet-contoso-spoke
 
 ---
 
@@ -1823,7 +1823,7 @@ Peering entre VNets NAO implica resolucao DNS automatica — o link precisa ser 
 # TASK 5.1 - Adicionar subnets Core e Manufacturing
 # ============================================================
 
-# Adicionar subnet "snet-apps" na vnet-contoso-hub-eastus
+# Adicionar subnet "snet-apps" na vnet-contoso-hub
 $vnetCoreObj = Get-AzVirtualNetwork -Name $vnetCore -ResourceGroupName $rg4
 
 # Add-AzVirtualNetworkSubnetConfig: adiciona subnet a VNet existente
@@ -1836,7 +1836,7 @@ Add-AzVirtualNetworkSubnetConfig `
 $vnetCoreObj | Set-AzVirtualNetwork | Out-Null
 Write-Host "Subnet '$subnetCore' ($subnetCorePfx) adicionada a $vnetCore"
 
-# Adicionar subnet "snet-workloads" na vnet-contoso-spoke-eastus
+# Adicionar subnet "snet-workloads" na vnet-contoso-spoke
 $vnetMfgObj = Get-AzVirtualNetwork -Name $vnetMfg -ResourceGroupName $rg4
 
 Add-AzVirtualNetworkSubnetConfig `
@@ -1873,7 +1873,7 @@ Write-Host "=== Subnets de $vnetMfg ==="
 # Criar RG para VMs
 New-AzResourceGroup -Name $rg5 -Location $location
 
-# Buscar a subnet Core na vnet-contoso-hub-eastus (que esta em rg4!)
+# Buscar a subnet Core na vnet-contoso-hub (que esta em rg4!)
 # Esta e uma referencia CROSS-RESOURCE-GROUP: VM no rg5, VNet no rg4
 $vnetCoreObj = Get-AzVirtualNetwork -Name $vnetCore -ResourceGroupName $rg4
 $subnetCoreObj = $vnetCoreObj.Subnets | Where-Object { $_.Name -eq $subnetCore }
@@ -1926,7 +1926,7 @@ Write-Host "$vmCore sendo criada em background. Continue para a proxima task."
 # TASK 5.3 - Criar vm-app-01
 # ============================================================
 
-# Buscar subnet Manufacturing na vnet-contoso-spoke-eastus (rg4)
+# Buscar subnet Manufacturing na vnet-contoso-spoke (rg4)
 $vnetMfgObj = Get-AzVirtualNetwork -Name $vnetMfg -ResourceGroupName $rg4
 $subnetMfgObj = $vnetMfgObj.Subnets | Where-Object { $_.Name -eq $subnetMfg }
 
@@ -2017,14 +2017,14 @@ $vnetMfgObj  = Get-AzVirtualNetwork -Name $vnetMfg -ResourceGroupName $rg4
 # Add-AzVirtualNetworkPeering: cria peering unidirecional
 # -AllowForwardedTraffic: permite trafego encaminhado (ex: NVA)
 Add-AzVirtualNetworkPeering `
-    -Name "vnet-contoso-hub-eastus-to-vnet-contoso-spoke-eastus" `
+    -Name "vnet-contoso-hub-to-vnet-contoso-spoke" `
     -VirtualNetwork $vnetCoreObj `
     -RemoteVirtualNetworkId $vnetMfgObj.Id `
     -AllowForwardedTraffic
 
 # Peering 2: Manufacturing → Core
 Add-AzVirtualNetworkPeering `
-    -Name "vnet-contoso-spoke-eastus-to-vnet-contoso-hub-eastus" `
+    -Name "vnet-contoso-spoke-to-vnet-contoso-hub" `
     -VirtualNetwork $vnetMfgObj `
     -RemoteVirtualNetworkId $vnetCoreObj.Id `
     -AllowForwardedTraffic
@@ -2075,9 +2075,9 @@ $result.Value[0].Message
 # TASK 5.6b - Testar nao-transitividade do peering
 # ============================================================
 # CONCEITO AZ-104: Peering e NAO transitivo!
-# Se vnet-contoso-hub-eastus ↔ vnet-contoso-spoke-eastus e
-# vnet-contoso-spoke-eastus ↔ ResearchVnet,
-# vnet-contoso-hub-eastus NAO fala com ResearchVnet automaticamente.
+# Se vnet-contoso-hub ↔ vnet-contoso-spoke e
+# vnet-contoso-spoke ↔ ResearchVnet,
+# vnet-contoso-hub NAO fala com ResearchVnet automaticamente.
 # Para transitividade: hub-spoke com NVA ou Azure Virtual WAN.
 
 # Testar conectividade para um IP de uma terceira VNet inexistente
@@ -2104,7 +2104,7 @@ $result.Value[0].Message
 # TASK 5.7 - Atualizar DNS privado com IP real da vm-web-01
 # ============================================================
 
-# 1. Adicionar Virtual Network Link para vnet-contoso-hub-eastus
+# 1. Adicionar Virtual Network Link para vnet-contoso-hub
 $vnetCoreObj = Get-AzVirtualNetwork -Name $vnetCore -ResourceGroupName $rg4
 
 New-AzPrivateDnsVirtualNetworkLink `
@@ -2114,7 +2114,7 @@ New-AzPrivateDnsVirtualNetworkLink `
     -VirtualNetworkId $vnetCoreObj.Id `
     -EnableRegistration $false
 
-Write-Host "Link adicionado: vnet-contoso-hub-eastus → $dnsPrivate"
+Write-Host "Link adicionado: vnet-contoso-hub → $dnsPrivate"
 
 # 2. Criar registro A com IP REAL da vm-web-01
 $coreIP = (Get-AzNetworkInterface -Name "$vmCore-nic" -ResourceGroupName $rg5).IpConfigurations[0].PrivateIpAddress
@@ -2143,7 +2143,7 @@ $dnsResult.Value[0].Message
 ```
 
 > **Conexao com Bloco 4:** A zona DNS privada agora resolve nomes reais de VMs.
-> vnet-contoso-spoke-eastus (linkada no Bloco 4) e vnet-contoso-hub-eastus (linkada agora)
+> vnet-contoso-spoke (linkada no Bloco 4) e vnet-contoso-hub (linkada agora)
 > podem resolver nomes nesta zona.
 
 ---
@@ -2155,7 +2155,7 @@ $dnsResult.Value[0].Message
 # TASK 5.8 - Criar subnet perimeter + Route Table + UDR
 # ============================================================
 
-# 1. Adicionar subnet "perimeter" na vnet-contoso-hub-eastus
+# 1. Adicionar subnet "perimeter" na vnet-contoso-hub
 $vnetCoreObj = Get-AzVirtualNetwork -Name $vnetCore -ResourceGroupName $rg4
 
 Add-AzVirtualNetworkSubnetConfig `
@@ -2277,8 +2277,8 @@ Write-Host "  ✓ Bloco 5: VMs comunicando via peering + DNS resolvendo"
 
 ## Modo Desafio - Bloco 5
 
-- [ ] Adicionar subnet `Core` (10.20.0.0/24) na vnet-contoso-hub-eastus
-- [ ] Adicionar subnet `Manufacturing` (10.30.0.0/24) na vnet-contoso-spoke-eastus
+- [ ] Adicionar subnet `Core` (10.20.0.0/24) na vnet-contoso-hub
+- [ ] Adicionar subnet `Manufacturing` (10.30.0.0/24) na vnet-contoso-spoke
 - [ ] Criar NIC cross-RG + `vm-web-01` em rg-contoso-compute
 - [ ] Criar NIC cross-RG + `vm-app-01` em rg-contoso-compute
 - [ ] `Test-AzNetworkWatcherConnectivity` → Unreachable
@@ -2402,8 +2402,8 @@ Private DNS Zones resolvem nomes apenas para VNets com Virtual Network Link conf
 $rg6 = "rg-contoso-network"
 New-AzResourceGroup -Name $rg6 -Location $location -Tag @{"Cost Center" = "000"}
 
-# Adicionar subnet snet-lb na vnet-contoso-hub-eastus (rg-contoso-network)
-$coreVnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub-eastus" -ResourceGroupName $rg4
+# Adicionar subnet snet-lb na vnet-contoso-hub (rg-contoso-network)
+$coreVnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub" -ResourceGroupName $rg4
 Add-AzVirtualNetworkSubnetConfig -Name "snet-lb" `
     -VirtualNetwork $coreVnet `
     -AddressPrefix "10.20.40.0/24"
@@ -2436,7 +2436,7 @@ $avSet = New-AzAvailabilitySet -ResourceGroupName $rg6 `
 Write-Host "Availability Set criado: $($avSet.Name)" -ForegroundColor Green
 
 # Obter subnet snet-lb (cross-RG: VNet em rg4, VM em rg6)
-$coreVnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub-eastus" -ResourceGroupName $rg4
+$coreVnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub" -ResourceGroupName $rg4
 $lbSubnet = $coreVnet.Subnets | Where-Object { $_.Name -eq "snet-lb" }
 
 # ==================== Criar vm-lb-01 ====================
@@ -2630,7 +2630,7 @@ $nsgLb = New-AzNetworkSecurityGroup -Name "nsg-snet-lb" `
     -SecurityRules $httpRule
 
 # Associar NSG a snet-lb (cross-RG: NSG em rg6, subnet em rg4)
-$coreVnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub-eastus" -ResourceGroupName $rg4
+$coreVnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub" -ResourceGroupName $rg4
 $lbSubnetConfig = $coreVnet.Subnets | Where-Object { $_.Name -eq "snet-lb" }
 $lbSubnetConfig.NetworkSecurityGroup = $nsgLb
 $coreVnet | Set-AzVirtualNetwork
@@ -2709,7 +2709,7 @@ Write-Host "vm-lb-01 reiniciada. Aguarde probe re-detectar (~30s)." -ForegroundC
 # Ideal para comunicacao entre tiers (ex: frontend → backend)
 # Public e Internal LBs podem compartilhar o MESMO backend pool
 
-$coreVnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub-eastus" -ResourceGroupName $rg4
+$coreVnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub" -ResourceGroupName $rg4
 $lbSubnet = $coreVnet.Subnets | Where-Object { $_.Name -eq "snet-lb" }
 
 # Frontend com IP privado estatico
@@ -2796,7 +2796,7 @@ Write-Host "IIS reiniciado em vm-lb-01." -ForegroundColor Green
 #   - Standard: + native client, IP-based connection
 
 # Criar AzureBastionSubnet
-$coreVnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub-eastus" -ResourceGroupName $rg4
+$coreVnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub" -ResourceGroupName $rg4
 Add-AzVirtualNetworkSubnetConfig -Name "AzureBastionSubnet" `
     -VirtualNetwork $coreVnet `
     -AddressPrefix "10.20.30.0/26"   # /26 minimo!
@@ -2811,14 +2811,14 @@ $bastionPip = New-AzPublicIpAddress -Name "bas-contoso-hub-pip" `
 
 # Criar Bastion
 # NOTA: O deploy pode levar 5-10 minutos
-$coreVnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub-eastus" -ResourceGroupName $rg4
+$coreVnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub" -ResourceGroupName $rg4
 
 New-AzBastion -ResourceGroupName $rg6 `
     -Name "bas-contoso-hub" `
     -PublicIpAddressRgName $rg6 `
     -PublicIpAddressName "bas-contoso-hub-pip" `
     -VirtualNetworkRgName $rg4 `
-    -VirtualNetworkName "vnet-contoso-hub-eastus" `
+    -VirtualNetworkName "vnet-contoso-hub" `
     -Sku "Basic"
 
 Write-Host "Azure Bastion implantado" -ForegroundColor Green

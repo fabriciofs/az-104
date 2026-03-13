@@ -13,10 +13,10 @@ Com a Storage Account e as VMs ja operacionais (Blocos 1-2), a Contoso Corp prec
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
-│                     rg-contoso-storage + rg-contoso-storage                             │
+│                     rg-contoso-storage + rg-contoso-storage              │
 │                                                                          │
 │  ┌──────────────────────────────┐  ┌──────────────────────────────────┐  │
-│  │ stcontosoprod01 (Bloco 1)      │  │ stcontosorepl01 (NOVO)            │  │
+│  │ stcontosoprod01 (Bloco 1)    │  │ stcontosorepl01 (NOVO)           │  │
 │  │                              │  │                                  │  │
 │  │ Container: data              │  │ Container: data-replica          │  │
 │  │ File Share: contoso-files    │  │                                  │  │
@@ -27,14 +27,14 @@ Com a Storage Account e as VMs ja operacionais (Blocos 1-2), a Contoso Corp prec
 │  │ Encryption: CMK              │  └──────────────────────────────────┘  │
 │  │ └─ via Key Vault             │                                        │
 │  │                              │  ┌──────────────────────────────────┐  │
-│  │ File Share: Identity-based   │  │ Key Vault: kv-contoso-prod            │  │
+│  │ File Share: Identity-based   │  │ Key Vault: kv-contoso-prod       │  │
 │  │ └─ Entra ID auth             │  │ • Key: storage-cmk               │  │
 │  └──────────────────────────────┘  │ • Key: disk-encryption           │  │
 │                                    └──────────────────────────────────┘  │
 │                                                                          │
 │  ┌──────────────────────────────────────────────────────────────────┐    │
-│  │ rg-contoso-compute (VMs do Bloco 2)                                       │    │
-│  │ • vm-web-01: Azure Disk Encryption (via Key Vault)            │    │
+│  │ rg-contoso-compute (VMs do Bloco 2)                              │    │
+│  │ • vm-web-01: Azure Disk Encryption (via Key Vault)               │    │
 │  └──────────────────────────────────────────────────────────────────┘    │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
@@ -42,6 +42,8 @@ Com a Storage Account e as VMs ja operacionais (Blocos 1-2), a Contoso Corp prec
 ---
 
 ### Task 6.1: Transferir blobs com AzCopy
+
+**O que estamos fazendo e por que:** AzCopy e a ferramenta de linha de comando mais eficiente para mover grandes volumes de dados entre storage accounts. O segredo: a transferencia acontece **server-to-server** — os dados viajam pelo backbone do Azure sem passar pelo seu computador. Se voce baixasse 500 GB no seu PC e fizesse upload para outra conta, demoraria horas. Com AzCopy, os dados vao direto de uma conta para outra em minutos.
 
 AzCopy e a ferramenta de linha de comando para transferencias de alta performance entre storage accounts.
 
@@ -61,14 +63,16 @@ AzCopy e a ferramenta de linha de comando para transferencias de alta performanc
 
 3. Clique em **Generate SAS and connection string** > copie o **SAS token** (comeca com `?sv=`)
 
+   > **Por que dois SAS tokens separados?** O principio de menor privilegio: a origem precisa apenas de leitura, o destino precisa de escrita. Se o SAS do destino vazar, um atacante pode escrever mas nao ler dados da origem. Se o SAS da origem vazar, pode ler mas nao alterar nada no destino.
+
 4. Crie uma segunda Storage Account para destino. Pesquise **Storage accounts** > **+ Create**:
 
-   | Setting              | Value                               |
-   | -------------------- | ----------------------------------- |
+   | Setting              | Value                                     |
+   | -------------------- | ----------------------------------------- |
    | Resource group       | `rg-contoso-storage` (crie se necessario) |
-   | Storage account name | `stcontosorepl01`           |
-   | Region               | **(US) East US**                    |
-   | Redundancy           | **LRS**                             |
+   | Storage account name | `stcontosorepl01`                         |
+   | Region               | **(US) East US**                          |
+   | Redundancy           | **LRS**                                   |
 
 5. **Review + create** > **Create**
 
@@ -98,17 +102,21 @@ AzCopy e a ferramenta de linha de comando para transferencias de alta performanc
       --recursive
     ```
 
+    > **--recursive** copia todos os blobs dentro do container, incluindo "subpastas" (prefixos). Sem essa flag, apenas blobs no nivel raiz seriam copiados.
+
 11. Verifique o resultado — o blob do container `data` deve aparecer em `data-replica`
 
 12. Navegue para **stcontosorepl01** > **Containers** > **data-replica** e confirme que o blob foi copiado
 
-    > **Conceito:** AzCopy transfere dados entre storage accounts usando a rede backbone do Azure (server-to-server). Nao passa pelo seu computador local. Suporta SAS tokens, Azure AD auth e access keys. Para volumes grandes, use `--cap-mbps` para limitar banda.
+    > **Conceito:** AzCopy transfere dados entre storage accounts usando a rede backbone do Azure (server-to-server). Nao passa pelo seu computador local. Suporta SAS tokens, Azure AD auth e access keys. Para volumes grandes, use `--cap-mbps` para limitar banda e evitar saturar a rede.
 
-    > **Dica AZ-104:** Na prova, AzCopy e a ferramenta recomendada para transferencias em massa. Storage Explorer usa AzCopy internamente. Para copias programaticas, use `az storage blob copy` (CLI) ou `Start-AzStorageBlobCopy` (PowerShell).
+    > **Dica AZ-104:** Na prova, AzCopy e a ferramenta recomendada para transferencias em massa. Storage Explorer usa AzCopy internamente. Para copias programaticas, use `az storage blob copy` (CLI) ou `Start-AzStorageBlobCopy` (PowerShell). Para migracoes completas de storage, considere Azure Data Box (hardware fisico para petabytes).
 
 ---
 
 ### Task 6.2: Gerenciar blobs com Storage Explorer (versao portal)
+
+**O que estamos fazendo e por que:** Storage Browser (no portal) oferece uma interface visual para gerenciar blobs, files, queues e tables sem precisar de CLI. Alem de upload/download, voce pode gerar SAS tokens no nivel de blob individual — muito mais seguro que SAS no nivel da conta, porque limita o acesso a um unico arquivo.
 
 1. Navegue para a Storage Account **stcontosoprod01** > **Storage browser** (no menu lateral)
 
@@ -118,6 +126,8 @@ AzCopy e a ferramenta de linha de comando para transferencias de alta performanc
    - **Upload**: faca upload de mais um arquivo de teste
    - **New folder**: crie uma pasta virtual `logs/`
    - **Upload** um arquivo dentro da pasta `logs/`
+
+   > **"Pasta virtual":** Em Blob Storage sem HNS (namespace hierarquico), pastas nao existem de verdade. O blob `logs/app.log` e na verdade um unico blob com nome `logs/app.log` — a `/` e apenas parte do nome. O portal e o Storage Browser exibem como pasta por conveniencia visual.
 
 4. Selecione um blob > clique em **...** (mais opcoes):
    - **View/edit**: visualize o conteudo (se for texto)
@@ -138,11 +148,13 @@ AzCopy e a ferramenta de linha de comando para transferencias de alta performanc
    - Navegue pelos arquivos
    - Faca upload/download de arquivos
 
-   > **Conceito:** Storage Browser (no portal) e Storage Explorer (app desktop) permitem gerenciar blobs, files, queues e tables visualmente. SAS tokens gerados no nivel do blob oferecem acesso granular — mais seguro que SAS no nivel da conta.
+   > **Conceito:** Storage Browser (no portal) e Storage Explorer (app desktop) permitem gerenciar blobs, files, queues e tables visualmente. SAS tokens gerados no nivel do blob oferecem acesso granular — mais seguro que SAS no nivel da conta porque limitam acesso a um unico objeto.
 
 ---
 
 ### Task 6.3: Configurar Object Replication entre storage accounts
+
+**O que estamos fazendo e por que:** Object Replication copia blobs automaticamente de uma storage account para outra, de forma assincrona. Diferente de GRS (replicacao do Azure, voce nao controla destino), Object Replication permite escolher **quais containers** replicar e para **qual conta** (inclusive em regioes diferentes). Util para DR, distribuicao de conteudo proximo aos usuarios, e compliance que exige copias em regioes especificas.
 
 Object Replication copia blobs assincronamente entre storage accounts, util para cenarios de DR, latencia reduzida e compliance.
 
@@ -161,7 +173,7 @@ Object Replication copia blobs assincronamente entre storage accounts, util para
    | Source container      | `data`         |
    | Destination container | `data-replica` |
 
-   > **Nota:** Object Replication requer **versioning** habilitado em ambas as storage accounts e **change feed** habilitado na origem. O portal habilita automaticamente se nao estiverem ativos.
+   > **Nota:** Object Replication requer **versioning** habilitado em ambas as storage accounts e **change feed** habilitado na origem. O portal habilita automaticamente se nao estiverem ativos. Versioning e necessario porque a replicacao rastreia mudancas por versao. Change feed e o "log" de alteracoes que dispara a replicacao.
 
 4. Clique em **Create**
 
@@ -169,13 +181,15 @@ Object Replication copia blobs assincronamente entre storage accounts, util para
 
 6. Aguarde alguns minutos e verifique se o blob aparece em `data-replica` na conta de destino
 
-   > **Conceito:** Object Replication e assincrona — nao ha SLA de tempo para a replicacao. Apenas novos blobs (apos a regra ser criada) sao replicados, a menos que voce habilite "Copy over existing blobs". Os blobs replicados mantem os mesmos nomes e metadados.
+   > **Conceito:** Object Replication e assincrona — nao ha SLA de tempo para a replicacao (pode levar segundos a minutos). Apenas novos blobs (apos a regra ser criada) sao replicados, a menos que voce habilite "Copy over existing blobs". Os blobs replicados mantem os mesmos nomes e metadados.
 
-   > **Dica AZ-104:** Na prova, diferencie: GRS/GZRS = replicacao sincrona gerenciada pelo Azure (redundancia); Object Replication = replicacao assincrona configuravel pelo usuario (flexibilidade). Object Replication funciona entre qualquer regiao e qualquer conta.
+   > **Dica AZ-104:** Na prova, diferencie: GRS/GZRS = replicacao sincrona gerenciada pelo Azure para redundancia (voce nao escolhe o destino). Object Replication = replicacao assincrona configuravel pelo usuario (voce escolhe contas, containers, regioes). Sao complementares, nao excludentes.
 
 ---
 
 ### Task 6.4: Configurar Customer-Managed Keys (CMK) via Key Vault
+
+**O que estamos fazendo e por que:** Por padrao, todos os dados no Azure Storage sao criptografados com chaves gerenciadas pela Microsoft (MMK) — voce nao precisa fazer nada. CMK permite usar **suas proprias chaves** armazenadas no Key Vault. Por que alguem faria isso? Compliance: algumas regulamentacoes exigem que a empresa controle as chaves de criptografia. Se voce deleta a chave no Key Vault, os dados ficam inacessiveis — voce tem controle total.
 
 Por padrao, Azure Storage usa Microsoft-managed keys (MMK). CMK permite usar suas proprias chaves armazenadas no Key Vault.
 
@@ -183,12 +197,12 @@ Por padrao, Azure Storage usa Microsoft-managed keys (MMK). CMK permite usar sua
 
 1. Pesquise **Key vaults** > **+ Create**:
 
-   | Setting        | Value                                     |
-   | -------------- | ----------------------------------------- |
+   | Setting        | Value                                           |
+   | -------------- | ----------------------------------------------- |
    | Resource group | `rg-contoso-storage`                            |
    | Key vault name | `kv-contoso-prod<uniqueid>` (globalmente unico) |
-   | Region         | **(US) East US**                          |
-   | Pricing tier   | **Standard**                              |
+   | Region         | **(US) East US**                                |
+   | Pricing tier   | **Standard**                                    |
 
 2. Aba **Access configuration**:
 
@@ -196,6 +210,10 @@ Por padrao, Azure Storage usa Microsoft-managed keys (MMK). CMK permite usar sua
    | ---------------- | ----------------------------------- |
    | Permission model | **Azure role-based access control** |
    | Purge protection | **Enable** (requerido para CMK)     |
+
+   > **Purge protection** impede que chaves deletadas sejam permanentemente removidas por 90 dias. Sem isso, se alguem deletar a chave acidentalmente, os dados criptografados por ela ficam inacessiveis para sempre. E um requisito obrigatorio para CMK.
+
+   > **Permission model RBAC** e o modelo recomendado (vs Access Policies legado). Com RBAC, voce usa roles padrao do Azure (ex: Key Vault Crypto Officer) em vez de policies especificas do Key Vault.
 
 3. **Review + create** > **Create** > **Go to resource**
 
@@ -207,6 +225,8 @@ Por padrao, Azure Storage usa Microsoft-managed keys (MMK). CMK permite usar sua
    | --------- | ---------------------------- |
    | Role      | **Key Vault Crypto Officer** |
    | Assign to | *sua conta de administrador* |
+
+   > **Key Vault Crypto Officer** permite criar, importar, deletar e gerenciar chaves. Sem essa role, voce nao consegue criar chaves mesmo sendo Owner da subscription — Key Vault tem seu proprio RBAC.
 
 5. **Review + assign**
 
@@ -232,9 +252,11 @@ Por padrao, Azure Storage usa Microsoft-managed keys (MMK). CMK permite usar sua
    | Setting         | Value                                |
    | --------------- | ------------------------------------ |
    | Encryption type | **Customer-managed keys**            |
-   | Key vault       | `kv-contoso-prod<uniqueid>`                |
+   | Key vault       | `kv-contoso-prod<uniqueid>`          |
    | Key             | `storage-cmk`                        |
    | Identity type   | **System-assigned managed identity** |
+
+   > **Managed Identity** permite que a Storage Account se autentique no Key Vault sem credenciais explicitas. E como um "cartao de acesso automatico" — o Azure gerencia a identidade, voce so define as permissoes. A Storage Account precisa da role **Key Vault Crypto Service Encryption User** no Key Vault.
 
    > **Nota:** Se o portal solicitar, habilite a System-assigned Managed Identity na Storage Account e atribua a role **Key Vault Crypto Service Encryption User** no Key Vault.
 
@@ -242,13 +264,15 @@ Por padrao, Azure Storage usa Microsoft-managed keys (MMK). CMK permite usar sua
 
 11. **Validacao:** Navegue para **Encryption** e confirme que o tipo de criptografia mostra **Customer-managed keys** com o Key Vault e chave corretos
 
-    > **Conceito:** CMK oferece controle total sobre as chaves de criptografia. A Storage Account usa Managed Identity para acessar o Key Vault. Se a chave for revogada ou deletada, os dados ficam inacessiveis. Purge Protection garante que chaves deletadas nao possam ser permanentemente removidas por 90 dias.
+    > **Conceito:** CMK oferece controle total sobre as chaves de criptografia. A Storage Account usa Managed Identity para acessar o Key Vault. Se a chave for revogada ou deletada, os dados ficam inacessiveis. Purge Protection garante que chaves deletadas nao possam ser permanentemente removidas por 90 dias — uma rede de seguranca essencial.
 
-    > **Dica AZ-104:** Na prova: CMK requer Key Vault com purge protection habilitado. A Storage Account precisa de Managed Identity com permissao no Key Vault. CMK pode ser aplicado no nivel da conta (todos os dados) ou por escopo de criptografia.
+    > **Dica AZ-104:** Na prova: CMK requer Key Vault com purge protection habilitado. A Storage Account precisa de Managed Identity com permissao no Key Vault. CMK pode ser aplicado no nivel da conta (todos os dados) ou por escopo de criptografia (containers especificos).
 
 ---
 
 ### Task 6.5: Configurar acesso baseado em identidade para Azure Files
+
+**O que estamos fazendo e por que:** Ate agora, o acesso ao file share usa storage account key — uma unica chave que da acesso total a todos. Com autenticacao baseada em identidade, cada usuario autentica com suas credenciais Entra ID (Azure AD) e recebe permissoes granulares via RBAC. E a mesma logica de RBAC que voce ja conhece, aplicada ao nivel de arquivos.
 
 Azure Files suporta autenticacao via Entra ID (Azure AD) para acesso SMB, eliminando a necessidade de storage keys.
 
@@ -280,13 +304,15 @@ Azure Files suporta autenticacao via Entra ID (Azure AD) para acesso SMB, elimin
    | Storage File Data SMB Share Contributor          | Read, write, delete em arquivos     |
    | Storage File Data SMB Share Elevated Contributor | Acima + modificar ACLs NTFS         |
 
-   > **Conceito:** Autenticacao baseada em identidade para Azure Files permite que usuarios acessem file shares usando suas credenciais Entra ID (via Kerberos), sem precisar de storage keys. As permissoes sao atribuidas via RBAC (nivel de share) + ACLs NTFS (nivel de arquivo/diretorio).
+   > **Conceito:** Autenticacao baseada em identidade para Azure Files funciona em duas camadas: (1) **RBAC** controla acesso no nivel do share (quem pode acessar o share como um todo), (2) **ACLs NTFS** controlam acesso granular no nivel de arquivo/diretorio (quem pode ler/escrever cada arquivo). Ambas as camadas devem permitir o acesso.
 
-   > **Dica AZ-104:** Na prova: existem 3 metodos de autenticacao para Azure Files: (1) Storage account key (padrao), (2) Entra ID Domain Services, (3) On-premises AD DS via sync. RBAC controla acesso no nivel do share; ACLs NTFS controlam acesso granular.
+   > **Dica AZ-104:** Na prova: existem 3 metodos de autenticacao para Azure Files: (1) Storage account key (padrao, acesso total), (2) Entra ID Domain Services (cloud-only), (3) On-premises AD DS via sync (hibrido). RBAC controla acesso no nivel do share; ACLs NTFS controlam acesso granular.
 
 ---
 
 ### Task 6.6: Habilitar Azure Disk Encryption em VM existente
+
+**O que estamos fazendo e por que:** SSE (Server-Side Encryption) criptografa dados no storage layer (habilitado por padrao). Azure Disk Encryption (ADE) vai alem: usa BitLocker (Windows) ou DM-Crypt (Linux) para criptografar o conteudo do disco no nivel do SO. A diferenca pratica: se alguem "extrair" o disco da VM (cenario teorico), com SSE os dados estao criptografados no storage. Com ADE, estao criptografados no nivel do OS tambem. Dupla protecao.
 
 Azure Disk Encryption (ADE) usa BitLocker (Windows) ou DM-Crypt (Linux) para criptografar discos de VMs usando chaves do Key Vault.
 
@@ -306,9 +332,11 @@ Azure Disk Encryption (ADE) usa BitLocker (Windows) ou DM-Crypt (Linux) para cri
    - Marque **Enabled**
    - Clique em **Save**
 
+   > **Por que uma configuracao separada?** ADE precisa acessar o Key Vault de forma especial (wrap/unwrap keys em alta frequencia durante I/O). Essa configuracao habilita as permissoes necessarias no nivel do vault.
+
 4. Navegue para a VM **vm-web-01** (do Bloco 2, em rg-contoso-compute)
 
-   > **Nota:** A VM precisa estar **running** para habilitar ADE.
+   > **Nota:** A VM precisa estar **running** para habilitar ADE. ADE instala uma extensao na VM que configura BitLocker/DM-Crypt.
 
 5. **Settings** > **Disks** > **Additional settings** (ou procure por **Encryption**):
    - Localize **Disks to encrypt**: **OS and data disks** ou **OS disk only**
@@ -324,6 +352,8 @@ Azure Disk Encryption (ADE) usa BitLocker (Windows) ou DM-Crypt (Linux) para cri
      --volume-type All
    ```
 
+   > **--volume-type All** criptografa tanto o disco do SO quanto data disks. Use `OS` para apenas o disco do SO ou `Data` para apenas data disks.
+
 7. Aguarde o comando completar (pode levar 10-15 minutos)
 
 8. **Validacao:** Verifique o status da criptografia:
@@ -337,9 +367,9 @@ Azure Disk Encryption (ADE) usa BitLocker (Windows) ou DM-Crypt (Linux) para cri
 
 9. No portal, navegue para **vm-web-01** > **Disks** e verifique que o disco mostra **Encryption: SSE with CMK** ou **ADE**
 
-   > **Conceito:** Azure Disk Encryption (ADE) criptografa o conteudo do disco usando BitLocker/DM-Crypt. E diferente de Server-Side Encryption (SSE), que criptografa o disco no nivel do storage. ADE protege os dados mesmo se o disco for extraido da VM. Ambos podem ser usados juntos.
+   > **Conceito:** Azure Disk Encryption (ADE) criptografa o conteudo do disco usando BitLocker/DM-Crypt. E diferente de Server-Side Encryption (SSE), que criptografa o disco no nivel do storage. ADE protege os dados mesmo se o disco for extraido da VM. Ambos podem ser usados juntos para dupla camada de protecao.
 
-   > **Dica AZ-104:** Na prova, diferencie: SSE (padrao, automatico, no storage layer) vs ADE (no OS, via BitLocker/DM-Crypt, requer Key Vault). ADE e SSE sao complementares. ADE requer Key Vault com disk encryption habilitado.
+   > **Dica AZ-104:** Na prova, diferencie: SSE (padrao, automatico, no storage layer) vs ADE (no OS, via BitLocker/DM-Crypt, requer Key Vault). ADE requer Key Vault com "disk encryption" habilitado. Nem todas as VMs suportam ADE — verifique a lista de tamanhos suportados.
 
 ---
 
@@ -347,25 +377,27 @@ Azure Disk Encryption (ADE) usa BitLocker (Windows) ou DM-Crypt (Linux) para cri
 
 > Esta task cobre conceitos que cairam no simulado: tipos de conta que suportam ADLS Gen2, namespace hierarquico como pre-requisito para ACLs POSIX, e a diferenca visual entre blob flat vs hierarquico.
 
+**O que estamos fazendo e por que:** Data Lake Storage Gen2 transforma uma Storage Account comum em um sistema de arquivos hierarquico com diretorios reais (nao prefixos virtuais). A diferenca pratica: sem HNS, renomear uma "pasta" com 10.000 arquivos exige renomear cada blob individualmente. Com HNS, e uma unica operacao atomica. Alem disso, HNS habilita ACLs POSIX (read/write/execute por usuario/grupo), essencial para cenarios de big data e analytics.
+
 **Criar storage account com HNS (Data Lake Gen2):**
 
 1. Pesquise **Storage accounts** > **+ Create**:
 
-   | Setting               | Value                       |
-   | --------------------- | --------------------------- |
-   | Resource group        | `rg-contoso-storage`              |
-   | Storage account name  | `stcontosodatalake` + sufixo  |
-   | Region                | **East US**                 |
-   | Performance           | **Standard**                |
-   | Redundancy            | **LRS**                     |
+   | Setting              | Value                        |
+   | -------------------- | ---------------------------- |
+   | Resource group       | `rg-contoso-storage`         |
+   | Storage account name | `stcontosodatalake` + sufixo |
+   | Region               | **East US**                  |
+   | Performance          | **Standard**                 |
+   | Redundancy           | **LRS**                      |
 
 2. Aba **Advanced**:
 
-   | Setting                          | Value          |
-   | -------------------------------- | -------------- |
-   | **Enable hierarchical namespace** | **Checked** ✅ |
+   | Setting                           | Value       |
+   | --------------------------------- | ----------- |
+   | **Enable hierarchical namespace** | **Checked** |
 
-   > **Conceito:** Marcar "Enable hierarchical namespace" transforma a conta em **Azure Data Lake Storage Gen2**. Sem essa opcao, a conta e blob storage flat (sem diretorios reais).
+   > **Conceito:** Marcar "Enable hierarchical namespace" transforma a conta em **Azure Data Lake Storage Gen2**. Sem essa opcao, a conta e blob storage flat (sem diretorios reais). IMPORTANTE: essa opcao NAO pode ser alterada depois da criacao — se voce esquecer de marcar, precisa recriar a conta.
 
 3. **Review + create** > **Create**
 
@@ -373,10 +405,10 @@ Azure Disk Encryption (ADE) usa BitLocker (Windows) ou DM-Crypt (Linux) para cri
 
 4. Inicie a criacao de outra storage account (NAO precisa criar de fato):
 
-   | Setting     | Value                  |
-   | ----------- | ---------------------- |
-   | Performance | **Premium**            |
-   | Account type| **Block blobs**        |
+   | Setting      | Value           |
+   | ------------ | --------------- |
+   | Performance  | **Premium**     |
+   | Account type | **Block blobs** |
 
 5. Na aba **Advanced**, confirme que a opcao **Enable hierarchical namespace** esta disponivel
 
@@ -384,21 +416,21 @@ Azure Disk Encryption (ADE) usa BitLocker (Windows) ou DM-Crypt (Linux) para cri
 
 7. Cancele a criacao (nao precisa criar)
 
-   > **REGRA AZ-104:** Apenas 2 tipos de conta suportam Data Lake Gen2 (HNS): **Standard GPv2** e **Premium Block Blobs**. Page Blobs e File Shares NAO suportam.
+   > **REGRA AZ-104:** Apenas 2 tipos de conta suportam Data Lake Gen2 (HNS): **Standard GPv2** e **Premium Block Blobs**. Page Blobs (usados para discos de VM) e File Shares NAO suportam. Essa regra foi cobrada em simulados.
 
 **Explorar estrutura hierarquica vs flat:**
 
 8. Navegue para **stcontosodatalake\*** > **Storage browser** > **Blob containers** > **+ Add container**:
 
-   | Setting | Value    |
-   | ------- | -------- |
-   | Name    | `dados`  |
+   | Setting | Value   |
+   | ------- | ------- |
+   | Name    | `dados` |
 
 9. Dentro do container `dados`, clique em **+ Add Directory**:
 
-   | Setting | Value        |
-   | ------- | ------------ |
-   | Name    | `vendas`     |
+   | Setting | Value    |
+   | ------- | -------- |
+   | Name    | `vendas` |
 
 10. Dentro de `vendas`, crie outro diretorio `2026` > dentro de `2026`, faca upload de um arquivo qualquer (.txt)
 
@@ -406,7 +438,7 @@ Azure Disk Encryption (ADE) usa BitLocker (Windows) ou DM-Crypt (Linux) para cri
 
 12. Compare com a storage account **stcontosoprod01** (sem HNS): la, "pastas" sao apenas prefixos no nome do blob
 
-   > **Conceito:** Sem HNS, o Azure simula pastas usando `/` no nome do blob (ex: `vendas/2026/arquivo.txt` e um unico blob com nome longo). Com HNS, diretorios sao objetos reais com metadados proprios — isso habilita operacoes atomicas de rename/move em diretorios inteiros.
+   > **Conceito:** Sem HNS, o Azure simula pastas usando `/` no nome do blob (ex: `vendas/2026/arquivo.txt` e um unico blob com nome longo). Com HNS, diretorios sao objetos reais com metadados proprios — isso habilita operacoes atomicas de rename/move em diretorios inteiros e ACLs por diretorio.
 
 **Configurar ACLs POSIX:**
 
@@ -416,9 +448,9 @@ Azure Disk Encryption (ADE) usa BitLocker (Windows) ou DM-Crypt (Linux) para cri
 
    | Entidade | Read (r) | Write (w) | Execute (x) |
    | -------- | :------: | :-------: | :---------: |
-   | Owner    | ✅       | ✅        | ✅          |
-   | Group    | ✅       | ❌        | ✅          |
-   | Other    | ❌       | ❌        | ❌          |
+   | Owner    |   sim    |    sim    |     sim     |
+   | Group    |   sim    |    nao    |     sim     |
+   | Other    |   nao    |    nao    |     nao     |
 
 15. Modifique: conceda **Read + Execute** para **Other** > **Save**
 
@@ -426,7 +458,7 @@ Azure Disk Encryption (ADE) usa BitLocker (Windows) ou DM-Crypt (Linux) para cri
 
 17. **Resultado esperado:** A opcao **NAO existe** — ACLs POSIX so funcionam com HNS habilitado
 
-   > **PEGADINHA AZ-104:** "ACLs compativeis com POSIX" → a resposta e **namespace hierarquico** (HNS). NAO e SFTP (protocolo de acesso), NAO e camada de acesso, NAO e suporte imutavel. SFTP inclusive depende de HNS estar habilitado.
+   > **PEGADINHA AZ-104:** "ACLs compativeis com POSIX" → a resposta e **namespace hierarquico** (HNS). NAO e SFTP (protocolo de acesso), NAO e camada de acesso, NAO e suporte imutavel. SFTP inclusive depende de HNS estar habilitado como pre-requisito.
 
 ---
 

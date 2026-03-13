@@ -7,16 +7,16 @@
 
 ## Contexto
 
-A Contoso Corp precisa de armazenamento centralizado para dados corporativos. Voce cria uma Storage Account que sera usada por todos os blocos seguintes: blobs para dados de aplicacoes (Blocos 3 e 5), file shares montados em containers (Bloco 4) e discos gerenciados para VMs (Bloco 2). A seguranca de rede integra-se com as VNets criadas na Semana 1 — voce configurara Service Endpoints e Private Endpoints na vnet-contoso-hub-eastus/snet-shared.
+A Contoso Corp precisa de armazenamento centralizado para dados corporativos. Voce cria uma Storage Account que sera usada por todos os blocos seguintes: blobs para dados de aplicacoes (Blocos 3 e 5), file shares montados em containers (Bloco 4) e discos gerenciados para VMs (Bloco 2). A seguranca de rede integra-se com as VNets criadas na Semana 1 — voce configurara Service Endpoints e Private Endpoints na vnet-contoso-hub/snet-shared.
 
 ## Diagrama
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
-│                          rg-contoso-storage                                 │
+│                          rg-contoso-storage                        │
 │                                                                    │
 │  ┌──────────────────────────────────────────────────────────────┐  │
-│  │  Storage Account: stcontosoprod01                     │  │
+│  │  Storage Account: stcontosoprod01                            │  │
 │  │  Kind: StorageV2 | Replication: LRS                          │  │
 │  │                                                              │  │
 │  │  ┌──────────────┐  ┌──────────────┐  ┌───────────────────┐   │  │
@@ -32,8 +32,8 @@ A Contoso Corp precisa de armazenamento centralizado para dados corporativos. Vo
 │  │  └──────────────┘  └──────────────┘  └───────────────────┘   │  │
 │  │                                                              │  │
 │  │  Networking:                                                 │  │
-│  │  • Service Endpoint: snet-shared (Semana 1)         │  │
-│  │  • Private Endpoint: vnet-contoso-hub-eastus (Semana 1)             │  │
+│  │  • Service Endpoint: snet-shared (Semana 1)                  │  │
+│  │  • Private Endpoint: vnet-contoso-hub (Semana 1)             │  │
 │  │  • SAS Token configurado                                     │  │
 │  │                                                              │  │
 │  │  → Usado nos Blocos 2-5 para dados, file shares e config     │  │
@@ -51,6 +51,8 @@ A Contoso Corp precisa de armazenamento centralizado para dados corporativos. Vo
 
 > **Cobranca:** A Storage Account gera cobranca por dados armazenados. Para parar, delete a conta ou os dados.
 
+**O que estamos fazendo e por que:** A Storage Account e o ponto de entrada para todo armazenamento no Azure. Pense nela como um "predio" que contem diferentes "andares" (Blob, File, Queue, Table) — cada um otimizado para um tipo de dado. Tudo que voce armazena no Azure passa por uma Storage Account.
+
 Voce cria a Storage Account principal que sera referenciada em todos os blocos seguintes.
 
 1. Acesse o **Azure Portal** - `https://portal.azure.com`
@@ -59,16 +61,22 @@ Voce cria a Storage Account principal que sera referenciada em todos os blocos s
 
 3. Aba **Basics**:
 
-   | Setting              | Value                                                    |
-   | -------------------- | -------------------------------------------------------- |
-   | Subscription         | *sua subscription*                                       |
-   | Resource group       | `rg-contoso-storage` (crie se necessario)                         |
+   | Setting              | Value                                             |
+   | -------------------- | ------------------------------------------------- |
+   | Subscription         | *sua subscription*                                |
+   | Resource group       | `rg-contoso-storage` (crie se necessario)         |
    | Storage account name | `stcontosoprod01` (3-24 chars, lowercase+numeros) |
-   | Region               | **(US) East US**                                         |
-   | Performance          | **Standard**                                             |
-   | Redundancy           | **Locally-redundant storage (LRS)**                      |
+   | Region               | **(US) East US**                                  |
+   | Performance          | **Standard**                                      |
+   | Redundancy           | **Locally-redundant storage (LRS)**               |
+
+   > **Performance:** Standard usa HDD (mais barato, maioria dos cenarios). Premium usa SSD (baixa latencia, I/O intensivo). Na prova, Standard e a resposta padrao a menos que o cenario exija baixa latencia.
+
+   > **Redundancy:** LRS replica dados 3x dentro de um unico datacenter. E a opcao mais barata, mas nao protege contra falha do datacenter. Para producao critica, considere ZRS (3 zonas), GRS (2 regioes) ou GZRS (3 zonas + regiao secundaria).
 
 4. Aba **Advanced**: revise as opcoes de seguranca — note **Require secure transfer for REST API operations** (habilitado por padrao)
+
+   > **Secure transfer** forca HTTPS em todas as chamadas REST. Desabilitar permite HTTP, o que e inseguro. Na prova, se o cenario menciona "secure transfer", esta se referindo a essa configuracao.
 
 5. Aba **Networking**: mantenha **Enable public access from all networks** por enquanto (sera restrito nas Tasks 1.6 e 1.7)
 
@@ -82,13 +90,15 @@ Voce cria a Storage Account principal que sera referenciada em todos os blocos s
    - **Primary endpoint** (URLs para blob, file, queue, table)
    - **Primary location** e **Replication status**
 
-   > **Conceito:** Uma Storage Account fornece um namespace unico para seus dados no Azure. Cada objeto tem um endereco que inclui o nome da conta. LRS replica dados 3x dentro de um datacenter.
+   > **Conceito:** Uma Storage Account fornece um namespace unico para seus dados no Azure. Cada objeto tem um endereco que inclui o nome da conta (ex: `stcontosoprod01.blob.core.windows.net/data/arquivo.txt`). O nome e globalmente unico justamente por fazer parte da URL.
 
    > **Conexao com Blocos 2-5:** Esta storage account sera usada para connection strings (Bloco 3), file share mount (Bloco 4) e dados de aplicacoes (Bloco 5).
 
 ---
 
 ### Task 1.2: Criar Blob Container e fazer upload
+
+**O que estamos fazendo e por que:** Blobs (Binary Large Objects) sao o servico de armazenamento de objetos do Azure — como um disco infinito na nuvem. Voce precisa de um **container** para organizar os blobs (analogia: container = pasta raiz, blob = arquivo). Sem container, nao ha onde colocar os dados.
 
 O blob container armazenara dados corporativos que serao acessados pelas Web Apps (Bloco 3) e Container Apps (Bloco 5).
 
@@ -100,6 +110,8 @@ O blob container armazenara dados corporativos que serao acessados pelas Web App
    | ------------------- | --------------------------------- |
    | Name                | `data`                            |
    | Public access level | **Private (no anonymous access)** |
+
+   > **Public access level** controla se usuarios anonimos (sem autenticacao) podem ler os blobs. **Private** = ninguem sem credenciais acessa. **Blob** = leitura anonima por blob individual. **Container** = leitura anonima de todos os blobs + listagem. Em producao, use Private sempre que possivel.
 
 3. Clique em **Create**
 
@@ -122,11 +134,15 @@ O blob container armazenara dados corporativos que serao acessados pelas Web App
 
 8. No blade do blob, clique em **Change tier** e explore as opcoes: **Hot**, **Cool**, **Cold**, **Archive**
 
-   > **Conceito:** Hot = acesso frequente (custo de armazenamento maior). Cool = acesso infrequente (30 dias min). Cold = acesso raro (90 dias min). Archive = acesso raríssimo (180 dias min, latencia alta para rehydrate).
+   > **Conceito:** As tiers controlam o equilibrio entre custo de armazenamento e custo de acesso. Pense como estantes: Hot = mesa de trabalho (acesso rapido, caro para guardar). Cool = armario (30 dias min). Cold = deposito (90 dias min). Archive = cofre externo (180 dias min, precisa "desenterrar" antes de usar — rehydrate pode levar horas).
+
+   > **Dica prova:** Archive tier NAO permite leitura direta. O blob precisa ser rehidratado para Hot ou Cool antes de poder ser acessado. Questoes sobre "acessar blob em Archive" — a resposta envolve Change Tier primeiro.
 
 ---
 
 ### Task 1.3: Configurar acesso via SAS Token e Stored Access Policy
+
+**O que estamos fazendo e por que:** Compartilhar a storage account key da acesso total a tudo — e como dar a chave do predio inteiro. SAS (Shared Access Signature) permite criar "chaves temporarias" com permissoes limitadas (so leitura, so blob, expira amanha). E a forma recomendada de conceder acesso granular sem expor credenciais completas.
 
 1. Navegue para a **Storage Account** > **Security + networking** > **Shared access signature**
 
@@ -141,6 +157,8 @@ O blob container armazenara dados corporativos que serao acessados pelas Web App
    | Expiry date/time       | *amanha, mesma hora*          |
    | Allowed protocols      | **HTTPS only**                |
    | Signing key            | **key1**                      |
+
+   > **Signing key** define qual chave da storage account assina o SAS. Se essa chave for regenerada, TODOS os SAS assinados por ela se tornam invalidos imediatamente. Isso e um mecanismo de revogacao de emergencia.
 
 3. Clique em **Generate SAS and connection string**
 
@@ -164,13 +182,15 @@ O blob container armazenara dados corporativos que serao acessados pelas Web App
 
 8. Clique em **OK** > **Save**
 
-   > **Conceito:** Stored Access Policies permitem gerenciar SAS tokens de forma centralizada. Voce pode revogar acesso alterando ou deletando a policy, ao inves de regenerar a storage key.
+   > **Conceito:** Stored Access Policies permitem gerenciar SAS tokens de forma centralizada. Voce pode revogar acesso alterando ou deletando a policy, ao inves de regenerar a storage key. Analogia: SAS sem policy = chave avulsa (para revogar, troca a fechadura toda). SAS com policy = cartao de acesso (desativa so o cartao).
 
    > **Dica AZ-104:** Na prova, questoes frequentes: como revogar um SAS? (1) Deletar a stored access policy, (2) Regenerar a storage key usada para assinar, (3) Alterar a expiry date da policy.
 
 ---
 
 ### Task 1.4: Criar Azure File Share
+
+**O que estamos fazendo e por que:** Azure Files fornece file shares na nuvem acessiveis via protocolo SMB (Windows) ou NFS (Linux). A grande vantagem sobre Blob Storage e que voce pode **montar como unidade de rede** — VMs, containers e ate maquinas on-premises veem como um drive normal (Z:, por exemplo). E como ter um servidor de arquivos sem gerenciar o servidor.
 
 O file share sera montado como unidade de rede nas VMs (Bloco 2) e como volume nos containers (Bloco 4).
 
@@ -182,6 +202,8 @@ O file share sera montado como unidade de rede nas VMs (Bloco 2) e como volume n
    | ------- | ------------------------- |
    | Name    | `contoso-files`           |
    | Tier    | **Transaction optimized** |
+
+   > **Tier do File Share:** Transaction optimized = uso geral (maioria dos cenarios). Hot = acesso frequente. Cool = arquivo/compliance. Premium = I/O intensivo (SSD). Na prova, Transaction optimized e a escolha padrao.
 
 3. Clique em **Create**
 
@@ -197,11 +219,13 @@ O file share sera montado como unidade de rede nas VMs (Bloco 2) e como volume n
    - Revise o script PowerShell gerado. Note que ele usa **storage account key** para autenticacao
    - **Copie e salve** o script — sera usado no Bloco 2 para montar o share na VM
 
+   > **Por que o portal gera um script?** Montar um file share remoto requer autenticacao e configuracao de rede. O script gerado pelo portal inclui tudo: teste de conectividade (porta 445), armazenamento de credenciais e mapeamento do drive. Voce so precisa copiar e executar.
+
 8. Explore as opcoes:
    - **Snapshots**: para backup point-in-time
    - **Backup**: integracao com Azure Backup
 
-   > **Conceito:** Azure Files oferece file shares SMB e NFS acessiveis via protocolo padrao. SMB 3.0 suporta criptografia em transito.
+   > **Conceito:** Azure Files oferece file shares SMB e NFS acessiveis via protocolo padrao. SMB 3.0 suporta criptografia em transito. A porta 445 (SMB) precisa estar aberta — muitos ISPs bloqueiam essa porta, o que pode impedir acesso de redes domesticas.
 
    > **Conexao com Bloco 2:** O script de conexao sera executado na Windows VM para montar o share como drive Z:.
    > **Conexao com Bloco 4:** O file share sera montado como volume no container ACI.
@@ -209,6 +233,8 @@ O file share sera montado como unidade de rede nas VMs (Bloco 2) e como volume n
 ---
 
 ### Task 1.5: Configurar Blob Lifecycle Management e Immutability
+
+**O que estamos fazendo e por que:** Com o tempo, dados acumulam e o custo cresce. Lifecycle Management automatiza a movimentacao de blobs entre tiers baseado em regras (ex: "apos 30 dias sem acesso, mova para Cool"). Immutability garante que dados nao possam ser modificados ou deletados por um periodo — essencial para compliance regulatoria (financeiro, saude, governo).
 
 1. Na Storage Account, navegue para **Data management** > **Lifecycle management**
 
@@ -235,6 +261,8 @@ O file share sera montado como unidade de rede nas VMs (Bloco 2) e como volume n
    | Last modified more than (days) ago | `90`                        |
    | Then                               | **Move to archive storage** |
 
+   > **Lendo a regra completa:** "Para todos os block blobs na conta: se nao foram modificados ha mais de 30 dias, mova para Cool. Se nao foram modificados ha mais de 90 dias, mova para Archive." Isso cria uma cascata automatica que reduz custos ao longo do tempo.
+
 5. Clique em **Add**
 
 6. Agora configure **Immutability** no container. Navegue para **Containers** > **data** > **Access policy**
@@ -248,15 +276,17 @@ O file share sera montado como unidade de rede nas VMs (Bloco 2) e como volume n
 
 8. Clique em **Save**
 
-   > **Conceito:** Lifecycle management automatiza a transicao entre tiers. Immutability (WORM) impede modificacao/exclusao de blobs por um periodo — usado para compliance (SEC, FINRA, CFTC).
+   > **Conceito:** Lifecycle management automatiza a transicao entre tiers (questao de custo). Immutability (WORM — Write Once, Read Many) impede modificacao/exclusao de blobs por um periodo — questao de compliance (SEC, FINRA, CFTC). Sao recursos complementares com propositos completamente diferentes.
 
-   > **Dica AZ-104:** Na prova, diferencie: Lifecycle = automacao de custo; Immutability = compliance e retencao legal.
+   > **Dica AZ-104:** Na prova, diferencie: Lifecycle = automacao de custo; Immutability = compliance e retencao legal. Immutability tem dois modos: **time-based** (bloqueia por X dias) e **legal hold** (bloqueia indefinidamente ate ser removido manualmente).
 
 ---
 
 ### Task 1.6: Configurar Service Endpoint na VNet da Semana 1
 
-Voce restringe o acesso a Storage Account para aceitar trafego apenas da snet-shared criada na Semana 1 (vnet-contoso-hub-eastus).
+**O que estamos fazendo e por que:** Ate agora, a Storage Account aceita trafego de qualquer lugar na internet. Service Endpoint cria uma "rota expressa" entre uma subnet e o servico Azure — o trafego viaja pelo backbone privado da Microsoft em vez da internet publica. Alem de melhorar seguranca, voce pode configurar o firewall do storage para aceitar trafego **apenas** dessa subnet.
+
+Voce restringe o acesso a Storage Account para aceitar trafego apenas da snet-shared criada na Semana 1 (vnet-contoso-hub).
 
 1. Navegue para a **Storage Account** > **Security + networking** > **Networking**
 
@@ -264,11 +294,11 @@ Voce restringe o acesso a Storage Account para aceitar trafego apenas da snet-sh
 
 3. Em **Virtual networks**, clique em **+ Add existing virtual network**:
 
-   | Setting         | Value                                         |
-   | --------------- | --------------------------------------------- |
-   | Subscription    | *sua subscription*                            |
-   | Virtual network | **vnet-contoso-hub-eastus** (do rg-contoso-network, Semana 1) |
-   | Subnets         | **snet-shared**                      |
+   | Setting         | Value                                                  |
+   | --------------- | ------------------------------------------------------ |
+   | Subscription    | *sua subscription*                                     |
+   | Virtual network | **vnet-contoso-hub** (do rg-contoso-network, Semana 1) |
+   | Subnets         | **snet-shared**                                        |
 
    > **Nota:** Se a VNet da Semana 1 nao existir mais, crie uma nova VNet `StorageVnet` (10.50.0.0/16) com subnet `StorageSubnet` (10.50.0.0/24) no rg-contoso-storage e use-a.
 
@@ -276,17 +306,21 @@ Voce restringe o acesso a Storage Account para aceitar trafego apenas da snet-sh
 
 5. Em **Firewall**, adicione **seu IP de cliente** (marque a checkbox se disponivel) para manter acesso pelo portal
 
+   > **Por que adicionar seu IP?** Ao restringir para "selected networks", voce tambem bloqueia seu proprio acesso pelo portal. Adicionar seu IP garante que voce continue gerenciando a conta. Em producao, use VPN ou Azure Bastion em vez de whitelist de IP.
+
 6. Clique em **Save**
 
 7. **Validacao:** Aguarde 30 segundos. Navegue para **Containers** > **data** — voce deve ainda conseguir acessar (seu IP esta na whitelist)
 
-   > **Conceito:** Service Endpoints adicionam uma rota otimizada do subnet para o servico Azure. O trafego permanece na rede backbone da Microsoft. O endpoint e habilitado na subnet e referenciado no firewall do storage.
+   > **Conceito:** Service Endpoints adicionam uma rota otimizada do subnet para o servico Azure. O trafego permanece na rede backbone da Microsoft, nunca passando pela internet publica. O endpoint e habilitado na subnet (camada de rede) e referenciado no firewall do storage (camada de servico) — ambos precisam estar configurados.
 
    > **Conexao com Semana 1:** Voce esta usando a infraestrutura de rede criada no Bloco 4 (Virtual Networking) da Semana 1. A snet-shared agora tem acesso direto e seguro ao storage.
 
 ---
 
 ### Task 1.6b: Aplicar Service Endpoint Policy na subnet
+
+**O que estamos fazendo e por que:** Service Endpoint resolve o problema de "por onde o trafego viaja", mas cria outro: a subnet com endpoint habilitado pode acessar **qualquer** Storage Account no Azure — inclusive de outros tenants. Imagine que um insider mal-intencionado copia dados para uma Storage Account pessoal. Service Endpoint Policy resolve isso, restringindo o **destino** do trafego para apenas as contas autorizadas.
 
 Sem uma policy, a subnet com Service Endpoint para `Microsoft.Storage` pode acessar **qualquer** Storage Account do Azure — inclusive de outros tenants. Voce cria uma policy para restringir o acesso apenas a Storage Account da Contoso.
 
@@ -296,26 +330,26 @@ Sem uma policy, a subnet com Service Endpoint para `Microsoft.Storage` pode aces
 
 3. Aba **Basics**:
 
-   | Setting        | Value                          |
-   | -------------- | ------------------------------ |
-   | Subscription   | *sua subscription*             |
-   | Resource group | `rg-contoso-storage`                    |
-   | Name           | `policy-storage-contoso`       |
-   | Location       | **East US** (mesma da VNet)    |
+   | Setting        | Value                       |
+   | -------------- | --------------------------- |
+   | Subscription   | *sua subscription*          |
+   | Resource group | `rg-contoso-storage`        |
+   | Name           | `policy-storage-contoso`    |
+   | Location       | **East US** (mesma da VNet) |
 
 4. Aba **Policy definitions**, clique em **+ Add a resource**:
 
-   | Setting          | Value                                              |
-   | ---------------- | -------------------------------------------------- |
-   | Service          | **Microsoft.Storage**                              |
-   | Scope            | **Select a single account**                        |
-   | Subscription     | *sua subscription*                                 |
-   | Resource group   | `rg-contoso-storage`                                        |
-   | Resource         | *sua Storage Account* (`stcontosoprod01`)   |
+   | Setting        | Value                                     |
+   | -------------- | ----------------------------------------- |
+   | Service        | **Microsoft.Storage**                     |
+   | Scope          | **Select a single account**               |
+   | Subscription   | *sua subscription*                        |
+   | Resource group | `rg-contoso-storage`                      |
+   | Resource       | *sua Storage Account* (`stcontosoprod01`) |
 
 5. Clique em **Add** e depois **Review + create** > **Create**
 
-6. Agora associe a policy a subnet. Navegue para **Virtual networks** > **vnet-contoso-hub-eastus** > **Subnets** > **snet-shared**
+6. Agora associe a policy a subnet. Navegue para **Virtual networks** > **vnet-contoso-hub** > **Subnets** > **snet-shared**
 
 7. Em **Service endpoint policy**, selecione **policy-storage-contoso**
 
@@ -333,6 +367,8 @@ Sem uma policy, a subnet com Service Endpoint para `Microsoft.Storage` pode aces
 
 > **Cobranca:** Private Endpoints geram cobranca enquanto existirem.
 
+**O que estamos fazendo e por que:** Private Endpoint vai alem do Service Endpoint — ele cria um **IP privado da sua VNet** para o servico. Com Service Endpoint, o storage ainda tem IP publico (o trafego so muda de caminho). Com Private Endpoint, o storage ganha um IP privado (ex: 10.20.10.5) e voce pode desabilitar completamente o acesso publico. E como trazer o servico para "dentro" da sua rede.
+
 O Private Endpoint atribui um IP privado da VNet ao storage, eliminando exposicao publica.
 
 1. Navegue para a **Storage Account** > **Security + networking** > **Networking** > aba **Private endpoint connections**
@@ -341,13 +377,13 @@ O Private Endpoint atribui um IP privado da VNet ao storage, eliminando exposica
 
 3. Aba **Basics**:
 
-   | Setting                | Value                 |
-   | ---------------------- | --------------------- |
-   | Subscription           | *sua subscription*    |
-   | Resource group         | `rg-contoso-storage`           |
+   | Setting                | Value                    |
+   | ---------------------- | ------------------------ |
+   | Subscription           | *sua subscription*       |
+   | Resource group         | `rg-contoso-storage`     |
    | Name                   | `pe-stcontosoprod01`     |
    | Network Interface Name | `pe-stcontosoprod01-nic` |
-   | Region                 | **East US**           |
+   | Region                 | **East US**              |
 
 4. Aba **Resource**:
 
@@ -355,16 +391,20 @@ O Private Endpoint atribui um IP privado da VNet ao storage, eliminando exposica
    | ------------------- | -------- |
    | Target sub-resource | **blob** |
 
+   > **Target sub-resource** define qual servico do storage ganha o IP privado. Cada servico (blob, file, queue, table) precisa de seu proprio Private Endpoint. Aqui estamos criando apenas para blob.
+
 5. Aba **Virtual Network**:
 
-   | Setting         | Value                                         |
-   | --------------- | --------------------------------------------- |
-   | Virtual network | **vnet-contoso-hub-eastus** (do rg-contoso-network, Semana 1) |
-   | Subnet          | **snet-shared**                      |
+   | Setting         | Value                                                  |
+   | --------------- | ------------------------------------------------------ |
+   | Virtual network | **vnet-contoso-hub** (do rg-contoso-network, Semana 1) |
+   | Subnet          | **snet-shared**                                        |
 
    > **Nota:** Se a VNet da Semana 1 nao existir, use a VNet alternativa criada na Task 1.6.
 
 6. Aba **DNS**: Mantenha **Yes** para integrar com Private DNS Zone
+
+   > **Por que integrar com DNS?** Sem integracao DNS, o FQDN `stcontosoprod01.blob.core.windows.net` continua resolvendo para o IP publico. Com a Private DNS Zone, o mesmo FQDN resolve para o IP privado quando consultado de dentro da VNet. Isso garante que aplicacoes existentes funcionem sem mudanca de URL.
 
 7. Clique em **Review + Create** > **Create**
 
@@ -374,17 +414,21 @@ O Private Endpoint atribui um IP privado da VNet ao storage, eliminando exposica
 
 9. **Validacao:** Navegue para **Private DNS zones** no portal. Uma zona `privatelink.blob.core.windows.net` foi criada automaticamente com um registro A apontando para o IP privado.
 
-   > **Conceito:** Private Endpoints usam Azure Private Link para projetar o servico na sua VNet. O DNS e atualizado para resolver o FQDN publico para o IP privado. Diferente de Service Endpoints, o trafego usa um IP da sua subnet.
+   > **Conceito:** Private Endpoints usam Azure Private Link para projetar o servico na sua VNet. O DNS e atualizado para resolver o FQDN publico para o IP privado. Diferente de Service Endpoints, o trafego usa um IP da sua subnet — o servico literalmente "aparece" na sua rede.
 
-   > **Conexao com Semana 1:** O Private Endpoint esta na snet-shared da vnet-contoso-hub-eastus. VMs nessa VNet (ou VNets peered) acessarao o storage via IP privado, sem sair da rede Microsoft.
+   > **Conexao com Semana 1:** O Private Endpoint esta na snet-shared da vnet-contoso-hub. VMs nessa VNet (ou VNets peered) acessarao o storage via IP privado, sem sair da rede Microsoft.
 
 ---
 
 ### Task 1.8: Testar acesso anonimo e Soft Delete
 
+**O que estamos fazendo e por que:** Esta task demonstra dois conceitos importantes: (1) a diferenca pratica entre acesso Private e Blob/Container (anonimo), e (2) como Soft Delete funciona como "lixeira" protegendo contra exclusao acidental. Ambos sao temas recorrentes no AZ-104.
+
 1. Na Storage Account, navegue para **Settings** > **Configuration**
 
 2. Localize **Allow Blob anonymous access** e altere para **Enabled** (se nao estiver)
+
+   > **Atencao:** Esta e uma configuracao no nivel da **conta** que permite ou bloqueia acesso anonimo. Mesmo com ela habilitada, cada container ainda precisa ter seu nivel de acesso configurado individualmente. E um "portao duplo" — ambos precisam estar abertos para acesso anonimo funcionar.
 
 3. Clique em **Save**
 
@@ -406,9 +450,9 @@ O Private Endpoint atribui um IP privado da VNet ao storage, eliminando exposica
 
 10. O blob deletado aparece. Selecione-o > **Undelete** para restaurar
 
-   > **Conceito:** Soft delete protege contra exclusao acidental. O periodo padrao e 7 dias. Na prova, lembre: soft delete se aplica a blobs, containers e file shares separadamente.
+   > **Conceito:** Soft delete protege contra exclusao acidental — funciona como uma lixeira com prazo. O periodo padrao e 7 dias. Na prova, lembre: soft delete se aplica a blobs, containers e file shares **separadamente** — cada um tem sua propria configuracao de retencao.
 
-   > **Dica AZ-104:** Questao classica: "Um blob foi deletado acidentalmente. Como recuperar?" — Soft delete (se habilitado) ou snapshots/versioning.
+   > **Dica AZ-104:** Questao classica: "Um blob foi deletado acidentalmente. Como recuperar?" — Soft delete (se habilitado) ou snapshots/versioning. Se soft delete nao estava habilitado, nao ha como recuperar.
 
 ---
 
@@ -422,7 +466,7 @@ O Private Endpoint atribui um IP privado da VNet ao storage, eliminando exposica
 - [ ] Copiar script de conexao Windows para uso no Bloco 2
 - [ ] Configurar Lifecycle Management: Cool (30d), Archive (90d)
 - [ ] Configurar Immutability policy (7 dias) no container `data`
-- [ ] **Integracao Semana 1:** Service Endpoint na snet-shared da vnet-contoso-hub-eastus
+- [ ] **Integracao Semana 1:** Service Endpoint na snet-shared da vnet-contoso-hub
 - [ ] Criar Service Endpoint Policy restringindo acesso apenas a Storage Account da Contoso
 - [ ] Associar a policy na snet-shared
 - [ ] **Integracao Semana 1:** Private Endpoint (blob) na snet-shared
@@ -519,4 +563,3 @@ Soft delete mantem blobs deletados pelo periodo configurado. Qualquer usuario co
 </details>
 
 ---
-

@@ -13,15 +13,15 @@ Com armazenamento (Bloco 1) e computacao (Bloco 2) configurados, voce agora impl
 
 ```
 ┌───────────────────────────────────────────────────────────────────┐
-│                          rg-contoso-compute                                │
+│                          rg-contoso-compute                       │
 │                                                                   │
 │  ┌─────────────────────────────────────────────────────────────┐  │
-│  │  App Service Plan: asp-contoso-prod                            │  │
+│  │  App Service Plan: asp-contoso-prod                         │  │
 │  │  SKU: Standard S1                                           │  │
 │  │  OS: Linux                                                  │  │
 │  │                                                             │  │
 │  │  ┌───────────────────────────────────────────────────────┐  │  │
-│  │  │  Web App: app-contoso-web                     │  │  │
+│  │  │  Web App: app-contoso-web                             │  │  │
 │  │  │                                                       │  │  │
 │  │  │  Runtime: PHP 8.2                                     │  │  │
 │  │  │  Deployment: GitHub/External Git                      │  │  │
@@ -49,23 +49,27 @@ Com armazenamento (Bloco 1) e computacao (Bloco 2) configurados, voce agora impl
 
 > **Cobranca:** O App Service Plan gera cobranca enquanto existir, mesmo com a app parada.
 
+**O que estamos fazendo e por que:** App Service e a plataforma PaaS do Azure para hospedar aplicacoes web sem gerenciar servidores. Diferente de VMs (Bloco 2), voce nao se preocupa com SO, patches ou infraestrutura — o Azure cuida de tudo. Voce so faz deploy do codigo. O App Service Plan define os "recursos fisicos" (CPU/memoria) que a Web App usa — analogia: o Plan e o terreno, a Web App e a casa construida nele.
+
 1. Pesquise e selecione **App Services** > **+ Create** > **Web App**
 
 2. Aba **Basics**:
 
-   | Setting          | Value                                         |
-   | ---------------- | --------------------------------------------- |
-   | Subscription     | *sua subscription*                            |
-   | Resource group   | `rg-contoso-compute` (ja existe do Modulo 1)              |
-   | Name             | `app-contoso-web` (globalmente unico) |
-   | Publish          | **Code**                                      |
-   | Runtime stack    | **PHP 8.2**                                   |
-   | Operating System | **Linux**                                     |
-   | Region           | **East US**                                   |
-   | App Service Plan | *Create new*: `asp-contoso-prod`                 |
-   | Pricing plan     | **Standard S1**                               |
+   | Setting          | Value                                        |
+   | ---------------- | -------------------------------------------- |
+   | Subscription     | *sua subscription*                           |
+   | Resource group   | `rg-contoso-compute` (ja existe do Modulo 1) |
+   | Name             | `app-contoso-web` (globalmente unico)        |
+   | Publish          | **Code**                                     |
+   | Runtime stack    | **PHP 8.2**                                  |
+   | Operating System | **Linux**                                    |
+   | Region           | **East US**                                  |
+   | App Service Plan | *Create new*: `asp-contoso-prod`             |
+   | Pricing plan     | **Standard S1**                              |
 
-   > **Nota:** Standard S1 ou superior e necessario para deployment slots. Free/Basic nao suportam slots.
+   > **Publish:** Code = deploy de codigo fonte direto. Docker Container = deploy de imagem de container. Static Web App = sites estaticos (HTML/JS). Na prova, o tipo de publish determina quais features estao disponiveis.
+
+   > **Por que Standard S1?** Standard S1 ou superior e necessario para deployment slots, auto-scaling, e custom domains com TLS. Free/Basic nao suportam slots. Na prova, se a questao menciona slots, a resposta exige Standard ou superior.
 
 3. Aba **Deployment**: mantenha defaults (nenhum deployment continuo)
 
@@ -79,11 +83,13 @@ Com armazenamento (Bloco 1) e computacao (Bloco 2) configurados, voce agora impl
 
 8. Acesse a URL no navegador — voce deve ver a pagina padrao do App Service
 
-   > **Conceito:** Um App Service Plan define os recursos de compute (CPU, memoria, features) disponiveis para as Web Apps hospedadas nele. Multiplas Web Apps podem compartilhar o mesmo plan.
+   > **Conceito:** Um App Service Plan define os recursos de compute (CPU, memoria, features) disponiveis para as Web Apps hospedadas nele. Multiplas Web Apps podem compartilhar o mesmo plan — mas todas compartilham os mesmos recursos. Se uma app consome muito CPU, as outras no mesmo plan sao afetadas.
 
 ---
 
 ### Task 3.2: Configurar Connection String do Storage (Bloco 1)
+
+**O que estamos fazendo e por que:** Aplicacoes web frequentemente precisam acessar dados em storage accounts, bancos de dados ou outros servicos. Em vez de colocar credenciais no codigo (inseguro!), o App Service permite definir **App Settings** e **Connection Strings** como variaveis de ambiente. A aplicacao le essas variaveis em runtime, e voce pode altera-las sem redeployar o codigo.
 
 Voce conecta a Web App ao Storage Account do Bloco 1 para que a aplicacao possa acessar blobs e dados.
 
@@ -91,9 +97,9 @@ Voce conecta a Web App ao Storage Account do Bloco 1 para que a aplicacao possa 
 
 2. Na aba **App settings**, clique em **+ Add**:
 
-   | Setting | Value                                                         |
-   | ------- | ------------------------------------------------------------- |
-   | Name    | `STORAGE_ACCOUNT_NAME`                                        |
+   | Setting | Value                                                  |
+   | ------- | ------------------------------------------------------ |
+   | Name    | `STORAGE_ACCOUNT_NAME`                                 |
    | Value   | `stcontosoprod01` (nome do storage account do Bloco 1) |
 
 3. Clique em **Apply**
@@ -108,6 +114,8 @@ Voce conecta a Web App ao Storage Account do Bloco 1 para que a aplicacao possa 
 
    > **Para obter a connection string:** Va ate a Storage Account (Bloco 1) > **Security + networking** > **Access keys** > copie a **Connection string** de key1.
 
+   > **Type** define o prefixo da variavel de ambiente: Custom = `CUSTOMCONNSTR_`, SQL Server = `SQLCONNSTR_`, SQL Azure = `SQLAZURECONNSTR_`, MySQL = `MYSQLCONNSTR_`, PostgreSQL = `POSTGRESQLCONNSTR_`. O prefixo ajuda frameworks a identificar automaticamente o tipo de conexao.
+
 5. Clique em **Apply** > **Apply** (confirme as alteracoes)
 
    > **Conexao com Bloco 1:** A Web App agora tem referencia direta ao Storage Account. Em um cenario real, a aplicacao usaria esta connection string para acessar blobs, queues ou tables.
@@ -116,11 +124,13 @@ Voce conecta a Web App ao Storage Account do Bloco 1 para que a aplicacao possa 
 
 7. No Kudu, va para **Environment** e procure `STORAGE_ACCOUNT_NAME` e `CUSTOMCONNSTR_AzureStorageConnection` — ambos devem estar listados
 
-   > **Dica AZ-104:** Na prova, connection strings definidas como App Settings aparecem com prefixo no ambiente: `CUSTOMCONNSTR_`, `SQLCONNSTR_`, `SQLAZURECONNSTR_`, etc.
+   > **Dica AZ-104:** Na prova, connection strings definidas como App Settings aparecem com prefixo no ambiente: `CUSTOMCONNSTR_`, `SQLCONNSTR_`, `SQLAZURECONNSTR_`, etc. Saber os prefixos pode ser cobrado.
 
 ---
 
 ### Task 3.3: Deploy de aplicacao e Deployment Slots
+
+**O que estamos fazendo e por que:** Deployment slots permitem ter **multiplas versoes** da sua aplicacao rodando simultaneamente — cada slot e uma instancia independente com sua propria URL. O slot de staging recebe a nova versao, voce testa, e quando esta tudo OK, faz **swap** para producao. O swap e instantaneo (troca de DNS) e sem downtime. Se algo der errado, faz swap de volta. E como ter uma pista de teste ao lado da pista principal.
 
 1. Na Web App, navegue para **Deployment** > **Deployment Center**
 
@@ -149,6 +159,8 @@ Voce conecta a Web App ao Storage Account do Bloco 1 para que a aplicacao possa 
    | Name                | `staging`                 |
    | Clone settings from | **Do not clone settings** |
 
+   > **Clone settings:** Se voce selecionar o slot de producao, o staging herda todas as app settings e connection strings. "Do not clone" cria um slot limpo. Em producao, clonar e util para manter paridade entre ambientes.
+
 8. Clique em **Add**
 
 9. Selecione o slot **staging** (abre como uma Web App separada)
@@ -159,11 +171,13 @@ Voce conecta a Web App ao Storage Account do Bloco 1 para que a aplicacao possa 
 
 11. Acesse a URL do slot staging: `app-contoso-web-staging.azurewebsites.net`
 
-   > **Conceito:** Slots permitem testar alteracoes em um ambiente identico ao producao antes de promover (swap). Cada slot tem sua propria URL, configuracoes e deployment.
+   > **Conceito:** Slots permitem testar alteracoes em um ambiente identico ao producao antes de promover (swap). Cada slot tem sua propria URL, configuracoes e deployment. O slot de producao e o unico que recebe trafego real (a menos que voce configure traffic routing).
 
 ---
 
 ### Task 3.4: Swap de Deployment Slots
+
+**O que estamos fazendo e por que:** O swap e o momento em que a versao testada no staging vai para producao. Internamente, o Azure troca os "ponteiros" de roteamento — o que era staging vira production e vice-versa. Nao ha copia de arquivos, por isso e instantaneo. Se a nova versao tiver problemas, basta fazer swap novamente para reverter.
 
 1. Navegue de volta para a Web App principal (nao o slot) > **Deployment** > **Deployment slots**
 
@@ -176,19 +190,23 @@ Voce conecta a Web App ao Storage Account do Bloco 1 para que a aplicacao possa 
 
 3. Revise as **Config changes** (mostra quais settings vao mudar)
 
+   > **Config changes** e uma verificacao de seguranca. Ele mostra quais app settings e connection strings sao diferentes entre os slots. Isso ajuda a evitar surpresas — por exemplo, se o staging aponta para um banco de teste e a producao para o banco real.
+
 4. Clique em **Swap**
 
 5. Aguarde a operacao concluir
 
 6. Acesse a URL de producao — o conteudo agora e o que estava no staging
 
-   > **Conceito:** Swap e uma operacao instantanea (switch de DNS/routing). Nao ha downtime. Se algo der errado, faca swap novamente para reverter.
+   > **Conceito:** Swap e uma operacao instantanea (switch de DNS/routing). Nao ha downtime. Se algo der errado, faca swap novamente para reverter. O que era staging agora e production, e o que era production agora e staging (pronto para rollback).
 
-   > **Dica AZ-104:** Slot settings marcados como "deployment slot setting" NAO sao swapped — ficam fixos no slot. Isso e util para connection strings de staging vs production.
+   > **Dica AZ-104:** Slot settings marcados como "deployment slot setting" NAO sao swapped — ficam fixos no slot. Isso e util para connection strings de staging vs production (cada slot aponta para seu proprio banco). Na prova, "sticky setting" = nao swapped.
 
 ---
 
 ### Task 3.5: Configurar Auto-scaling
+
+**O que estamos fazendo e por que:** Assim como VMSS (Bloco 2), App Service suporta auto-scaling — mas opera no nivel do **Plan**, nao de apps individuais. Quando a carga aumenta, o Azure cria mais instancias do Plan (scale-out), e todas as apps nele se beneficiam. Quando a carga diminui, remove instancias (scale-in). Isso garante que voce paga apenas pelo que usa.
 
 1. Na Web App, navegue para **Settings** > **Scale out (App Service plan)**
 
@@ -213,6 +231,8 @@ Voce conecta a Web App ao Storage Account do Bloco 1 para que a aplicacao possa 
    | Instance count   | `1`                   |
    | Cool down        | `5` minutes           |
 
+   > **Cool down** e o periodo de espera apos um evento de scaling antes de avaliar novamente. Sem cool down, o sistema poderia escalar e desescalar freneticamente (flapping). 5 minutos e um valor razoavel para a maioria dos cenarios.
+
 4. **+ Add a rule** (scale-in):
 
    | Setting          | Value                 |
@@ -228,11 +248,15 @@ Voce conecta a Web App ao Storage Account do Bloco 1 para que a aplicacao possa 
 
 5. Clique em **Save**
 
-   > **Conceito:** Auto-scale no App Service opera no nivel do **App Service Plan**, nao da Web App individual. Todas as apps no mesmo plan sao escaladas juntas.
+   > **Conceito:** Auto-scale no App Service opera no nivel do **App Service Plan**, nao da Web App individual. Todas as apps no mesmo plan sao escaladas juntas. Isso e diferente de Container Apps (Bloco 5), onde cada app escala independentemente.
+
+   > **Dica prova:** Scale-out = adicionar instancias (horizontal). Scale-up = aumentar tamanho da instancia (vertical, ex: S1 para S2). Auto-scale so faz scale-out/in. Scale-up requer mudanca manual do tier.
 
 ---
 
 ### Task 3.6: Explorar App Service Features (Networking, Logs)
+
+**O que estamos fazendo e por que:** App Service tem recursos de networking e monitoramento que sao frequentemente cobrados na prova. VNet Integration permite que a Web App acesse recursos privados (como o storage com Private Endpoint do Bloco 1). Logs sao essenciais para troubleshooting e monitoramento em producao.
 
 1. Navegue para **Settings** > **Networking** na Web App
 
@@ -240,7 +264,7 @@ Voce conecta a Web App ao Storage Account do Bloco 1 para que a aplicacao possa 
    - **Inbound Traffic**: Access restrictions, Private endpoints
    - **Outbound Traffic**: VNet integration, Hybrid connections
 
-   > **Conceito:** VNet Integration permite que a Web App acesse recursos em uma VNet (como o storage com Private Endpoint do Bloco 1).
+   > **Conceito:** VNet Integration permite que a Web App acesse recursos em uma VNet (outbound — a app "sai" pela VNet). Private Endpoint permite que recursos na VNet acessem a Web App (inbound — trafego "entra" pela VNet). Sao complementares e frequentemente usados juntos.
 
 3. Navegue para **Monitoring** > **App Service logs**
 
@@ -258,7 +282,7 @@ Voce conecta a Web App ao Storage Account do Bloco 1 para que a aplicacao possa 
 
 6. Navegue para **Log stream** e observe os logs em tempo real enquanto acessa a URL da Web App em outra aba
 
-   > **Conceito:** Logs do App Service podem ser enviados para File System, Blob Storage ou Application Insights. Log stream mostra logs em tempo real via browser.
+   > **Conceito:** Logs do App Service podem ser enviados para File System (temporario, limite de 35 MB), Blob Storage (persistente) ou Application Insights (analytics avancado). Log stream mostra logs em tempo real via browser — util para debug rapido, mas nao substitui uma solucao de logging persistente.
 
 ---
 
@@ -331,4 +355,3 @@ Auto-scaling opera no nivel do **App Service Plan**, nao da Web App individual. 
 </details>
 
 ---
-

@@ -12,43 +12,47 @@ A Contoso Corp precisa de um registro privado de containers para armazenar e dis
 ## Diagrama
 
 ```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                     rg-contoso-compute                                         │
-│                                                                          │
-│  ┌──────────────────────────────┐  ┌──────────────────────────────────┐  │
+┌───────────────────────────────────────────────────────────────────────────┐
+│                     rg-contoso-compute                                    │
+│                                                                           │
+│  ┌──────────────────────────────┐  ┌───────────────────────────────────┐  │
 │  │ Azure Container Registry     │  │ ACI: ci-contoso-acr               │  │
-│  │ acrcontosoprod<uniqueid>           │  │                                  │  │
-│  │ SKU: Basic                   │  │ Image: acrcontosoprod*.azurecr.io/     │  │
-│  │                              │  │   sample-app:v1                  │  │
-│  │ Images:                      │  │                                  │  │
-│  │ • sample-app:v1              │  │ ← Pull from ACR (admin creds)    │  │
-│  │   (built via az acr build)   │  │                                  │  │
-│  └──────────────────────────────┘  └──────────────────────────────────┘  │
-│                                                                          │
-│  ┌──────────────────────────────────────────────────────────────────┐    │
-│  │ rg-contoso-compute (App Service do Bloco 3)                               │    │
-│  │                                                                  │    │
-│  │  App Service: app-contoso-web                                     │    │
-│  │  ├─ Custom DNS: walkthrough (CNAME + verificacao)                │    │
-│  │  ├─ TLS/SSL: walkthrough (certificado)                           │    │
-│  │  ├─ Backup: para Storage Account (stcontosoprod01)                 │    │
-│  │  └─ VNet Integration: vnet-contoso-hub-eastus (Semana 1)                │    │
-│  └──────────────────────────────────────────────────────────────────┘    │
-└──────────────────────────────────────────────────────────────────────────┘
+│  │ acrcontosoprod<uniqueid>     │  │                                   │  │
+│  │ SKU: Basic                   │  │ Image: acrcontosoprod*.azurecr.io/│  │
+│  │                              │  │   sample-app:v1                   │  │
+│  │ Images:                      │  │                                   │  │
+│  │ • sample-app:v1              │  │ ← Pull from ACR (admin creds)     │  │
+│  │   (built via az acr build)   │  │                                   │  │
+│  └──────────────────────────────┘  └───────────────────────────────────┘  │
+│                                                                           │
+│  ┌──────────────────────────────────────────────────────────────────┐     │
+│  │ rg-contoso-compute (App Service do Bloco 3)                      │     │
+│  │                                                                  │     │
+│  │  App Service: app-contoso-web                                    │     │
+│  │  ├─ Custom DNS: walkthrough (CNAME + verificacao)                │     │
+│  │  ├─ TLS/SSL: walkthrough (certificado)                           │     │
+│  │  ├─ Backup: para Storage Account (stcontosoprod01)               │     │
+│  │  └─ VNet Integration: vnet-contoso-hub (Semana 1)                │     │
+│  └──────────────────────────────────────────────────────────────────┘     │
+└───────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ### Task 7.1: Criar Azure Container Registry (ACR)
 
+**O que estamos fazendo e por que:** ACR e um registro privado de containers — como um "Docker Hub privado" da sua organizacao. Em vez de publicar imagens no Docker Hub publico (onde qualquer pessoa pode ver), voce armazena imagens no ACR com controle total de acesso. Integra nativamente com ACI, Container Apps e AKS para pulls automaticos. Analogia: Docker Hub = biblioteca publica; ACR = cofre de documentos da empresa.
+
 1. Pesquise **Container registries** > **+ Create**:
 
-   | Setting        | Value                                    |
-   | -------------- | ---------------------------------------- |
+   | Setting        | Value                                          |
+   | -------------- | ---------------------------------------------- |
    | Resource group | `rg-contoso-compute` (crie se necessario)      |
    | Registry name  | `acrcontosoprod<uniqueid>` (globalmente unico) |
-   | Region         | **(US) East US**                         |
-   | SKU            | **Basic**                                |
+   | Region         | **(US) East US**                               |
+   | SKU            | **Basic**                                      |
+
+   > **SKU:** Basic = 10 GiB storage, ideal para dev/teste. Standard = 100 GiB + webhooks (producao). Premium = 500 GiB + geo-replicacao + Private Link + content trust (enterprise). Na prova, se o cenario pede geo-replicacao ou Private Link, a resposta e Premium.
 
 2. **Review + create** > **Create** > **Go to resource**
 
@@ -60,13 +64,17 @@ A Contoso Corp precisa de um registro privado de containers para armazenar e dis
    - Habilite **Admin user** (para simplificar o lab)
    - Anote o **Username** e **password**
 
-   > **Conceito:** ACR e um registro privado de containers compativel com Docker. SKUs: Basic (desenvolvimento), Standard (producao), Premium (geo-replicacao, private link, content trust). Admin user e para testes — em producao, use Managed Identity ou service principal.
+   > **Admin user** fornece credenciais simples (username/password) para pull de imagens. Em producao, use **Managed Identity** (ACI/AKS autenticam automaticamente) ou **service principal** (para CI/CD). Admin user e conveniente para labs mas e um anti-pattern em producao por ser uma credencial compartilhada sem auditoria individual.
+
+   > **Conceito:** ACR e um registro privado de containers compativel com Docker. O login server (`*.azurecr.io`) e o endereco que voce usa em `docker pull` e nos campos de imagem de ACI/Container Apps.
 
    > **Dica AZ-104:** Na prova: ACR Basic vs Standard vs Premium. Basic = 10 GiB; Standard = 100 GiB + webhooks; Premium = 500 GiB + geo-replication + private link + customer-managed keys.
 
 ---
 
 ### Task 7.2: Build e push de imagem via az acr build
+
+**O que estamos fazendo e por que:** Normalmente, para criar uma imagem Docker voce precisa de Docker instalado no seu computador. `az acr build` elimina essa dependencia — voce envia o Dockerfile para o ACR e ele executa o build no cloud. E como ter um "servico de construcao remoto". Ideal para CI/CD pipelines e ambientes onde Docker nao esta disponivel (como o Cloud Shell).
 
 O `az acr build` permite construir imagens diretamente no ACR, sem precisar de Docker instalado localmente.
 
@@ -82,6 +90,8 @@ O `az acr build` permite construir imagens diretamente no ACR, sem precisar de D
    EOF
    ```
 
+   > **FROM** define a imagem base. Aqui usamos `hello-world` da Microsoft, uma imagem minima que so imprime uma mensagem. Em producao, voce usaria imagens como `node:18`, `python:3.11` ou `dotnet/aspnet:8.0`.
+
 3. Execute o build no ACR:
 
    ```bash
@@ -90,6 +100,8 @@ O `az acr build` permite construir imagens diretamente no ACR, sem precisar de D
      --image sample-app:v1 \
      --file Dockerfile .
    ```
+
+   > **--image sample-app:v1** define o nome e tag da imagem resultante. Tags sao como versoes — `v1`, `v2`, `latest`. O `.` no final e o contexto de build (diretorio com os arquivos que o Dockerfile referencia).
 
 4. Aguarde o build completar (1-2 minutos)
 
@@ -107,25 +119,29 @@ O `az acr build` permite construir imagens diretamente no ACR, sem precisar de D
 
 7. No portal, navegue para o ACR > **Repositories** > **sample-app** > confirme que `v1` esta listado
 
-   > **Conceito:** `az acr build` executa o build no cloud (ACR Tasks), eliminando a necessidade de Docker local. O contexto (Dockerfile + arquivos) e enviado ao ACR que executa o build e armazena a imagem. Ideal para CI/CD e ambientes sem Docker.
+   > **Conceito:** `az acr build` executa o build no cloud (ACR Tasks), eliminando a necessidade de Docker local. O contexto (Dockerfile + arquivos) e enviado ao ACR que executa o build e armazena a imagem. ACR Tasks tambem suporta builds automaticos (trigger por commit no Git ou update de imagem base).
 
 ---
 
 ### Task 7.3: Deploy ACI a partir de imagem privada do ACR
 
+**O que estamos fazendo e por que:** No Bloco 4, voce criou ACI com imagens publicas. Em producao, aplicacoes corporativas usam imagens privadas armazenadas no ACR. Aqui voce conecta os dois: ACI puxa a imagem do ACR usando as credenciais de admin. Isso demonstra o fluxo completo: build → push → pull → run.
+
 1. Pesquise **Container instances** > **+ Create**:
 
    | Setting        | Value                        |
    | -------------- | ---------------------------- |
-   | Resource group | `rg-contoso-compute`               |
-   | Container name | `ci-contoso-acr`              |
+   | Resource group | `rg-contoso-compute`         |
+   | Container name | `ci-contoso-acr`             |
    | Region         | **(US) East US**             |
    | Image source   | **Azure Container Registry** |
-   | Registry       | `acrcontosoprod<uniqueid>`         |
+   | Registry       | `acrcontosoprod<uniqueid>`   |
    | Image          | `sample-app`                 |
    | Image tag      | `v1`                         |
    | OS type        | **Linux**                    |
    | Size           | **1 vcpu, 1.5 GiB memory**   |
+
+   > **Image source = ACR** simplifica a configuracao: o portal lista automaticamente os registries disponiveis e suas imagens. Compare com "Other registry", onde voce precisa digitar a URL completa e configurar credenciais manualmente.
 
 2. Aba **Networking**:
 
@@ -139,15 +155,17 @@ O `az acr build` permite construir imagens diretamente no ACR, sem precisar de D
    - Verifique **Status** = Running
    - Navegue para **Containers** > **Logs** para ver a saida
 
-   > **Conceito:** ACI pode puxar imagens de registros privados (ACR, Docker Hub privado) usando credenciais de admin, service principal ou managed identity. Em producao, prefira managed identity para eliminar credenciais hardcoded.
+   > **Conceito:** ACI pode puxar imagens de registros privados (ACR, Docker Hub privado) usando credenciais de admin, service principal ou managed identity. Em producao, prefira **managed identity** para eliminar credenciais hardcoded e habilitar rotacao automatica.
 
-   > **Conexao com Bloco 4:** No Bloco 4 voce criou ACI com imagens publicas do Docker Hub. Agora voce usa uma imagem privada do ACR — o fluxo recomendado para aplicacoes corporativas.
+   > **Conexao com Bloco 4:** No Bloco 4 voce criou ACI com imagens publicas do Docker Hub. Agora voce usa uma imagem privada do ACR — o fluxo recomendado para aplicacoes corporativas. A diferenca e apenas na autenticacao, nao no funcionamento do container.
 
 ---
 
 ### Task 7.4: Mapear dominio DNS customizado para App Service (walkthrough)
 
 > **Nota:** Esta task documenta o processo completo de mapeamento DNS. Em ambiente de lab sem dominio comprado, voce seguira os passos no portal ate o ponto de verificacao, entendendo cada etapa.
+
+**O que estamos fazendo e por que:** Por padrao, seu App Service tem a URL `*.azurewebsites.net`. Em producao, voce quer usar seu proprio dominio (ex: `www.contoso.com`). O mapeamento de dominio customizado envolve: (1) criar registros DNS no provedor do dominio, (2) verificar propriedade no Azure, (3) vincular o dominio ao App Service. E como redirecionar o endereco "oficial" da empresa para o App Service.
 
 1. Navegue para o App Service **app-contoso-web** (do Bloco 3, em rg-contoso-compute)
 
@@ -157,10 +175,12 @@ O `az acr build` permite construir imagens diretamente no ACR, sem precisar de D
 
    **Passo 1 — Registrar CNAME no provedor DNS:**
 
-   | Record Type | Host        | Points to                          |
-   | ----------- | ----------- | ---------------------------------- |
+   | Record Type | Host        | Points to                           |
+   | ----------- | ----------- | ----------------------------------- |
    | CNAME       | `www`       | `app-contoso-web.azurewebsites.net` |
-   | TXT         | `asuid.www` | *Domain verification ID do portal* |
+   | TXT         | `asuid.www` | *Domain verification ID do portal*  |
+
+   > **CNAME** faz o redirecionamento: "quando alguem acessar www.contoso.com, va para app-contoso-web.azurewebsites.net". **TXT** (asuid) e a verificacao de propriedade: prova que voce controla o dominio e nao esta tentando sequestrar o dominio de outra pessoa.
 
    **Passo 2 — Verificacao no portal:**
    - O Azure verifica que o CNAME e o TXT record existem no DNS
@@ -178,15 +198,17 @@ O `az acr build` permite construir imagens diretamente no ACR, sem precisar de D
    - Note que o App Service ja tem o dominio padrao `*.azurewebsites.net`
    - Revise a documentacao inline sobre como configurar A records (para apex/root domain)
 
-   > **Conceito:** Dominios customizados requerem verificacao via CNAME ou TXT record. Para o apex domain (contoso.com sem www), use A record + TXT verification. O Azure valida a propriedade do dominio antes de vincular. App Service Free/Shared NAO suportam dominios customizados — requer Basic ou superior.
+   > **Conceito:** Dominios customizados requerem verificacao via CNAME ou TXT record. Para o apex domain (contoso.com sem www), use **A record** + TXT verification (CNAME nao funciona no apex). O Azure valida a propriedade do dominio antes de vincular. App Service Free/Shared NAO suportam dominios customizados — requer Basic ou superior.
 
-   > **Dica AZ-104:** Na prova: CNAME = subdominio (www.contoso.com); A record = apex domain (contoso.com). O TXT record `asuid` e usado para verificacao de propriedade. Free/Shared tier nao suporta custom domains.
+   > **Dica AZ-104:** Na prova: CNAME = subdominio (www.contoso.com); A record = apex domain (contoso.com). O TXT record `asuid` e usado para verificacao de propriedade. Free/Shared tier nao suporta custom domains. Essa distincao CNAME vs A record e frequentemente cobrada.
 
 ---
 
 ### Task 7.5: Configurar certificado TLS/SSL para App Service (walkthrough)
 
 > **Nota:** Como na task anterior, esta e uma walkthrough documentando o processo sem dominio real.
+
+**O que estamos fazendo e por que:** HTTPS protege dados em transito entre o usuario e o servidor com criptografia TLS. Sem HTTPS, senhas, dados pessoais e tokens trafegam em texto plano. O Azure oferece certificados gerenciados gratuitos para subdomains, eliminando a complexidade de comprar e renovar certificados. Para apex domains ou wildcards, voce precisa trazer seu proprio certificado.
 
 1. No App Service, navegue para **Settings** > **Certificates**
 
@@ -197,6 +219,8 @@ O `az acr build` permite construir imagens diretamente no ACR, sem precisar de D
    | App Service Managed Certificate | Certificado gratuito gerenciado pelo Azure | Free   |
    | Import from Key Vault           | Certificado armazenado no Key Vault        | Varies |
    | Upload certificate (.pfx)       | Certificado proprio                        | Varies |
+
+   > **App Service Managed Certificate** e a opcao mais simples: o Azure emite e renova automaticamente, sem custo. A limitacao: so funciona para **subdomains** (www.contoso.com), nao para apex (contoso.com) nem wildcard (*.contoso.com).
 
 3. Note que **App Service Managed Certificate**:
    - E gratuito e renovado automaticamente
@@ -211,6 +235,8 @@ O `az acr build` permite construir imagens diretamente no ACR, sem precisar de D
    | HTTPS Only          | **On** (redireciona HTTP para HTTPS) |
    | Minimum TLS version | **1.2**                              |
 
+   > **Minimum TLS version 1.2** e o padrao recomendado. TLS 1.0 e 1.1 tem vulnerabilidades conhecidas e sao rejeitados por muitos auditores de seguranca. Na prova, se o cenario pede "seguranca", a resposta inclui TLS 1.2 minimo.
+
 5. Clique em **Save**
 
 6. Abra o navegador e acesse `http://app-contoso-web.azurewebsites.net` (HTTP, sem S)
@@ -219,24 +245,28 @@ O `az acr build` permite construir imagens diretamente no ACR, sem precisar de D
 
 8. **Validacao:** O HTTPS Only forca um redirect 301 de HTTP para HTTPS. Qualquer requisicao HTTP e automaticamente redirecionada
 
-   > **Conceito:** HTTPS Only forca redirecionamento de todas as requisicoes HTTP para HTTPS (301 redirect). TLS 1.2 e o minimo recomendado — versoes anteriores (1.0, 1.1) tem vulnerabilidades conhecidas. App Service Managed Certificate simplifica TLS para subdomains sem custo adicional.
+   > **Conceito:** HTTPS Only forca redirecionamento de todas as requisicoes HTTP para HTTPS (301 redirect permanente). TLS 1.2 e o minimo recomendado. App Service Managed Certificate simplifica TLS para subdomains sem custo adicional.
 
-   > **Dica AZ-104:** Na prova: App Service Managed Certificate = gratis, automatico, so subdomains. Para apex domain ou wildcard, use certificado importado do Key Vault ou upload .pfx. Binding types: SNI SSL (padrao) vs IP-based SSL (requer IP dedicado).
+   > **Dica AZ-104:** Na prova: App Service Managed Certificate = gratis, automatico, so subdomains. Para apex domain ou wildcard, use certificado importado do Key Vault ou upload .pfx. Binding types: **SNI SSL** (padrao, multiplos dominios no mesmo IP) vs **IP-based SSL** (requer IP dedicado, legacy).
 
 ---
 
 ### Task 7.6: Configurar backup do App Service para Storage Account
 
+**O que estamos fazendo e por que:** App Service Backup cria um snapshot completo da aplicacao (codigo, configuracao, conteudo) e armazena como .zip na Storage Account. E diferente de Azure Backup (que protege VMs). Se voce acidentalmente fizer deploy de uma versao quebrada ou perder configuracoes, pode restaurar de um backup. A integracao com a Storage Account do Bloco 1 demonstra como recursos de diferentes servicos se conectam.
+
 1. No App Service, navegue para **Settings** > **Backups**
 
-   > **Nota:** Backup requer App Service Plan **Standard** ou superior.
+   > **Nota:** Backup requer App Service Plan **Standard** ou superior. Se voce estiver no Free/Basic, a opcao de backup nao estara disponivel.
 
 2. Clique em **Configure**:
 
-   | Setting        | Value                                         |
-   | -------------- | --------------------------------------------- |
+   | Setting        | Value                                          |
+   | -------------- | ---------------------------------------------- |
    | Backup storage | **Storage Account**: stcontosoprod01 (Bloco 1) |
-   | Container      | Selecione ou crie `webapp-backups`            |
+   | Container      | Selecione ou crie `webapp-backups`             |
+
+   > **O backup precisa de um container blob na Storage Account.** O App Service grava os arquivos .zip diretamente nesse container. As regras de networking e SAS do Bloco 1 se aplicam — se voce restringiu o acesso, verifique que o App Service consegue acessar o storage.
 
 3. Configure o **schedule**:
 
@@ -250,6 +280,8 @@ O `az acr build` permite construir imagens diretamente no ACR, sem precisar de D
 
 4. Marque **Include database**: Nao (sem banco neste lab)
 
+   > **Include database** permite incluir bancos conectados via connection strings no backup. Suporta SQL Database, MySQL e PostgreSQL. O backup do banco e feito junto com o app, garantindo consistencia.
+
 5. Clique em **Save**
 
 6. Clique em **Backup Now** para executar um backup imediato
@@ -258,15 +290,17 @@ O `az acr build` permite construir imagens diretamente no ACR, sem precisar de D
 
 8. Navegue para **stcontosoprod01** > **Containers** > `webapp-backups` e confirme que o arquivo de backup (.zip) esta la
 
-   > **Conceito:** App Service Backup cria um snapshot completo da aplicacao (codigo, configuracao, conteudo). Os backups sao armazenados em uma Storage Account como arquivos .zip. O limite e 10 GB por app. Para bancos de dados, o backup inclui connection strings configuradas.
+   > **Conceito:** App Service Backup cria um snapshot completo da aplicacao (codigo, configuracao, conteudo). Os backups sao armazenados em uma Storage Account como arquivos .zip. O limite e **10 GB** por app (codigo + banco). Para restore, voce pode restaurar para o mesmo app ou criar um novo.
 
    > **Conexao com Bloco 1:** O backup e armazenado na Storage Account criada no Bloco 1, demonstrando integracao entre servicos. As regras de SAS e networking do Bloco 1 se aplicam ao acesso dos backups.
 
-   > **Dica AZ-104:** Na prova: Backup requer Standard+. Limite de 10 GB. O backup inclui app settings, connection strings e conteudo. Para restore, voce pode restaurar para o mesmo app ou para um novo.
+   > **Dica AZ-104:** Na prova: Backup requer Standard+. Limite de 10 GB. O backup inclui app settings, connection strings e conteudo. Para restore, voce pode restaurar para o mesmo app ou para um novo app (util para duplicar ambientes).
 
 ---
 
 ### Task 7.7: Configurar VNet Integration no App Service
+
+**O que estamos fazendo e por que:** App Service, por padrao, nao esta dentro de nenhuma VNet — ele acessa a internet diretamente. VNet Integration muda isso: o trafego **outbound** (saindo do App Service) passa pela VNet. Isso permite que o App Service acesse recursos privados como o Storage Account com Private Endpoint (Bloco 1) ou VMs em subnets privadas. Analogia: sem VNet Integration, o App Service fala com o mundo pela "porta da frente" (internet). Com VNet Integration, ele usa a "porta dos fundos" (rede privada).
 
 VNet Integration permite que o App Service acesse recursos privados na VNet (outbound traffic).
 
@@ -274,12 +308,14 @@ VNet Integration permite que o App Service acesse recursos privados na VNet (out
 
 2. Em **Outbound traffic**, clique em **VNet integration** > **+ Add VNet**:
 
-   | Setting         | Value                                         |
-   | --------------- | --------------------------------------------- |
-   | Virtual network | **vnet-contoso-hub-eastus** (do rg-contoso-network, Semana 1) |
-   | Subnet          | Selecione ou crie uma subnet dedicada         |
+   | Setting         | Value                                                  |
+   | --------------- | ------------------------------------------------------ |
+   | Virtual network | **vnet-contoso-hub** (do rg-contoso-network, Semana 1) |
+   | Subnet          | Selecione ou crie uma subnet dedicada                  |
 
-   > **Nota:** Se nenhuma subnet livre estiver disponivel, crie uma nova: `WebAppSubnet` (10.20.50.0/24) na vnet-contoso-hub-eastus.
+   > **Subnet dedicada:** A subnet usada para VNet Integration NAO pode ter outros recursos (VMs, etc.). O App Service precisa de uma subnet exclusiva, com tamanho minimo **/28** (16 IPs). Cada instancia do Plan consome um IP dessa subnet.
+
+   > **Nota:** Se nenhuma subnet livre estiver disponivel, crie uma nova: `WebAppSubnet` (10.20.50.0/24) na vnet-contoso-hub.
 
 3. Clique em **OK**
 
@@ -290,11 +326,11 @@ VNet Integration permite que o App Service acesse recursos privados na VNet (out
 
 5. Verifique a configuracao: volte para **Networking** > confirme que VNet integration mostra a VNet e subnet configuradas
 
-   > **Conceito:** VNet Integration (regional) permite que o App Service envie trafego outbound pela VNet. Isso nao expoe o App Service na VNet (para inbound, use Private Endpoints). A subnet delegada ao App Service nao pode ter outros recursos. Requer Standard ou Premium plan.
+   > **Conceito:** VNet Integration (regional) permite que o App Service envie trafego outbound pela VNet. Isso NAO expoe o App Service na VNet (para inbound privado, use **Private Endpoints**). A subnet delegada ao App Service nao pode ter outros recursos. Requer Standard ou Premium plan.
 
-   > **Conexao com Semana 1:** O App Service agora pode acessar o Storage Account via Private Endpoint (configurado no Bloco 1 da Semana 2) pela vnet-contoso-hub-eastus, garantindo que o trafego nunca saia da rede Microsoft.
+   > **Conexao com Semana 1:** O App Service agora pode acessar o Storage Account via Private Endpoint (configurado no Bloco 1 da Semana 2) pela vnet-contoso-hub, garantindo que o trafego nunca saia da rede Microsoft.
 
-   > **Dica AZ-104:** Na prova: VNet Integration = outbound (App Service acessa VNet). Private Endpoint = inbound (VNet acessa App Service). Requer subnet dedicada (/28 minimo). Funciona com peering e ExpressRoute.
+   > **Dica AZ-104:** Na prova: VNet Integration = **outbound** (App Service acessa VNet). Private Endpoint = **inbound** (VNet acessa App Service). Requer subnet dedicada (/28 minimo). Funciona com peering e ExpressRoute. Essa distincao outbound/inbound e cobrada frequentemente.
 
 ---
 
@@ -309,7 +345,7 @@ VNet Integration permite que o App Service acesse recursos privados na VNet (out
 - [ ] Explorar opcoes de certificado: Managed, Key Vault, Upload
 - [ ] Configurar backup do App Service para storage account **(Bloco 1)** com schedule diario
 - [ ] Executar backup manual e verificar .zip no container
-- [ ] Configurar VNet Integration no App Service com vnet-contoso-hub-eastus **(Semana 1)**
+- [ ] Configurar VNet Integration no App Service com vnet-contoso-hub **(Semana 1)**
 
 ---
 

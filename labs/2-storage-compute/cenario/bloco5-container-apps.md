@@ -13,17 +13,17 @@ Como passo final, voce implanta Azure Container Apps — uma plataforma serverle
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                          rg-contoso-compute                              │
+│                          rg-contoso-compute                      │
 │                                                                  │
 │  ┌────────────────────────────────────────────────────────────┐  │
-│  │  Container Apps Environment: cae-contoso-prod                     │  │
+│  │  Container Apps Environment: cae-contoso-prod              │  │
 │  │  (Ambiente gerenciado para Container Apps)                 │  │
 │  │                                                            │  │
-│  │  VNet Integration: vnet-contoso-hub-eastus (Semana 1)             │  │
+│  │  VNet Integration: vnet-contoso-hub (Semana 1)             │  │
 │  │  ou subnet dedicada                                        │  │
 │  │                                                            │  │
 │  │  ┌──────────────────────────────────────────────────────┐  │  │
-│  │  │  Container App: ca-contoso-api                           │  │  │
+│  │  │  Container App: ca-contoso-api                       │  │  │
 │  │  │  Image: mcr.microsoft.com/azuredocs/containerapps-   │  │  │
 │  │  │         helloworld:latest                            │  │  │
 │  │  │                                                      │  │  │
@@ -36,7 +36,7 @@ Como passo final, voce implanta Azure Container Apps — uma plataforma serverle
 │  │  └──────────────────────────────────────────────────────┘  │  │
 │  │                                                            │  │
 │  │  ┌──────────────────────────────────────────────────────┐  │  │
-│  │  │  Container App: ca-contoso-api-2                           │  │  │
+│  │  │  Container App: ca-contoso-api-2                     │  │  │
 │  │  │  (segunda revisao / multi-container)                 │  │  │
 │  │  └──────────────────────────────────────────────────────┘  │  │
 │  └────────────────────────────────────────────────────────────┘  │
@@ -51,31 +51,37 @@ Como passo final, voce implanta Azure Container Apps — uma plataforma serverle
 
 ### Task 5.1: Criar Container Apps Environment
 
+**O que estamos fazendo e por que:** O Container Apps Environment e o "condominio" onde os Container Apps moram. Ele fornece infraestrutura compartilhada — rede, logging e isolamento. Todos os Container Apps no mesmo environment compartilham a mesma VNet e podem se comunicar internamente. Analogia: o environment e o predio, cada Container App e um apartamento dentro dele.
+
 O environment define a infraestrutura compartilhada onde os Container Apps executam.
 
 1. Pesquise e selecione **Container Apps Environments** > **+ Create**
 
 2. Aba **Basics**:
 
-   | Setting          | Value                             |
-   | ---------------- | --------------------------------- |
-   | Subscription     | *sua subscription*                |
+   | Setting          | Value                                        |
+   | ---------------- | -------------------------------------------- |
+   | Subscription     | *sua subscription*                           |
    | Resource group   | `rg-contoso-compute` (ja existe do Modulo 1) |
-   | Environment name | `cae-contoso-prod`                       |
-   | Region           | **East US**                       |
-   | Environment type | **Consumption only**              |
+   | Environment name | `cae-contoso-prod`                           |
+   | Region           | **East US**                                  |
+   | Environment type | **Consumption only**                         |
+
+   > **Environment type:** Consumption only = serverless, paga por uso (scale-to-zero possivel). Workload profiles = permite escolher tamanhos de hardware (mais controle, para workloads exigentes). Para a maioria dos cenarios e para a prova, Consumption e a resposta padrao.
 
 3. Aba **Networking**:
 
-   | Setting                      | Value                                                                             |
-   | ---------------------------- | --------------------------------------------------------------------------------- |
-   | Use your own virtual network | **Yes**                                                                           |
-   | Virtual network              | **vnet-contoso-hub-eastus** (de rg-contoso-network, Semana 1)                                     |
+   | Setting                      | Value                                                                         |
+   | ---------------------------- | ----------------------------------------------------------------------------- |
+   | Use your own virtual network | **Yes**                                                                       |
+   | Virtual network              | **vnet-contoso-hub** (de rg-contoso-network, Semana 1)                        |
    | Infrastructure subnet        | *Crie uma nova subnet dedicada* `snet-containers` (10.20.30.0/23, minimo /23) |
 
-   > **Nota:** Container Apps requer uma subnet dedicada com tamanho minimo /23. Se a vnet-contoso-hub-eastus nao tiver espaco disponivel ou nao existir, crie sem VNet integration (selecione **No**) e prossiga.
+   > **Por que /23 minimo?** Container Apps precisa de muitos IPs para gerenciar a infraestrutura interna (envoy proxies, logging, etc.) alem das replicas dos containers. /23 = 512 IPs, que e o minimo para acomodar tudo. Subnets menores que /23 serao rejeitadas.
 
-   > **Conexao com Semana 1:** O Container Apps Environment esta integrado a vnet-contoso-hub-eastus, permitindo comunicacao com recursos na VNet e VNets peered (vnet-contoso-spoke-eastus).
+   > **Nota:** Container Apps requer uma subnet dedicada com tamanho minimo /23. Se a vnet-contoso-hub nao tiver espaco disponivel ou nao existir, crie sem VNet integration (selecione **No**) e prossiga.
+
+   > **Conexao com Semana 1:** O Container Apps Environment esta integrado a vnet-contoso-hub, permitindo comunicacao com recursos na VNet e VNets peered (vnet-contoso-spoke).
 
 4. Aba **Monitoring**: selecione **Do not create** para Log Analytics (simplificar) ou crie um novo workspace
 
@@ -83,7 +89,7 @@ O environment define a infraestrutura compartilhada onde os Container Apps execu
 
 6. Aguarde o deployment (pode levar 3-5 minutos)
 
-   > **Conceito:** O Container Apps Environment e analogo a um "cluster" — fornece isolamento, logging e networking compartilhados. Multiplos Container Apps podem coexistir no mesmo environment.
+   > **Conceito:** O Container Apps Environment e analogo a um "cluster" — fornece isolamento, logging e networking compartilhados. Diferente de AKS, voce nao gerencia nodes nem infraestrutura. O Azure cuida de tudo — voce so se preocupa com os containers.
 
 ---
 
@@ -91,16 +97,18 @@ O environment define a infraestrutura compartilhada onde os Container Apps execu
 
 > **Cobranca:** Container Apps geram cobranca por replica ativa. Com scale-to-zero configurado, nao ha custo quando ociosas.
 
+**O que estamos fazendo e por que:** Agora criamos o Container App em si — a aplicacao que roda dentro do environment. Container Apps oferece HTTPS automatico, auto-scaling e gerenciamento de revisoes "de graca" (incluso na plataforma). Compare com ACI (Bloco 4): la voce tem um container simples; aqui voce tem uma plataforma completa de microservicos.
+
 1. Pesquise **Container Apps** > **+ Create**
 
 2. Aba **Basics**:
 
-   | Setting                    | Value                        |
-   | -------------------------- | ---------------------------- |
-   | Subscription               | *sua subscription*           |
-   | Resource group             | `rg-contoso-compute`                 |
-   | Container app name         | `ca-contoso-api`                 |
-   | Region                     | **East US**                  |
+   | Setting                    | Value                               |
+   | -------------------------- | ----------------------------------- |
+   | Subscription               | *sua subscription*                  |
+   | Resource group             | `rg-contoso-compute`                |
+   | Container app name         | `ca-contoso-api`                    |
+   | Region                     | **East US**                         |
    | Container Apps Environment | **cae-contoso-prod** (criado acima) |
 
 3. Aba **Container**:
@@ -113,6 +121,8 @@ O environment define a infraestrutura compartilhada onde os Container Apps execu
    | Image and tag         | `azuredocs/containerapps-helloworld:latest` |
    | CPU and Memory        | **0.25 CPU cores, 0.5 Gi memory**           |
 
+   > **CPU/Memory granular:** Container Apps permite alocacoes muito menores que ACI ou VMs. 0.25 CPU + 0.5 Gi e suficiente para apps leves e custa centavos por hora. Isso, combinado com scale-to-zero, torna Container Apps extremamente economico para workloads intermitentes.
+
 4. Em **Environment variables**, clique em **+ Add**:
 
    | Setting | Value                                            |
@@ -121,7 +131,7 @@ O environment define a infraestrutura compartilhada onde os Container Apps execu
    | Source  | **Manual entry**                                 |
    | Value   | *connection string do Storage Account (Bloco 1)* |
 
-   > **Conexao com Bloco 1:** A variavel de ambiente referencia o Storage Account, permitindo que a aplicacao acesse dados do Bloco 1. Em producao, use secrets ao inves de manual entry.
+   > **Conexao com Bloco 1:** A variavel de ambiente referencia o Storage Account, permitindo que a aplicacao acesse dados do Bloco 1. Em producao, use **Secrets** (Task 5.5) ao inves de manual entry para nao expor credenciais em texto plano na configuracao.
 
 5. Aba **Ingress**:
 
@@ -132,17 +142,21 @@ O environment define a infraestrutura compartilhada onde os Container Apps execu
    | Ingress type    | **HTTP**                            |
    | Target port     | `80`                                |
 
+   > **Ingress** controla como o trafego chega ao container. Disabled = nao acessivel externamente (apenas internamente no environment). External = acessivel pela internet. Internal = acessivel apenas dentro da VNet. O Container Apps cuida de TLS, certificado e load balancing automaticamente.
+
 6. Clique em **Review + create** > **Create**
 
 7. Apos o deploy, navegue para o Container App > **Overview**
 
 8. Copie a **Application Url** e acesse no navegador — voce deve ver a pagina de boas-vindas
 
-   > **Conceito:** Container Apps oferece HTTPS automatico, auto-scaling e gerenciamento de revisoes. A URL gerada inclui HTTPS com certificado gerenciado.
+   > **Conceito:** Container Apps oferece HTTPS automatico, auto-scaling e gerenciamento de revisoes. A URL gerada inclui HTTPS com certificado gerenciado — voce nao precisa configurar nada. Compare com ACI (Bloco 4), onde voce tem HTTP simples sem certificado.
 
 ---
 
 ### Task 5.3: Configurar Scaling e Revisions
+
+**O que estamos fazendo e por que:** O grande diferencial de Container Apps sobre ACI e o **auto-scaling inteligente**. Voce define regras (ex: "ate 10 requests simultaneos por replica") e o Container Apps cria/remove replicas automaticamente. O recurso mais poderoso e **scale-to-zero**: quando ninguem esta usando a app, nenhuma replica roda e voce paga zero. O primeiro request apos scale-to-zero tem latencia adicional (cold start).
 
 1. No Container App **ca-contoso-api**, navegue para **Application** > **Scale and replicas**
 
@@ -155,22 +169,28 @@ O environment define a infraestrutura compartilhada onde os Container Apps execu
    | Min replicas | `0`   |
    | Max replicas | `5`   |
 
+   > **Min replicas = 0** habilita scale-to-zero. Se voce precisa de resposta instantanea (sem cold start), defina min = 1 — mas pagara pela replica ociosa.
+
 4. Revise a regra de scaling padrao (**HTTP scaling**):
    - Concurrent requests per replica: `10` (cada replica lida com ate 10 requests simultaneos)
 
+   > **Como funciona:** Se chegam 25 requests simultaneos e cada replica suporta 10, o Container Apps cria 3 replicas (25/10 = 2.5, arredondado para 3). Se o trafego cai para 5 requests, reduz para 1 replica.
+
 5. Clique em **Create**
 
-   > **Conceito:** Container Apps pode escalar ate ZERO replicas quando nao ha trafego (scale-to-zero). Isso reduz custos drasticamente. O primeiro request apos scale-to-zero pode ter **cold start** (latencia adicional).
+   > **Conceito:** Container Apps pode escalar ate ZERO replicas quando nao ha trafego (scale-to-zero). Isso reduz custos drasticamente. O primeiro request apos scale-to-zero pode ter **cold start** (latencia adicional de 1-5 segundos). Para apps criticas, mantenha min = 1.
 
 6. Navegue para **Application** > **Revisions and replicas**
 
 7. Observe a revisao atual (ativa, com 100% do trafego)
 
-   > **Conceito:** Cada alteracao no Container App cria uma nova **Revision**. Voce pode ter multiplas revisoes ativas para canary deployments ou A/B testing.
+   > **Conceito:** Cada alteracao no Container App (imagem, env vars, scaling) cria uma nova **Revision**. Revisoes sao imutaveis — uma vez criadas, nao mudam. Voce pode ter multiplas revisoes ativas simultaneamente para canary deployments ou A/B testing.
 
 ---
 
 ### Task 5.4: Criar nova revisao (Blue/Green deployment)
+
+**O que estamos fazendo e por que:** Revisoes permitem o padrao blue/green deployment: voce cria uma nova versao (green) ao lado da existente (blue) e divide o trafego entre elas. Diferente do swap de slots do App Service (Bloco 3) que e tudo-ou-nada, aqui voce pode enviar 10%, 50% ou qualquer percentual para a nova versao. Se algo der errado, basta redirecionar 100% de volta.
 
 1. Navegue para **Revisions and replicas** > **+ Create new revision**
 
@@ -192,17 +212,21 @@ O environment define a infraestrutura compartilhada onde os Container Apps execu
    - Revisao v1: `50%`
    - Revisao v2: `50%`
 
+   > **Traffic split** funciona no nivel do ingress — o load balancer distribui as requisicoes conforme os percentuais. Cada requisicao vai inteira para uma revisao (nao e round-robin por pacote). Com 50/50, metade dos usuarios ve v1 e metade ve v2.
+
 6. Clique em **Save**
 
 7. Acesse a URL da aplicacao varias vezes — voce pode observar respostas de diferentes revisoes
 
-   > **Conceito:** Traffic splitting permite canary deployments e A/B testing. Voce pode gradualmente migrar trafego para a nova revisao (ex: 10%, 25%, 50%, 100%) e reverter se necessario.
+   > **Conceito:** Traffic splitting permite canary deployments e A/B testing. Voce pode gradualmente migrar trafego para a nova revisao (ex: 10%, 25%, 50%, 100%) e reverter se necessario. Cada revisao pode ter configuracoes de scaling independentes.
 
-   > **Conexao com Bloco 3:** Compare com deployment slots do App Service (Bloco 3). Container Apps usa revisoes para o mesmo proposito, mas com mais granularidade no traffic split.
+   > **Conexao com Bloco 3:** Compare com deployment slots do App Service (Bloco 3). Container Apps usa revisoes para o mesmo proposito, mas com mais granularidade no traffic split (qualquer percentual vs tudo-ou-nada no swap).
 
 ---
 
 ### Task 5.5: Explorar Features do Container Apps (Secrets, Logs, Metrics)
+
+**O que estamos fazendo e por que:** Em producao, credenciais nunca devem ficar em texto plano nas environment variables. Container Apps tem um sistema de **Secrets** que armazena valores de forma segura e os injeta nos containers. Alem disso, logs e metricas sao essenciais para monitorar a saude da aplicacao e entender padroes de trafego.
 
 1. Navegue para **Settings** > **Secrets**
 
@@ -216,7 +240,7 @@ O environment define a infraestrutura compartilhada onde os Container Apps execu
 
 3. Clique em **Add**
 
-   > **Conceito:** Secrets sao armazenados de forma segura no Container Apps Environment. Eles podem ser referenciados como environment variables nos containers, evitando hardcode de credenciais.
+   > **Conceito:** Secrets sao armazenados de forma segura no Container Apps Environment — criptografados em repouso e nunca expostos em logs. Eles podem ser referenciados como environment variables nos containers, substituindo valores em texto plano. Para integracao com Key Vault, use "Key Vault reference" como tipo.
 
 4. Navegue para **Monitoring** > **Log stream**
 
@@ -229,20 +253,30 @@ O environment define a infraestrutura compartilhada onde os Container Apps execu
    - **Replica Count** (numero de replicas ativas)
    - **CPU Usage** e **Memory Usage**
 
+   > **Replica Count** e a metrica mais importante para validar se o auto-scaling esta funcionando. Se voce espera 3 replicas mas ve apenas 1, verifique as regras de scaling e o trafego.
+
 8. Navegue para **Application** > **Containers**:
    - Revise a configuracao do container
    - Note os resource limits (CPU/Memory)
 
    > **Conceito:** Container Apps integra com Azure Monitor para metricas e logs. Em cenarios de producao, use Log Analytics workspace para consultas avancadas (KQL).
 
-   > **Dica AZ-104:** Na prova, compare: ACI = containers simples (sem scaling avancado); Container Apps = serverless com auto-scale, revisions, HTTPS automatico; AKS = controle total do Kubernetes.
+   > **Dica AZ-104:** Na prova, compare os tres servicos de containers:
+
+   | Feature                | ACI   | Container Apps   | AKS                  |
+   | ---------------------- | ----- | ---------------- | -------------------- |
+   | Auto-scale             | Nao   | Sim (HTTP, KEDA) | Sim (HPA)            |
+   | Scale-to-zero          | Nao   | Sim              | Nao (minimo 1 node)  |
+   | HTTPS automatico       | Nao   | Sim              | Manual (Ingress)     |
+   | Revisoes/traffic split | Nao   | Sim              | Manual (Helm, Istio) |
+   | Complexidade           | Baixa | Media            | Alta                 |
 
 ---
 
 ## Modo Desafio - Bloco 5
 
 - [ ] Criar Container Apps Environment `cae-contoso-prod` no rg-contoso-compute
-- [ ] **Integracao Semana 1:** Configurar VNet Integration com vnet-contoso-hub-eastus (subnet dedicada /23)
+- [ ] **Integracao Semana 1:** Configurar VNet Integration com vnet-contoso-hub (subnet dedicada /23)
 - [ ] Criar Container App `ca-contoso-api` com imagem `containerapps-helloworld`
 - [ ] **Integracao Bloco 1:** Adicionar env var com connection string do Storage Account
 - [ ] Acessar Application URL e confirmar resposta

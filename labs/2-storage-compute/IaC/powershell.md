@@ -105,29 +105,29 @@ $containerAppName = "ca-contoso-api"
 ```
 Bloco 1 (Storage)
   │
-  ├─ Storage Account ($storageAccountName) ─────────────┐
+  ├─ Storage Account ($storageAccountName) ──────────────┐
   │    ├─ Blob container (contoso-data)                  │
   │    ├─ File share (contoso-files)                     │
   │    ├─ SAS Token (acesso temporario)                  │
   │    ├─ Lifecycle Policy (mover p/ Cool/Archive)       │
-  │    ├─ Service Endpoint (acesso restrito via VNet)     │
+  │    ├─ Service Endpoint (acesso restrito via VNet)    │
   │    ├─ Private Endpoint + DNS Zone                    │
   │    └─ Firewall rules (rede restrita)                 │
   │                                                      │
   │                                                      ▼
-Bloco 2 (VMs) ◄──── File Share montado na VM ───────────┘
+Bloco 2 (VMs) ◄──── File Share montado na VM ────────────┘
   │
-  ├─ Windows VM (vm-web-01) ──────────────────────────┐
+  ├─ Windows VM (vm-web-01) ─────────────────────────────┐
   │    ├─ Availability Zone 1                            │
   │    ├─ Data Disk (64GB)                               │
   │    └─ Custom Script Extension (IIS)                  │
-  ├─ Linux VM (vm-api-01)                           │
+  ├─ Linux VM (vm-api-01)                                │
   │    └─ SSH key authentication                         │
-  ├─ VM Resize (Standard_D2s_v3 → Standard_D4s_v3)      │
-  └─ VMSS (vmss-contoso-web) com autoscale                    │
+  ├─ VM Resize (Standard_D2s_v3 → Standard_D4s_v3)       │
+  └─ VMSS (vmss-contoso-web) com autoscale               │
                                                          │
                                                          ▼
-Bloco 3 (Web Apps) ◄──── Alternativa PaaS a VMs ────────┘
+Bloco 3 (Web Apps) ◄──── Alternativa PaaS a VMs ─────────┘
   │
   ├─ App Service Plan (asp-contoso-prod, S1)
   ├─ Web App (app-contoso-web-XXXX)
@@ -517,7 +517,7 @@ $subnetConfig = New-AzVirtualNetworkSubnetConfig `
 
 $vnet = New-AzVirtualNetwork `
     -ResourceGroupName $rg6 `
-    -Name "vnet-contoso-hub-eastus" `
+    -Name "vnet-contoso-hub" `
     -Location $location `
     -AddressPrefix "10.0.0.0/16" `
     -Subnet $subnetConfig
@@ -591,7 +591,7 @@ Write-Host "  Definicao: allow-contoso-storage"
 Write-Host "  Recurso permitido: $storageId"
 
 # Associar a policy a subnet que tem Service Endpoint habilitado
-$vnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub-eastus" -ResourceGroupName $rg6
+$vnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub" -ResourceGroupName $rg6
 $subnet = Get-AzVirtualNetworkSubnetConfig -Name "default" -VirtualNetwork $vnet
 $subnet.ServiceEndpointPolicies = @($policy)
 Set-AzVirtualNetwork -VirtualNetwork $vnet
@@ -620,7 +620,7 @@ Write-Host "Policy associada a subnet 'default'"
 
 # Criar subnet dedicada para Private Endpoints
 # Private Endpoints precisam de subnet propria (boa pratica)
-$vnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub-eastus" -ResourceGroupName $rg6
+$vnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub" -ResourceGroupName $rg6
 
 Add-AzVirtualNetworkSubnetConfig `
     -Name "private-endpoints" `
@@ -629,7 +629,7 @@ Add-AzVirtualNetworkSubnetConfig `
 
 # Aplicar a mudanca na VNet (padrao PowerShell: Set-Az* para persistir)
 $vnet | Set-AzVirtualNetwork
-$vnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub-eastus" -ResourceGroupName $rg6
+$vnet = Get-AzVirtualNetwork -Name "vnet-contoso-hub" -ResourceGroupName $rg6
 
 Write-Host "Subnet 'private-endpoints' criada"
 
@@ -682,7 +682,7 @@ New-AzPrivateDnsVirtualNetworkLink `
     -VirtualNetworkId $vnet.Id `
     -EnableRegistration:$false
 
-Write-Host "DNS Zone vinculada a VNet vnet-contoso-hub-eastus"
+Write-Host "DNS Zone vinculada a VNet vnet-contoso-hub"
 
 # Criar registro DNS para o Private Endpoint
 # Mapeia: storageaccount.privatelink.blob.core.windows.net → IP privado
@@ -920,7 +920,7 @@ $subnetVm = New-AzVirtualNetworkSubnetConfig `
 
 $vnetVm = New-AzVirtualNetwork `
     -ResourceGroupName $rg7 `
-    -Name "vnet-contoso-hub-eastus" `
+    -Name "vnet-contoso-hub" `
     -Location $location `
     -AddressPrefix "10.1.0.0/16" `
     -Subnet $subnetVm
@@ -1057,7 +1057,7 @@ $nsgLinux = New-AzNetworkSecurityGroup `
 
 # Criar NIC para VM Linux
 # Reutilizando a mesma VNet do Bloco 2
-$vnetVm = Get-AzVirtualNetwork -Name "vnet-contoso-hub-eastus" -ResourceGroupName $rg7
+$vnetVm = Get-AzVirtualNetwork -Name "vnet-contoso-hub" -ResourceGroupName $rg7
 $subnetRef = Get-AzVirtualNetworkSubnetConfig -Name "vm-subnet" -VirtualNetwork $vnetVm
 
 $nicLinux = New-AzNetworkInterface `
@@ -1329,7 +1329,7 @@ $securePassword = ConvertTo-SecureString $AdminPassword -AsPlainText -Force
 $cred = New-Object System.Management.Automation.PSCredential("localadmin", $securePassword)
 
 # Referenciar subnet existente
-$vnet = Get-AzVirtualNetwork -Name "vnet-contoso-spoke-eastus" -ResourceGroupName "rg-contoso-network"
+$vnet = Get-AzVirtualNetwork -Name "vnet-contoso-spoke" -ResourceGroupName "rg-contoso-network"
 $subnet = $vnet.Subnets | Where-Object { $_.Name -eq "Manufacturing" }
 
 # Criar PIP
@@ -1404,13 +1404,13 @@ Invoke-AzVMRunCommand `
 # Diferente de VMs individuais, o VMSS gerencia o ciclo de vida
 
 # Criar subnet dedicada para o VMSS
-$vnetVm = Get-AzVirtualNetwork -Name "vnet-contoso-hub-eastus" -ResourceGroupName $rg7
+$vnetVm = Get-AzVirtualNetwork -Name "vnet-contoso-hub" -ResourceGroupName $rg7
 Add-AzVirtualNetworkSubnetConfig `
     -Name "vmss-subnet" `
     -AddressPrefix "10.1.1.0/24" `
     -VirtualNetwork $vnetVm
 $vnetVm | Set-AzVirtualNetwork
-$vnetVm = Get-AzVirtualNetwork -Name "vnet-contoso-hub-eastus" -ResourceGroupName $rg7
+$vnetVm = Get-AzVirtualNetwork -Name "vnet-contoso-hub" -ResourceGroupName $rg7
 
 # Criar Load Balancer para o VMSS
 $lbPublicIp = New-AzPublicIpAddress `
@@ -3318,7 +3318,7 @@ Write-Host "Verifique .zip no container webapp-backups de $storage1Name"
 # Requer subnet dedicada (/28 minimo)
 
 $vnetRg = "rg-contoso-network"
-$vnetName = "vnet-contoso-hub-eastus"
+$vnetName = "vnet-contoso-hub"
 
 # 1. Criar subnet dedicada (delegada ao App Service)
 $vnet = Get-AzVirtualNetwork -ResourceGroupName $vnetRg -Name $vnetName -ErrorAction SilentlyContinue
@@ -3364,7 +3364,7 @@ Write-Host "`nO App Service pode acessar Private Endpoints e VMs na VNet"
 - [ ] Explorar Custom Domain no App Service — CNAME + TXT verification
 - [ ] Configurar HTTPS Only + TLS 1.2 com `Set-AzWebApp`
 - [ ] Configurar backup com schedule diario para Storage Account **(Bloco 1)**
-- [ ] Configurar VNet Integration com vnet-contoso-hub-eastus **(Semana 1)**
+- [ ] Configurar VNet Integration com vnet-contoso-hub **(Semana 1)**
 
 ---
 
@@ -3578,39 +3578,39 @@ Write-Host "  - $rg10 (Container Apps Environment, Container App)"
 
 ## Resumo de Cmdlets por Categoria
 
-| Categoria | Cmdlet principal | Modulo |
-|-----------|-----------------|--------|
-| Storage Account | `New-AzStorageAccount` | Az |
-| Blob Container | `New-AzStorageContainer` | Az |
-| Blob Upload | `Set-AzStorageBlobContent` | Az |
-| File Share | `New-AzRmStorageShare` | Az |
-| SAS Token (Account) | `New-AzStorageAccountSASToken` | Az |
-| SAS Token (Blob) | `New-AzStorageBlobSASToken` | Az |
-| Lifecycle | `Set-AzStorageAccountManagementPolicy` | Az |
-| Versioning/ChangeFeed | `Update-AzStorageBlobServiceProperty` | Az |
-| Private Endpoint | `New-AzPrivateEndpoint` | Az |
-| Private DNS | `New-AzPrivateDnsZone` + `New-AzPrivateDnsVirtualNetworkLink` | Az |
-| Network Rules | `Update-AzStorageAccountNetworkRuleSet` | Az |
-| Key Vault | `New-AzKeyVault` | Az |
-| Key Vault Keys | `Add-AzKeyVaultKey` | Az |
-| Key Vault RBAC | `New-AzRoleAssignment` | Az |
-| VM | `New-AzVMConfig` + `New-AzVM` | Az |
-| VM Disk | `New-AzDiskConfig` + `New-AzDisk` + `Add-AzVMDataDisk` | Az |
-| VM Disk Encryption | `Get-AzVMDiskEncryptionStatus` / `az vm encryption enable` | Az / CLI |
-| VM Extension | `Set-AzVMCustomScriptExtension` | Az |
-| VMSS | `New-AzVmssConfig` + `New-AzVmss` | Az |
-| Autoscale | `New-AzAutoscaleSettingV2` | Az |
-| App Service Plan | `New-AzAppServicePlan` | Az |
-| Web App | `New-AzWebApp` | Az |
-| Web App TLS | `Set-AzWebApp -HttpsOnly -MinTlsVersion` | Az |
-| Web App Backup | `az webapp config backup` | az CLI |
-| Web App VNet | `az webapp vnet-integration add` | az CLI |
-| Deployment Slot | `New-AzWebAppSlot` + `Switch-AzWebAppSlot` | Az |
-| ACR | `New-AzContainerRegistry` | Az |
-| ACR Build | `az acr build` | az CLI |
-| ACI | `New-AzContainerGroup` | Az |
-| ACI from ACR | `New-AzContainerGroup -RegistryCredential` | Az |
-| ACI Logs | `Get-AzContainerInstanceLog` | Az |
-| Container Apps | `az containerapp` | az CLI |
-| Container Apps Env | `az containerapp env` | az CLI |
-| Traffic Split | `az containerapp ingress traffic set` | az CLI |
+| Categoria             | Cmdlet principal                                              | Modulo   |
+| --------------------- | ------------------------------------------------------------- | -------- |
+| Storage Account       | `New-AzStorageAccount`                                        | Az       |
+| Blob Container        | `New-AzStorageContainer`                                      | Az       |
+| Blob Upload           | `Set-AzStorageBlobContent`                                    | Az       |
+| File Share            | `New-AzRmStorageShare`                                        | Az       |
+| SAS Token (Account)   | `New-AzStorageAccountSASToken`                                | Az       |
+| SAS Token (Blob)      | `New-AzStorageBlobSASToken`                                   | Az       |
+| Lifecycle             | `Set-AzStorageAccountManagementPolicy`                        | Az       |
+| Versioning/ChangeFeed | `Update-AzStorageBlobServiceProperty`                         | Az       |
+| Private Endpoint      | `New-AzPrivateEndpoint`                                       | Az       |
+| Private DNS           | `New-AzPrivateDnsZone` + `New-AzPrivateDnsVirtualNetworkLink` | Az       |
+| Network Rules         | `Update-AzStorageAccountNetworkRuleSet`                       | Az       |
+| Key Vault             | `New-AzKeyVault`                                              | Az       |
+| Key Vault Keys        | `Add-AzKeyVaultKey`                                           | Az       |
+| Key Vault RBAC        | `New-AzRoleAssignment`                                        | Az       |
+| VM                    | `New-AzVMConfig` + `New-AzVM`                                 | Az       |
+| VM Disk               | `New-AzDiskConfig` + `New-AzDisk` + `Add-AzVMDataDisk`        | Az       |
+| VM Disk Encryption    | `Get-AzVMDiskEncryptionStatus` / `az vm encryption enable`    | Az / CLI |
+| VM Extension          | `Set-AzVMCustomScriptExtension`                               | Az       |
+| VMSS                  | `New-AzVmssConfig` + `New-AzVmss`                             | Az       |
+| Autoscale             | `New-AzAutoscaleSettingV2`                                    | Az       |
+| App Service Plan      | `New-AzAppServicePlan`                                        | Az       |
+| Web App               | `New-AzWebApp`                                                | Az       |
+| Web App TLS           | `Set-AzWebApp -HttpsOnly -MinTlsVersion`                      | Az       |
+| Web App Backup        | `az webapp config backup`                                     | az CLI   |
+| Web App VNet          | `az webapp vnet-integration add`                              | az CLI   |
+| Deployment Slot       | `New-AzWebAppSlot` + `Switch-AzWebAppSlot`                    | Az       |
+| ACR                   | `New-AzContainerRegistry`                                     | Az       |
+| ACR Build             | `az acr build`                                                | az CLI   |
+| ACI                   | `New-AzContainerGroup`                                        | Az       |
+| ACI from ACR          | `New-AzContainerGroup -RegistryCredential`                    | Az       |
+| ACI Logs              | `Get-AzContainerInstanceLog`                                  | Az       |
+| Container Apps        | `az containerapp`                                             | az CLI   |
+| Container Apps Env    | `az containerapp env`                                         | az CLI   |
+| Traffic Split         | `az containerapp ingress traffic set`                         | az CLI   |

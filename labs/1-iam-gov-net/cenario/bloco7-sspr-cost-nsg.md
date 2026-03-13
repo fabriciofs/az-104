@@ -12,53 +12,57 @@ Com toda a infraestrutura da Contoso Corp operacional (identidade, governanca, r
 ## Diagrama
 
 ```
-┌────────────────────────────────────────────────────────────────────┐
-│                     Entra ID (Tenant)                              │
-│                                                                    │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │  SSPR Configuration                                          │  │
-│  │  • Enabled for: Security Group "SSPR-TestGroup"              │  │
-│  │  • Methods: Email + Security Questions                       │  │
-│  │  • Required methods: 1                                       │  │
-│  │  • Registration: Required on next login                      │  │
-│  │                                                              │  │
-│  │  Users: contoso-user1 (do Bloco 1)                             │  │
-│  └──────────────────────────────────────────────────────────────┘  │
-│                                                                    │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │  Subscription Level                                          │  │
-│  │                                                              │  │
-│  │  ┌────────────────────┐  ┌─────────────────────────────┐     │  │
-│  │  │ Cost Management    │  │ Azure Advisor               │     │  │
-│  │  │ • Budget: $50/mes  │  │ • Cost recommendations      │     │  │
-│  │  │ • Alert: 80%       │  │ • Security recommendations  │     │  │
-│  │  │ • Alert: 100%      │  │ • Reliability               │     │  │
-│  │  └────────────────────┘  └─────────────────────────────┘     │  │
-│  └──────────────────────────────────────────────────────────────┘  │
-│                                                                    │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │  Network Watcher                                             │  │
-│  │  • Effective Security Rules: NSGs em vm-lb-01 (Bloco 6)        │  │
-│  │  • IP Flow Verify: testar trafego permitido/bloqueado        │  │
-│  └──────────────────────────────────────────────────────────────┘  │
-└────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                     Entra ID (Tenant)                           │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  SSPR Configuration                                       │  │
+│  │  • Enabled for: Security Group "SSPR-TestGroup"           │  │
+│  │  • Methods: Email + Security Questions                    │  │
+│  │  • Required methods: 1                                    │  │
+│  │  • Registration: Required on next login                   │  │
+│  │                                                           │  │
+│  │  Users: contoso-user1 (do Bloco 1)                        │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  Subscription Level                                       │  │
+│  │                                                           │  │
+│  │  ┌────────────────────┐  ┌─────────────────────────────┐  │  │
+│  │  │ Cost Management    │  │ Azure Advisor               │  │  │
+│  │  │ • Budget: $50/mes  │  │ • Cost recommendations      │  │  │
+│  │  │ • Alert: 80%       │  │ • Security recommendations  │  │  │
+│  │  │ • Alert: 100%      │  │ • Reliability               │  │  │
+│  │  └────────────────────┘  └─────────────────────────────┘  │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  Network Watcher                                          │  │
+│  │  • Effective Security Rules: NSGs em vm-lb-01 (Bloco 6)   │  │
+│  │  • IP Flow Verify: testar trafego permitido/bloqueado     │  │
+│  └───────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ### Task 7.1: Configurar SSPR para grupo de teste
 
-O Self-Service Password Reset permite que usuarios resetem suas proprias senhas sem contatar o helpdesk. Voce configura para um grupo de teste usando os usuarios do Bloco 1.
+**O que e SSPR?** Self-Service Password Reset permite que usuarios resetem suas proprias senhas sem contatar o helpdesk. Em empresas grandes, "esqueci minha senha" e o ticket mais comum de suporte — SSPR elimina essa demanda completamente.
+
+**Por que habilitamos para um grupo e nao para todos?** Em producao, o ideal e "All". Mas para testes, usar "Selected" com um grupo especifico evita impactar usuarios que ainda nao foram treinados no fluxo de reset.
+
+**Analogia:** E como instalar um terminal de autoatendimento no banco. Em vez de ir ao caixa para trocar a senha do cartao, voce faz sozinho no terminal — desde que tenha seus documentos (metodos de autenticacao) em dia.
 
 **Criar grupo de teste para SSPR:**
 
 1. Pesquise **Microsoft Entra ID** > **Groups** > **New group**:
 
-   | Setting    | Value                        |
-   | ---------- | ---------------------------- |
-   | Group type | **Security**                 |
-   | Group name | `SSPR-TestGroup`             |
-   | Membership | **Assigned**                 |
+   | Setting    | Value                          |
+   | ---------- | ------------------------------ |
+   | Group type | **Security**                   |
+   | Group name | `SSPR-TestGroup`               |
+   | Membership | **Assigned**                   |
    | Members    | **contoso-user1** (do Bloco 1) |
 
 2. Clique em **Create**
@@ -83,6 +87,10 @@ O Self-Service Password Reset permite que usuarios resetem suas proprias senhas 
 ---
 
 ### Task 7.2: Configurar metodos de autenticacao
+
+**O que estamos configurando:** Os metodos que o usuario precisa fornecer para provar sua identidade antes de resetar a senha. Quanto mais metodos requeridos, mais seguro — mas tambem mais atrito para o usuario.
+
+> **Conceito:** "Number of methods required" define quantos metodos o usuario precisa fornecer durante o reset (1 ou 2). Com 1, basta confirmar o email OU responder perguntas de seguranca. Com 2, precisa de AMBOS. Na prova, lembre que Security Questions nao podem ser o unico metodo — sempre precisa ter pelo menos email ou telefone habilitado junto.
 
 1. Em **Password reset** > **Authentication methods**:
 
@@ -109,6 +117,8 @@ O Self-Service Password Reset permite que usuarios resetem suas proprias senhas 
    | Require users to register when signing in           | **Yes** |
    | Number of days before users are asked to re-confirm | `90`    |
 
+   > **"Require users to register" = Yes** forca o usuario a cadastrar seus metodos de autenticacao no proximo login. Sem isso, o usuario nunca registra e nao consegue usar SSPR quando precisar. O campo "90 days" faz o Azure pedir reconfirmacao a cada 90 dias para garantir que email/telefone ainda estao atualizados.
+
 6. Clique em **Save**
 
 7. Em **Notifications**:
@@ -127,6 +137,8 @@ O Self-Service Password Reset permite que usuarios resetem suas proprias senhas 
 ---
 
 ### Task 7.3: Testar fluxo de reset de senha
+
+**O que estamos fazendo:** Simulando o fluxo completo que um usuario final percorre para resetar sua senha. Primeiro, o registro dos metodos de autenticacao (uma unica vez). Depois, o reset propriamente dito. Usamos janela InPrivate para simular um login "limpo", como se fossemos o usuario.
 
 1. Abra uma janela **InPrivate/Incognito**
 
@@ -158,18 +170,24 @@ O Self-Service Password Reset permite que usuarios resetem suas proprias senhas 
 
 ### Task 7.4: Criar Budget e alertas no Cost Management
 
+**O que e Budget no Azure?** E um limite financeiro que voce define para monitorar gastos. O Budget NAO impede gastos — ele apenas envia alertas quando os thresholds sao atingidos. Pense nele como um "alarme de gastos", nao como um "bloqueio de gastos".
+
+**Por que $50?** E um valor baixo o suficiente para ser atingido durante os labs, permitindo que voce veja os alertas funcionando na pratica.
+
+> **Conceito:** Existem dois tipos de alerta: **Actual** (gasto real atingiu X%) e **Forecasted** (projecao indica que vai atingir X% no final do periodo). Forecasted e mais util para agir preventivamente — voce recebe o alerta antes de estourar o budget.
+
 1. Pesquise **Cost Management + Billing** > **Cost Management** > **Budgets**
 
 2. Clique em **+ Add**:
 
-   | Setting         | Value              |
-   | --------------- | ------------------ |
-   | Scope           | *sua subscription* |
+   | Setting         | Value                |
+   | --------------- | -------------------- |
+   | Scope           | *sua subscription*   |
    | Name            | `budget-contoso-lab` |
-   | Reset period    | **Monthly**        |
-   | Creation date   | *data atual*       |
-   | Expiration date | *6 meses a frente* |
-   | Budget amount   | `50` (USD)         |
+   | Reset period    | **Monthly**          |
+   | Creation date   | *data atual*         |
+   | Expiration date | *6 meses a frente*   |
+   | Budget amount   | `50` (USD)           |
 
 3. Clique em **Next**
 
@@ -195,7 +213,9 @@ O Self-Service Password Reset permite que usuarios resetem suas proprias senhas 
 
 ### Task 7.4b: Configurar enforcement automatico com Action Group
 
-Voce conecta um alerta de budget a um Action Group para automatizar acoes quando o limite e atingido.
+**O que e um Action Group?** E um conjunto de acoes automaticas que o Azure executa quando um alerta e disparado. Pode enviar email, SMS, chamar webhook, executar Automation Runbook, Logic App, etc. Ao conectar um Action Group a um alerta de budget, voce transforma uma "notificacao passiva" em uma "reacao automatica".
+
+**Analogia:** O Budget e o sensor de fumaca. O Action Group e o sistema de sprinklers. O sensor detecta, o sprinkler reage.
 
 1. Navegue para **Cost Management** > **Budgets** > clique no budget criado na Task 7.4
 
@@ -205,17 +225,17 @@ Voce conecta um alerta de budget a um Action Group para automatizar acoes quando
 
 4. Em **Action group**, clique em **Manage action groups** > **Create action group**:
 
-   | Setting        | Value                                   |
-   | -------------- | --------------------------------------- |
-   | Resource group | **rg-contoso-identity**                 |
-   | Action group name | `ag-budget-alert`                    |
-   | Display name   | `BudgetAlert`                           |
+   | Setting           | Value                   |
+   | ----------------- | ----------------------- |
+   | Resource group    | **rg-contoso-identity** |
+   | Action group name | `ag-budget-alert`       |
+   | Display name      | `BudgetAlert`           |
 
 5. Na aba **Notifications**:
 
-   | Notification type | Name             | Value          |
-   | ----------------- | ---------------- | -------------- |
-   | Email/SMS/Push    | `NotifyAdmin`    | *seu email*    |
+   | Notification type | Name          | Value       |
+   | ----------------- | ------------- | ----------- |
+   | Email/SMS/Push    | `NotifyAdmin` | *seu email* |
 
 6. Clique em **Review + create** > **Create**
 
@@ -235,6 +255,10 @@ Voce conecta um alerta de budget a um Action Group para automatizar acoes quando
 ---
 
 ### Task 7.5: Revisar Azure Advisor e criar alerta de recomendacao
+
+**O que e Azure Advisor?** E um consultor automatico que analisa sua infraestrutura e sugere melhorias em 5 categorias: custo, seguranca, confiabilidade, excelencia operacional e performance. Ele examina padroes de uso reais — por exemplo, se uma VM esta usando 5% da CPU, ele sugere reduzir o tamanho.
+
+**Diferenca entre Advisor, Budgets e Policy:** Advisor **recomenda** (consultivo), Budgets **alertam** (notificacao), Policy **impoe** (enforcement). Na prova, saber qual ferramenta usar para cada cenario e fundamental.
 
 1. Pesquise **Advisor** no portal
 
@@ -259,7 +283,7 @@ Voce conecta um alerta de budget a um Action Group para automatizar acoes quando
    | Scope           | *sua subscription*              |
    | Category        | **Cost**                        |
    | Impact          | **High**                        |
-   | Alert rule name | `alert-advisor-cost`      |
+   | Alert rule name | `alert-advisor-cost`            |
    | Action Group    | *nenhum (ou crie um com email)* |
 
 6. Clique em **Create alert rule**
@@ -272,18 +296,22 @@ Voce conecta um alerta de budget a um Action Group para automatizar acoes quando
 
 ### Task 7.6: Avaliar regras de seguranca efetivas via Network Watcher
 
-O Network Watcher permite visualizar as regras NSG efetivas aplicadas a uma NIC de VM, combinando todas as regras de NSGs associados a subnet e a NIC.
+**O que estamos fazendo:** Usando o Network Watcher para ver TODAS as regras de seguranca que realmente se aplicam a uma VM. Isso e crucial para troubleshooting porque uma VM pode ter NSGs na subnet E na NIC, e as regras se combinam de forma nao obvia.
+
+**Por que "Effective"?** Porque uma VM pode ter regras vindas de multiplas fontes (NSG da subnet + NSG da NIC + regras default). "Effective" mostra o resultado final — o que realmente vai ser permitido ou bloqueado.
+
+**Analogia:** E como ver o "extrato consolidado" de todas as suas contas bancarias em vez de olhar cada conta separadamente.
 
 1. Pesquise **Network Watcher** > **Effective security rules** (em Network diagnostic tools)
 
 2. Selecione:
 
-   | Setting           | Value              |
-   | ----------------- | ------------------ |
-   | Subscription      | *sua subscription* |
-   | Resource group    | `rg-contoso-network`      |
+   | Setting           | Value                |
+   | ----------------- | -------------------- |
+   | Subscription      | *sua subscription*   |
+   | Resource group    | `rg-contoso-network` |
    | Virtual machine   | **vm-lb-01**         |
-   | Network interface | *selecione a NIC*  |
+   | Network interface | *selecione a NIC*    |
 
 3. Clique em **View effective security rules**
 
@@ -292,20 +320,22 @@ O Network Watcher permite visualizar as regras NSG efetivas aplicadas a uma NIC 
    - Note as **regras padrao** (AllowVNetInBound, AllowAzureLoadBalancerInBound, DenyAllInBound)
    - Identifique a ordem de avaliacao (menor priority = avaliada primeiro)
 
-5. Agora teste com **IP Flow Verify**. Navegue para **Network Watcher** > **IP flow verify**:
+5. Agora teste com **IP Flow Verify**. Esta ferramenta responde a pergunta: "se um pacote com estas caracteristicas chegasse nesta VM, ele seria permitido ou bloqueado, e por qual regra?"
+
+   > **Conceito:** A diferenca entre Effective Security Rules e IP Flow Verify: Effective mostra TODAS as regras aplicadas. IP Flow Verify testa UM pacote especifico e diz qual regra decide o destino dele. Use Effective para visao geral, IP Flow Verify para diagnostico pontual.
 
    **Teste 1 — HTTP deve ser permitido:**
 
-   | Setting     | Value                  |
-   | ----------- | ---------------------- |
+   | Setting     | Value                    |
+   | ----------- | ------------------------ |
    | VM          | **vm-lb-01**             |
-   | NIC         | *selecione a NIC*      |
-   | Protocol    | **TCP**                |
-   | Direction   | **Inbound**            |
+   | NIC         | *selecione a NIC*        |
+   | Protocol    | **TCP**                  |
+   | Direction   | **Inbound**              |
    | Local IP    | *IP privado da vm-lb-01* |
-   | Local port  | `80`                   |
-   | Remote IP   | `10.0.0.1`             |
-   | Remote port | `12345`                |
+   | Local port  | `80`                     |
+   | Remote IP   | `10.0.0.1`               |
+   | Remote port | `12345`                  |
 
 6. Resultado esperado: **Access allowed** — regra `AllowHTTP` (priority 100)
 
@@ -317,8 +347,8 @@ O Network Watcher permite visualizar as regras NSG efetivas aplicadas a uma NIC 
 
 9. Agora compare com uma VM **sem NSG na subnet**. Navegue para **Network Watcher** > **Effective security rules**:
 
-   | Setting         | Value                                       |
-   | --------------- | ------------------------------------------- |
+   | Setting         | Value                                  |
+   | --------------- | -------------------------------------- |
    | Virtual machine | **vm-web-01** (Bloco 5, se disponivel) |
 
 10. Note que as regras efetivas sao apenas as **default rules** (sem regras customizadas)
@@ -331,28 +361,30 @@ O Network Watcher permite visualizar as regras NSG efetivas aplicadas a uma NIC 
 
 ### Task 7.6b: Testar ordem de avaliacao NSG (subnet vs NIC)
 
-Voce demonstra como o Azure avalia NSGs em camadas: para trafego **inbound**, primeiro o NSG da subnet, depois o NSG da NIC. Ambos precisam permitir.
+**O que estamos demonstrando:** Que quando existem NSGs em DUAS camadas (subnet e NIC), ambos precisam permitir o trafego. Se qualquer um negar, o pacote e bloqueado. Isso e um dos conceitos mais cobrados no AZ-104.
+
+**Analogia:** Pense em dois segurancias na entrada de um show. O primeiro (NSG da subnet) verifica seu ingresso. Se passar, o segundo (NSG da NIC) verifica sua identidade. Se qualquer um dos dois barrar voce, voce nao entra.
 
 1. Navegue para **Network security groups** > **Create**:
 
-   | Setting        | Value                                   |
-   | -------------- | --------------------------------------- |
-   | Name           | `nsg-nic-vm-web-01`                          |
-   | Resource group | **rg-contoso-network**                           |
-   | Region         | *(mesma regiao das VMs do Bloco 6)*     |
+   | Setting        | Value                               |
+   | -------------- | ----------------------------------- |
+   | Name           | `nsg-nic-vm-web-01`                 |
+   | Resource group | **rg-contoso-network**              |
+   | Region         | *(mesma regiao das VMs do Bloco 6)* |
 
 2. Clique em **Create**
 
 3. Navegue para **nsg-nic-vm-web-01** > **Settings** > **Inbound security rules** > **Add**:
 
-   | Setting             | Value              |
-   | ------------------- | ------------------ |
-   | Source              | **Any**            |
-   | Destination         | **Any**            |
-   | Service             | **HTTP**           |
-   | Action              | **Deny**           |
-   | Priority            | `100`              |
-   | Name                | `DenyHTTPInbound`  |
+   | Setting     | Value             |
+   | ----------- | ----------------- |
+   | Source      | **Any**           |
+   | Destination | **Any**           |
+   | Service     | **HTTP**          |
+   | Action      | **Deny**          |
+   | Priority    | `100`             |
+   | Name        | `DenyHTTPInbound` |
 
 4. Clique em **Add**
 
@@ -362,23 +394,23 @@ Voce demonstra como o Azure avalia NSGs em camadas: para trafego **inbound**, pr
 
 7. Navegue para **Network Watcher** > **IP flow verify**:
 
-   | Setting          | Value                  |
-   | ---------------- | ---------------------- |
-   | Virtual machine  | **vm-lb-01**             |
-   | Direction        | **Inbound**            |
-   | Protocol         | **TCP**                |
-   | Local port       | `80`                   |
-   | Remote IP        | `10.0.0.1`             |
-   | Remote port      | `12345`                |
+   | Setting         | Value        |
+   | --------------- | ------------ |
+   | Virtual machine | **vm-lb-01** |
+   | Direction       | **Inbound**  |
+   | Protocol        | **TCP**      |
+   | Local port      | `80`         |
+   | Remote IP       | `10.0.0.1`   |
+   | Remote port     | `12345`      |
 
 8. **Resultado esperado:** `Access denied` — a regra `DenyHTTPInbound` do NSG da NIC bloqueia
 
 9. Entenda a ordem de avaliacao:
 
-   | Direcao      | Ordem de avaliacao                        | Requisito                      |
-   | ------------ | ----------------------------------------- | ------------------------------ |
-   | **Inbound**  | Subnet NSG → NIC NSG                      | Ambos devem **permitir**       |
-   | **Outbound** | NIC NSG → Subnet NSG                      | Ambos devem **permitir**       |
+   | Direcao      | Ordem de avaliacao   | Requisito                |
+   | ------------ | -------------------- | ------------------------ |
+   | **Inbound**  | Subnet NSG → NIC NSG | Ambos devem **permitir** |
+   | **Outbound** | NIC NSG → Subnet NSG | Ambos devem **permitir** |
 
    Mesmo que o NSG da subnet (`nsg-snet-lb`) permita HTTP, o NSG da NIC (`nsg-nic-vm-web-01`) nega — resultado final: **bloqueado**.
 

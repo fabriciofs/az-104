@@ -25,24 +25,24 @@ Ao final, voce tera **um ambiente corporativo funcional** onde identidade, gover
 ```
 Bloco 1 (Identity)
   │
-  ├─ contoso-user1 ──────────────────┐
+  ├─ contoso-user1 ────────────────┐
   ├─ Guest user ───────────────────┤
   ├─ IT Lab Administrators ────────┤
   └─ helpdesk ─────────────────────┤
                                    │
                                    ▼
-Bloco 2 (Governance) ──────────────────────────────────────┐
-  │                                                        │
-  ├─ RBAC: VM Contributor → IT Lab Administrators (MG)     │
-  ├─ RBAC: Reader → Guest user (rg-contoso-identity)                 │
-  ├─ Policy: Require tag (Deny) → rg-contoso-identity (testada)      │
+Bloco 2 (Governance) ──────────────────────────────────────────────────────────┐
+  │                                                                            │
+  ├─ RBAC: VM Contributor → IT Lab Administrators (MG)                         │
+  ├─ RBAC: Reader → Guest user (rg-contoso-identity)                           │
+  ├─ Policy: Require tag (Deny) → rg-contoso-identity (testada)                │
   ├─ Policy: Inherit tag (Modify) → rg-contoso-identity + rg-contoso-identity  │
-  ├─ Policy: Allowed Locations (Deny) → rg-contoso-identity          │
-  ├─ Lock: Delete → rg-contoso-identity                              │
-  └─ Cria rg-contoso-identity com tag Cost Center = 000              │
-                                   │                       │
-                                   ▼                       │
-Bloco 3 (IaC) ◄──── Valida governanca ─────────────────────┘
+  ├─ Policy: Allowed Locations (Deny) → rg-contoso-identity                    │
+  ├─ Lock: Delete → rg-contoso-identity                                        │
+  └─ Cria rg-contoso-identity com tag Cost Center = 000                        │
+                                   │                                           │
+                                   ▼                                           │
+Bloco 3 (IaC) ◄──── Valida governanca ─────────────────────────────────────────┘
   │
   ├─ Disks em rg-contoso-identity → tags herdadas automaticamente ✓
   ├─ Deploy West US → bloqueado por Allowed Locations ✓
@@ -53,17 +53,17 @@ Bloco 3 (IaC) ◄──── Valida governanca ──────────�
                                                      ▼
 Bloco 4 (Networking) ◄──── Reusa Cloud Shell e ARM skills
   │
-  ├─ vnet-contoso-hub-eastus (10.20.0.0/16) ──────────────┐
-  ├─ vnet-contoso-spoke-eastus (10.30.0.0/16) via ARM ─────┤
-  ├─ NSG + ASG na snet-shared             │
-  ├─ DNS publico: contoso.com (nslookup via Shell) │
-  └─ DNS privado: contoso.internal ─────────────┤
-                                                   │
-                                                   ▼
+  ├─ vnet-contoso-hub (10.20.0.0/16) ───────────────┐
+  ├─ vnet-contoso-spoke (10.30.0.0/16) via ARM ─────┤
+  ├─ NSG + ASG na snet-shared                       │
+  ├─ DNS publico: contoso.com (nslookup via Shell)  │
+  └─ DNS privado: contoso.internal ─────────────────┤
+                                                    │
+                                                    ▼
 Bloco 5 (Connectivity) ◄──── VMs nas VNets do Bloco 4
   │
-  ├─ vm-web-01 na vnet-contoso-hub-eastus (10.20.0.0/24)
-  ├─ vm-app-01 na vnet-contoso-spoke-eastus (10.30.0.0/24)
+  ├─ vm-web-01 na vnet-contoso-hub (10.20.0.0/24)
+  ├─ vm-app-01 na vnet-contoso-spoke (10.30.0.0/24)
   ├─ Peering entre as VNets do Bloco 4
   ├─ DNS privado resolve nome real da VM ✓
   ├─ contoso-user1 gerencia VMs (VM Contributor) ✓
@@ -90,15 +90,15 @@ Bloco 7 (SSPR, Cost, NSG) ◄──── Complementa Identity + Governance
 
 ## Indice
 
-| Bloco | Descricao | Link |
-|-------|-----------|------|
-| 1 | Identity | [cenario/bloco1-identity.md](cenario/bloco1-identity.md) |
-| 2 | Governance & Compliance | [cenario/bloco2-governance.md](cenario/bloco2-governance.md) |
-| 3 | Azure Resources & IaC | [cenario/bloco3-iac.md](cenario/bloco3-iac.md) |
-| 4 | Virtual Networking | [cenario/bloco4-networking.md](cenario/bloco4-networking.md) |
-| 5 | Intersite Connectivity | [cenario/bloco5-connectivity.md](cenario/bloco5-connectivity.md) |
-| 6 | Load Balancer e Azure Bastion | [cenario/bloco6-load-balancer.md](cenario/bloco6-load-balancer.md) |
-| 7 | SSPR, Cost Management e NSG Effective Rules | [cenario/bloco7-sspr-cost-nsg.md](cenario/bloco7-sspr-cost-nsg.md) |
+| Bloco | Descricao                                   | Link                                                               |
+| ----- | ------------------------------------------- | ------------------------------------------------------------------ |
+| 1     | Identity                                    | [cenario/bloco1-identity.md](cenario/bloco1-identity.md)           |
+| 2     | Governance & Compliance                     | [cenario/bloco2-governance.md](cenario/bloco2-governance.md)       |
+| 3     | Azure Resources & IaC                       | [cenario/bloco3-iac.md](cenario/bloco3-iac.md)                     |
+| 4     | Virtual Networking                          | [cenario/bloco4-networking.md](cenario/bloco4-networking.md)       |
+| 5     | Intersite Connectivity                      | [cenario/bloco5-connectivity.md](cenario/bloco5-connectivity.md)   |
+| 6     | Load Balancer e Azure Bastion               | [cenario/bloco6-load-balancer.md](cenario/bloco6-load-balancer.md) |
+| 7     | SSPR, Cost Management e NSG Effective Rules | [cenario/bloco7-sspr-cost-nsg.md](cenario/bloco7-sspr-cost-nsg.md) |
 
 - [Pausar entre Sessoes](#pausar-entre-sessoes)
 - [Cleanup Unificado](#cleanup-unificado)

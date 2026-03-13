@@ -225,7 +225,7 @@ param location string = resourceGroup().location
 // ==================== VNet ====================
 // Uma unica VNet com multiplas subnets para diferentes workloads
 resource vnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
-  name: 'vnet-contoso-hub-eastus'
+  name: 'vnet-contoso-hub'
   location: location
   properties: {
     addressSpace: {
@@ -272,7 +272,7 @@ az deployment group create \
     --resource-group "$RG6" \
     --template-file bloco1-vnet.bicep
 
-echo "VNet vnet-contoso-hub-eastus criada com 3 subnets"
+echo "VNet vnet-contoso-hub criada com 3 subnets"
 ```
 
 ---
@@ -575,7 +575,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' existing 
 }
 
 resource vnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
-  name: 'vnet-contoso-hub-eastus'
+  name: 'vnet-contoso-hub'
 }
 
 // Referencia a subnet de Private Endpoints
@@ -935,7 +935,7 @@ param adminPassword string
 
 // ==================== Referencia VNet existente ====================
 resource vnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
-  name: 'vnet-contoso-hub-eastus'
+  name: 'vnet-contoso-hub'
 }
 
 resource vmSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' existing = {
@@ -1098,7 +1098,7 @@ param sshPublicKey string
 
 // ==================== Referencia VNet existente ====================
 resource vnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
-  name: 'vnet-contoso-hub-eastus'
+  name: 'vnet-contoso-hub'
 }
 
 resource vmSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' existing = {
@@ -1399,7 +1399,7 @@ az vm create \
     --size Standard_B1s \
     --admin-username localadmin \
     --admin-password "$ADMIN_PASSWORD" \
-    --vnet-name vnet-contoso-spoke-eastus \
+    --vnet-name vnet-contoso-spoke \
     --subnet Manufacturing \
     --custom-data cloud-init.yaml \
     --public-ip-sku Standard \
@@ -1498,7 +1498,7 @@ param instanceCount int = 2
 
 // ==================== Referencia VNet existente ====================
 resource vnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
-  name: 'vnet-contoso-hub-eastus'
+  name: 'vnet-contoso-hub'
 }
 
 resource vmssSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' existing = {
@@ -3653,7 +3653,7 @@ echo "Verifique o arquivo .zip no container webapp-backups da conta $STORAGE1_NA
 # Requer subnet DEDICADA (/28 minimo), sem outros recursos
 # Funciona com peering e ExpressRoute
 
-# 1. Verificar VNets disponiveis (vnet-contoso-hub-eastus da Semana 1)
+# 1. Verificar VNets disponiveis (vnet-contoso-hub da Semana 1)
 az network vnet list \
   --query "[?contains(name, 'CoreServices')].{name:name, rg:resourceGroup, addressSpace:addressSpace.addressPrefixes[0]}" \
   -o table
@@ -3661,7 +3661,7 @@ az network vnet list \
 # 2. Criar subnet dedicada para App Service (se necessario)
 # A subnet precisa ser delegada ao Microsoft.Web/serverFarms
 VNET_RG="rg-contoso-network"  # RG da VNet da Semana 1
-VNET_NAME="vnet-contoso-hub-eastus"
+VNET_NAME="vnet-contoso-hub"
 
 az network vnet subnet create \
   --resource-group "$VNET_RG" \
@@ -3691,7 +3691,7 @@ echo "  - VMs em subnets da mesma VNet"
 echo "  - Recursos em VNets peered"
 ```
 
-> **Conexao com Semana 1:** O App Service agora pode acessar o Storage Account via Private Endpoint pela vnet-contoso-hub-eastus, garantindo trafego privado.
+> **Conexao com Semana 1:** O App Service agora pode acessar o Storage Account via Private Endpoint pela vnet-contoso-hub, garantindo trafego privado.
 
 ---
 
@@ -3703,7 +3703,7 @@ echo "  - Recursos em VNets peered"
 - [ ] Explorar Custom Domain no App Service **(Bloco 3)** — CNAME + TXT verification
 - [ ] Configurar HTTPS Only + TLS 1.2 no App Service
 - [ ] Configurar backup do App Service para Storage Account **(Bloco 1)** com schedule diario
-- [ ] Configurar VNet Integration no App Service com vnet-contoso-hub-eastus **(Semana 1)**
+- [ ] Configurar VNet Integration no App Service com vnet-contoso-hub **(Semana 1)**
 
 ---
 

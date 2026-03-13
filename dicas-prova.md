@@ -23,14 +23,14 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 
 ### Roles Administrativas (privilegio minimo)
 
-| Necessidade | Role correta | NAO usar |
-|-------------|-------------|----------|
-| Convidar usuarios externos | **Guest Inviter** | Global Admin, Security Admin |
-| Exibir recursos (somente leitura) | **Reader** | Contributor |
-| Gerenciar tags sem acesso a recursos | **Tag Contributor** | Contributor |
-| Gerenciar grupos | **Groups Administrator** | Global Admin |
-| Gerenciar VMs | **Virtual Machine Contributor** | Contributor |
-| Exibir custos + gerenciar orcamentos (sem modificar recursos) | **Cost Management Contributor** | Reader, Colaborador |
+| Necessidade                                                   | Role correta                    | NAO usar                     |
+| ------------------------------------------------------------- | ------------------------------- | ---------------------------- |
+| Convidar usuarios externos                                    | **Guest Inviter**               | Global Admin, Security Admin |
+| Exibir recursos (somente leitura)                             | **Reader**                      | Contributor                  |
+| Gerenciar tags sem acesso a recursos                          | **Tag Contributor**             | Contributor                  |
+| Gerenciar grupos                                              | **Groups Administrator**        | Global Admin                 |
+| Gerenciar VMs                                                 | **Virtual Machine Contributor** | Contributor                  |
+| Exibir custos + gerenciar orcamentos (sem modificar recursos) | **Cost Management Contributor** | Reader, Colaborador          |
 
 - **Guest Inviter** = role especifica para convidar externos (B2B), privilegio minimo
 - **Cost Management Contributor** = ve custos + gerencia budgets, SEM poder modificar recursos
@@ -80,12 +80,12 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 
 ### Budgets vs Policy vs Automation
 
-| Mecanismo | Funcao | Bloqueia recursos? |
-|-----------|--------|--------------------|
-| Budget | Alerta quando gasto atinge threshold | **Nao** (apenas notifica) |
-| Azure Policy | Restringe criacao (ex: limitar SKUs) | **Sim** (previne) |
-| Automation Runbook | Executa acao (ex: desligar VMs) | **Sim** (reage) |
-| Spending Limit | Limita gasto total | **Sim** (apenas dev/test) |
+| Mecanismo          | Funcao                               | Bloqueia recursos?        |
+| ------------------ | ------------------------------------ | ------------------------- |
+| Budget             | Alerta quando gasto atinge threshold | **Nao** (apenas notifica) |
+| Azure Policy       | Restringe criacao (ex: limitar SKUs) | **Sim** (previne)         |
+| Automation Runbook | Executa acao (ex: desligar VMs)      | **Sim** (reage)           |
+| Spending Limit     | Limita gasto total                   | **Sim** (apenas dev/test) |
 
 - Budgets **alertam** mas **NAO param** recursos automaticamente
 - Para controle completo: Policy (prevenir) + Budget (monitorar) + Runbook (reagir)
@@ -103,13 +103,13 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 - Menor subnet permitida: **/29** (3 IPs utilizaveis)
 
 | CIDR | Total | Utilizaveis |
-|------|-------|-------------|
-| /24 | 256 | 251 |
-| /25 | 128 | 123 |
-| /26 | 64 | 59 |
-| /27 | 32 | 27 |
-| /28 | 16 | 11 |
-| /29 | 8 | 3 |
+| ---- | ----- | ----------- |
+| /24  | 256   | 251         |
+| /25  | 128   | 123         |
+| /26  | 64    | 59          |
+| /27  | 32    | 27          |
+| /28  | 16    | 11          |
+| /29  | 8     | 3           |
 
 ### VNet Peering
 
@@ -120,6 +120,22 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 - Hub-spoke resolve com NVA/Firewall no hub
 - **Allow Gateway Transit** permite compartilhar VPN Gateway entre VNets peered
 - Cada peering e configurado independentemente nos dois lados
+
+### UDR (User Defined Routes) e NVA
+
+- UDR sobrescreve rotas automaticas do Azure (system routes)
+- **Longest prefix match:** rota mais especifica vence (/24 > /16 > /0)
+- Se mesmo prefixo: **User route** vence **System route**
+- UDRs sao **unidirecionais** — afetam apenas trafego **saindo** da subnet associada
+- Next hop **None** = descarta o pacote (blackhole)
+- Next hop **Virtual appliance** = encaminha para IP de um NVA
+- **NVA (Network Virtual Appliance)** = VM que atua como firewall/proxy/roteador
+- Para NVA funcionar: **UDR** + **IP forwarding na NIC** (portal) + **IP forwarding no OS** (Windows/Linux) — os tres sao obrigatorios
+- Se o NVA nao existir ou nao tiver IP forwarding, o pacote e **descartado**
+- Peering entre VNets + NVA requer **Allow Forwarded Traffic** no peering
+- "Forcar trafego por firewall" → **UDR com next hop Virtual appliance**
+- "Bloquear internet sem NSG" → **UDR com next hop None para 0.0.0.0/0**
+- Desassociar UDR da subnet → rotas automaticas voltam imediatamente
 
 ### VPN Gateway
 
@@ -150,22 +166,22 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 
 ### Service Endpoints e Private Endpoints
 
-| Mecanismo | O que filtra | Direcao |
-|-----------|-------------|---------|
-| NSG | IP, porta, protocolo | Entrada/saida na subnet |
-| Firewall do Storage | Subnet/IP de **origem** | Quem acessa o storage |
-| Service Endpoint Policy | Recurso PaaS de **destino** | Para onde a subnet envia trafego |
-| Private Endpoint | Elimina acesso publico (IP privado) | Acesso totalmente privado |
+| Mecanismo               | O que filtra                        | Direcao                          |
+| ----------------------- | ----------------------------------- | -------------------------------- |
+| NSG                     | IP, porta, protocolo                | Entrada/saida na subnet          |
+| Firewall do Storage     | Subnet/IP de **origem**             | Quem acessa o storage            |
+| Service Endpoint Policy | Recurso PaaS de **destino**         | Para onde a subnet envia trafego |
+| Private Endpoint        | Elimina acesso publico (IP privado) | Acesso totalmente privado        |
 
 **Service Endpoint vs Private Endpoint:**
 
-| | Service Endpoint | Private Endpoint |
-|---|---|---|
-| IP do servico | **Publico** (rota otimizada pelo backbone Azure) | **Privado** (NIC com IP na sua subnet) |
-| DNS customizado | Nao necessario | Sim (Private DNS Zone obrigatoria) |
-| Acesso de on-premises (VPN/ER) | **Nao** | **Sim** |
-| Custo | Gratis | Pago (por hora + trafego) |
-| Trafego sai da VNet? | Nao (backbone Microsoft) | Nao (IP privado) |
+|                                | Service Endpoint                                 | Private Endpoint                       |
+| ------------------------------ | ------------------------------------------------ | -------------------------------------- |
+| IP do servico                  | **Publico** (rota otimizada pelo backbone Azure) | **Privado** (NIC com IP na sua subnet) |
+| DNS customizado                | Nao necessario                                   | Sim (Private DNS Zone obrigatoria)     |
+| Acesso de on-premises (VPN/ER) | **Nao**                                          | **Sim**                                |
+| Custo                          | Gratis                                           | Pago (por hora + trafego)              |
+| Trafego sai da VNet?           | Nao (backbone Microsoft)                         | Nao (IP privado)                       |
 
 - Service Endpoint = rota otimizada (IP publico mantido, trafego pelo backbone Azure)
 - Private Endpoint = IP privado na VNet (acesso totalmente privado, requer Private DNS Zone)
@@ -201,13 +217,13 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 
 **Quando usar cada ferramenta:**
 
-| Preciso saber... | Ferramenta |
-|-----------------|------------|
-| Se pacote e permitido/bloqueado pelo NSG | **IP Flow Verify** |
-| Se VM1 alcanca VM2 | **Connection Troubleshoot** |
-| Qual rota o trafego segue (next hop) | **Effective Routes** ou **Next Hop** |
-| Capturar pacotes para analise | **Packet Capture** |
-| Regras efetivas combinadas | **Effective Security Rules** |
+| Preciso saber...                         | Ferramenta                           |
+| ---------------------------------------- | ------------------------------------ |
+| Se pacote e permitido/bloqueado pelo NSG | **IP Flow Verify**                   |
+| Se VM1 alcanca VM2                       | **Connection Troubleshoot**          |
+| Qual rota o trafego segue (next hop)     | **Effective Routes** ou **Next Hop** |
+| Capturar pacotes para analise            | **Packet Capture**                   |
+| Regras efetivas combinadas               | **Effective Security Rules**         |
 
 ---
 
@@ -221,11 +237,11 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 
 ### Session Persistence
 
-| Modo | Hash | Uso |
-|------|------|-----|
-| None (padrao) | 5-tupla (src IP, src port, dst IP, dst port, protocol) | Distribuicao uniforme |
-| Client IP | 2-tupla (src IP, dst IP) | Manter sessao por IP |
-| Client IP and Protocol | 3-tupla (src IP, dst IP, protocol) | Sessao por IP + protocolo |
+| Modo                   | Hash                                                   | Uso                       |
+| ---------------------- | ------------------------------------------------------ | ------------------------- |
+| None (padrao)          | 5-tupla (src IP, src port, dst IP, dst port, protocol) | Distribuicao uniforme     |
+| Client IP              | 2-tupla (src IP, dst IP)                               | Manter sessao por IP      |
+| Client IP and Protocol | 3-tupla (src IP, dst IP, protocol)                     | Sessao por IP + protocolo |
 
 - "Usuarios perdem sessao" → mudar para **Client IP**
 - "Aplicacao stateless, distribuicao uniforme" → **None**
@@ -253,18 +269,18 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 
 ### SKUs (4 camadas)
 
-| Feature | Developer | Basic | Standard | Premium |
-|---------|-----------|-------|----------|---------|
-| Gratuito | Sim | Nao | Nao | Nao |
-| Requer AzureBastionSubnet /26 | Nao | Sim | Sim | Sim |
-| Requer IP publico | Nao | Sim | Sim | Nao (privado) |
-| VNet peering | Nao | Sim | Sim | Sim |
-| Cliente nativo (CLI) | Nao | Nao | Sim | Sim |
-| File transfer | Nao | Nao | Sim | Sim |
-| Link compartilhavel | Nao | Nao | Sim | Sim |
-| Gravacao de sessao | Nao | Nao | Nao | Sim |
-| Deploy 100% privado | Nao | Nao | Nao | Sim |
-| Scale units | Nao | 2 fixas | 2-50 | 2-50 |
+| Feature                       | Developer | Basic   | Standard | Premium       |
+| ----------------------------- | --------- | ------- | -------- | ------------- |
+| Gratuito                      | Sim       | Nao     | Nao      | Nao           |
+| Requer AzureBastionSubnet /26 | Nao       | Sim     | Sim      | Sim           |
+| Requer IP publico             | Nao       | Sim     | Sim      | Nao (privado) |
+| VNet peering                  | Nao       | Sim     | Sim      | Sim           |
+| Cliente nativo (CLI)          | Nao       | Nao     | Sim      | Sim           |
+| File transfer                 | Nao       | Nao     | Sim      | Sim           |
+| Link compartilhavel           | Nao       | Nao     | Sim      | Sim           |
+| Gravacao de sessao            | Nao       | Nao     | Nao      | Sim           |
+| Deploy 100% privado           | Nao       | Nao     | Nao      | Sim           |
+| Scale units                   | Nao       | 2 fixas | 2-50     | 2-50          |
 
 ### Pegadinhas
 - "Conexao via cliente SSH nativo" → **Standard** ou Premium
@@ -283,11 +299,11 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 
 ### Disponibilidade de VMs
 
-| Protecao contra | Solucao | SLA |
-|-----------------|---------|-----|
-| Falha de **hardware** (rack/switch) | **Availability Set** (fault/update domains) | 99.95% |
-| Falha de **datacenter** inteiro | **Availability Zone** (zonas 1, 2, 3) | 99.99% |
-| Escala automatica | **VM Scale Set** (auto-scale, nao e HA por si so) | depende da config |
+| Protecao contra                     | Solucao                                           | SLA               |
+| ----------------------------------- | ------------------------------------------------- | ----------------- |
+| Falha de **hardware** (rack/switch) | **Availability Set** (fault/update domains)       | 99.95%            |
+| Falha de **datacenter** inteiro     | **Availability Zone** (zonas 1, 2, 3)             | 99.99%            |
+| Escala automatica                   | **VM Scale Set** (auto-scale, nao e HA por si so) | depende da config |
 
 - "Datacenter falhar" → **Availability Zone** (NAO Scale Set, NAO Availability Set)
 - Availability Set protege contra falha de **rack**, nao de datacenter
@@ -309,12 +325,12 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 
 ### Cloud-init / Custom Data vs Custom Script Extension
 
-| Aspecto | Cloud-init (Custom Data) | Custom Script Extension | Run Command |
-|---------|--------------------------|------------------------|-------------|
-| SO | Linux apenas | Windows e Linux | Windows e Linux |
-| Quando executa | Primeiro boot | Pos-provisioning | Ad-hoc |
-| Atualizar apos criacao | Nao (imutavel) | Sim | Sim |
-| Uso tipico | Config inicial, pacotes | Deploy software | Troubleshooting |
+| Aspecto                | Cloud-init (Custom Data) | Custom Script Extension | Run Command     |
+| ---------------------- | ------------------------ | ----------------------- | --------------- |
+| SO                     | Linux apenas             | Windows e Linux         | Windows e Linux |
+| Quando executa         | Primeiro boot            | Pos-provisioning        | Ad-hoc          |
+| Atualizar apos criacao | Nao (imutavel)           | Sim                     | Sim             |
+| Uso tipico             | Config inicial, pacotes  | Deploy software         | Troubleshooting |
 
 ### Pegadinhas
 - "Instalar pacotes no 1o boot de VM Linux" → **cloud-init**
@@ -373,12 +389,12 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 
 ### Tipos de Conta e Data Lake Gen2
 
-| Tipo de conta | Suporta Data Lake Gen2? | Observacao |
-|---------------|:-----------------------:|------------|
-| **Standard GPv2** | Sim | Mais comum, suporta todos os servicos |
-| **Premium Block Blobs** | Sim | Alta performance para blobs |
-| Premium File Shares | Nao | Apenas Azure Files |
-| Premium Page Blobs | **Nao** | Apenas page blobs (VHDs) |
+| Tipo de conta           | Suporta Data Lake Gen2? | Observacao                            |
+| ----------------------- | :---------------------: | ------------------------------------- |
+| **Standard GPv2**       |           Sim           | Mais comum, suporta todos os servicos |
+| **Premium Block Blobs** |           Sim           | Alta performance para blobs           |
+| Premium File Shares     |           Nao           | Apenas Azure Files                    |
+| Premium Page Blobs      |         **Nao**         | Apenas page blobs (VHDs)              |
 
 - Data Lake Gen2 = **namespace hierarquico** habilitado na conta
 - **ACLs POSIX** requerem **namespace hierarquico** (nao SFTP, nao camada de acesso)
@@ -399,14 +415,14 @@ Para configurar Object Replication entre storage1 (origem) → storage2 (destino
 
 ### Redundancia - Leitura na regiao secundaria
 
-| Tipo | Multi-regiao | Leitura secundaria |
-|------|:------------:|:------------------:|
-| LRS | Nao | Nao |
-| ZRS | Nao (multi-zona) | Nao |
-| GRS | Sim | **Nao** (so failover) |
-| **RA-GRS** | Sim | **Sim** (leitura continua) |
-| GZRS | Sim | **Nao** |
-| **RA-GZRS** | Sim | **Sim** |
+| Tipo        |   Multi-regiao   |     Leitura secundaria     |
+| ----------- | :--------------: | :------------------------: |
+| LRS         |       Nao        |            Nao             |
+| ZRS         | Nao (multi-zona) |            Nao             |
+| GRS         |       Sim        |   **Nao** (so failover)    |
+| **RA-GRS**  |       Sim        | **Sim** (leitura continua) |
+| GZRS        |       Sim        |          **Nao**           |
+| **RA-GZRS** |       Sim        |          **Sim**           |
 
 - "Ler dados da regiao secundaria" → precisa do prefixo **RA-** (Read Access)
 
@@ -457,19 +473,19 @@ Para configurar Object Replication entre storage1 (origem) → storage2 (destino
 
 ### ACR (Azure Container Registry)
 
-| SKU | Storage | Features extras |
-|-----|---------|-----------------|
-| Basic | 10 GiB | - |
-| Standard | 100 GiB | Webhooks |
-| Premium | 500 GiB | Geo-replication, Private Link, CMK |
+| SKU      | Storage | Features extras                    |
+| -------- | ------- | ---------------------------------- |
+| Basic    | 10 GiB  | -                                  |
+| Standard | 100 GiB | Webhooks                           |
+| Premium  | 500 GiB | Geo-replication, Private Link, CMK |
 
 ### Containers: ACI vs AKS vs Container Apps
 
-| Servico | Quando usar |
-|---------|-------------|
-| ACI | Containers simples, sem orquestracao |
+| Servico        | Quando usar                                            |
+| -------------- | ------------------------------------------------------ |
+| ACI            | Containers simples, sem orquestracao                   |
 | Container Apps | Serverless com auto-scale, revisions, HTTPS automatico |
-| AKS | Controle total do Kubernetes |
+| AKS            | Controle total do Kubernetes                           |
 
 ### ACI (Azure Container Instances)
 
@@ -483,10 +499,10 @@ Para configurar Object Replication entre storage1 (origem) → storage2 (destino
 
 **Seguranca do API Server:**
 
-| Opcao | O que faz |
-|-------|-----------|
-| **IP ranges autorizados** | Mantém endpoint público, restringe quem acessa |
-| **Cluster privado** | API server acessível **apenas** pela VNet (sem endpoint público) |
+| Opcao                     | O que faz                                                        |
+| ------------------------- | ---------------------------------------------------------------- |
+| **IP ranges autorizados** | Mantém endpoint público, restringe quem acessa                   |
+| **Cluster privado**       | API server acessível **apenas** pela VNet (sem endpoint público) |
 
 - "Limitar acesso ao API server" → **IP ranges** + **cluster privado** (NAO tags)
 - Tags sao metadados de organizacao, nao controlam acesso de rede
@@ -495,23 +511,23 @@ Para configurar Object Replication entre storage1 (origem) → storage2 (destino
 
 **Tipos de container:**
 
-| Tipo | Funcao |
-|------|--------|
-| **App** | Container principal do aplicativo |
+| Tipo                   | Funcao                                                         |
+| ---------------------- | -------------------------------------------------------------- |
+| **App**                | Container principal do aplicativo                              |
 | **Sidecar (auxiliar)** | Container auxiliar que roda junto (ex: coletor de logs, proxy) |
-| **Init** | Roda antes do app iniciar, depois encerra |
+| **Init**               | Roda antes do app iniciar, depois encerra                      |
 
 - "Container que atualiza cache usado pelo app principal" → **Sidecar** (aplicativo auxiliar)
 - "Container privilegiado" NAO e um tipo valido em Container Apps
 
 **Triggers de escalonamento:**
 
-| Trigger | Quando usar |
-|---------|-------------|
-| HTTP | Escalar com base em requisicoes HTTP |
-| CPU/Memoria | Escalar com base em uso de recursos |
+| Trigger          | Quando usar                                                         |
+| ---------------- | ------------------------------------------------------------------- |
+| HTTP             | Escalar com base em requisicoes HTTP                                |
+| CPU/Memoria      | Escalar com base em uso de recursos                                 |
 | **Event-driven** | Escalar com base em **eventos externos** (Service Bus, Kafka, etc.) |
-| Custom | Metricas personalizadas |
+| Custom           | Metricas personalizadas                                             |
 
 - "Escalar com base em mensagens do Service Bus" → **Event-driven** (controlado por evento)
 - HTTP trigger **NAO** funciona para filas/Service Bus
@@ -534,11 +550,11 @@ Para configurar Object Replication entre storage1 (origem) → storage2 (destino
 
 ### MARS vs MABS vs VM Backup
 
-| Agente | O que protege | Onde instala |
-|--------|-------------|-------------|
-| **MARS** | **Arquivos e pastas** | Direto no servidor (Windows) |
-| **MABS** | Workloads completos (SQL, SharePoint, Exchange, VMs Hyper-V) | Servidor dedicado |
-| **VM Backup** | VM inteira (todos os discos) | Sem agente (plataforma Azure) |
+| Agente        | O que protege                                                | Onde instala                  |
+| ------------- | ------------------------------------------------------------ | ----------------------------- |
+| **MARS**      | **Arquivos e pastas**                                        | Direto no servidor (Windows)  |
+| **MABS**      | Workloads completos (SQL, SharePoint, Exchange, VMs Hyper-V) | Servidor dedicado             |
+| **VM Backup** | VM inteira (todos os discos)                                 | Sem agente (plataforma Azure) |
 
 - "Backup de **arquivos e pastas**" → **agente MARS** (NAO MABS)
 - "Backup de SQL Server ou SharePoint" → **MABS**
@@ -547,13 +563,13 @@ Para configurar Object Replication entre storage1 (origem) → storage2 (destino
 
 ### Recovery Services Vault vs Backup Vault
 
-| Workload | RSV | Backup Vault |
-|----------|:---:|:------------:|
-| VM backup | Sim | Nao |
-| Disk backup (snapshots) | Nao | Sim |
-| File Share backup | Sim | Nao |
-| Blob backup | Nao | Sim |
-| Site Recovery | Sim | Nao |
+| Workload                |  RSV  | Backup Vault |
+| ----------------------- | :---: | :----------: |
+| VM backup               |  Sim  |     Nao      |
+| Disk backup (snapshots) |  Nao  |     Sim      |
+| File Share backup       |  Sim  |     Nao      |
+| Blob backup             |  Nao  |     Sim      |
+| Site Recovery           |  Sim  |     Nao      |
 
 - Disk backup via Backup Vault = **snapshots incrementais** (menor custo)
 - VM backup via RSV = ponto de restauracao **completo**
@@ -579,21 +595,21 @@ Para configurar Object Replication entre storage1 (origem) → storage2 (destino
 
 ### Tipos de Failover
 
-| Tipo | Data Loss | Quando usar |
-|------|:---------:|-------------|
-| Test Failover | Nenhum | Validacao (VM isolada, sem impacto) |
-| Planned Failover | Zero | Migracao planejada (VM desligada antes) |
-| Unplanned Failover | Possivel (ate RPO) | Desastre (ultimo recovery point) |
+| Tipo               |     Data Loss      | Quando usar                             |
+| ------------------ | :----------------: | --------------------------------------- |
+| Test Failover      |       Nenhum       | Validacao (VM isolada, sem impacto)     |
+| Planned Failover   |        Zero        | Migracao planejada (VM desligada antes) |
+| Unplanned Failover | Possivel (ate RPO) | Desastre (ultimo recovery point)        |
 
 - Apos failover real: **Commit** para confirmar ou **Change recovery point** para usar outro ponto
 
 ### Mover Recursos
 
-| Cenario | Metodo | Downtime |
-|---------|--------|----------|
-| Entre RGs (mesma regiao) | `az resource move` | Nenhum |
-| Entre subscriptions | `az resource move` | Nenhum |
-| Entre regioes | ASR / Resource Mover / Recriar | Variavel |
+| Cenario                  | Metodo                         | Downtime |
+| ------------------------ | ------------------------------ | -------- |
+| Entre RGs (mesma regiao) | `az resource move`             | Nenhum   |
+| Entre subscriptions      | `az resource move`             | Nenhum   |
+| Entre regioes            | ASR / Resource Mover / Recriar | Variavel |
 
 - `az resource move` **NAO** suporta move entre regioes para VMs
 - Resources com **locks** nao podem ser movidos
@@ -605,13 +621,13 @@ Para configurar Object Replication entre storage1 (origem) → storage2 (destino
 
 ### Azure Monitor - Tipos de Alerta
 
-| Tipo | Monitora | Uso |
-|------|----------|-----|
-| Metric alert (Static) | Valor fixo (ex: CPU > 80%) | Thresholds conhecidos |
-| Metric alert (Dynamic) | Anomalias via ML | Comportamento que varia ao longo do dia |
-| Activity Log alert | Operacoes de controle (create, delete) | Auditoria e compliance |
-| Log query alert (KQL) | Queries em Log Analytics | Analise complexa |
-| Service Health alert | Eventos da plataforma Azure | Outages, manutencao |
+| Tipo                   | Monitora                               | Uso                                     |
+| ---------------------- | -------------------------------------- | --------------------------------------- |
+| Metric alert (Static)  | Valor fixo (ex: CPU > 80%)             | Thresholds conhecidos                   |
+| Metric alert (Dynamic) | Anomalias via ML                       | Comportamento que varia ao longo do dia |
+| Activity Log alert     | Operacoes de controle (create, delete) | Auditoria e compliance                  |
+| Log query alert (KQL)  | Queries em Log Analytics               | Analise complexa                        |
+| Service Health alert   | Eventos da plataforma Azure            | Outages, manutencao                     |
 
 - Dynamic threshold precisa de **~3 dias** de dados historicos
 - "Detectar comportamento anomalo" → **Dynamic**; "CPU > 80%" → **Static**
@@ -626,20 +642,20 @@ Para configurar Object Replication entre storage1 (origem) → storage2 (destino
 
 ### Metricas Host vs Guest
 
-| Tipo | Exemplos | Agente necessario |
-|------|----------|:-----------------:|
-| Host | CPU, Network In/Out, Disk | Nao |
-| Guest | Memoria, Processos | Sim (AMA + DCR) |
+| Tipo  | Exemplos                  | Agente necessario |
+| ----- | ------------------------- | :---------------: |
+| Host  | CPU, Network In/Out, Disk |        Nao        |
+| Guest | Memoria, Processos        |  Sim (AMA + DCR)  |
 
 - "Metrica de memoria nao aparece" → instalar **Azure Monitor Agent** + configurar **Data Collection Rules**
 
 ### Azure Monitor - Estados de Alerta
 
-| Estado | Significado | Quem define |
-|--------|------------|-------------|
-| **New** | Alerta disparado, ninguem investigou | Automatico |
-| **Acknowledged** | Admin esta investigando | **Manual** |
-| **Closed** | Admin resolveu/descartou | **Manual** |
+| Estado           | Significado                          | Quem define |
+| ---------------- | ------------------------------------ | ----------- |
+| **New**          | Alerta disparado, ninguem investigou | Automatico  |
+| **Acknowledged** | Admin esta investigando              | **Manual**  |
+| **Closed**       | Admin resolveu/descartou             | **Manual**  |
 
 - Estado de alerta e **sempre manual** — NAO muda automaticamente quando a condicao some
 - "50 alertas fechados" → um **administrador alterou manualmente** o estado

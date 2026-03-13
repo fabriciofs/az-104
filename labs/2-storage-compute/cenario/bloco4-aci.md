@@ -13,10 +13,10 @@ A Contoso Corp precisa executar cargas de trabalho em containers para processos 
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
-│                          rg-contoso-compute                             │
+│                          rg-contoso-compute                    │
 │                                                                │
 │  ┌──────────────────────────────────────────────────────────┐  │
-│  │  Container Group: ci-contoso-worker                            │  │
+│  │  Container Group: ci-contoso-worker                      │  │
 │  │                                                          │  │
 │  │  ┌────────────────────────────────────────────────────┐  │  │
 │  │  │  Container: ci-contoso-worker                      │  │  │
@@ -30,7 +30,7 @@ A Contoso Corp precisa executar cargas de trabalho em containers para processos 
 │  │  │  ┌──────────────────────────────────────────┐      │  │  │
 │  │  │  │  /mnt/fileshare → contoso-files          │      │  │  │
 │  │  │  │  (Azure File Share do Bloco 1)           │      │  │  │
-│  │  │  │  Storage: stcontosoprod01               │      │  │  │
+│  │  │  │  Storage: stcontosoprod01                │      │  │  │
 │  │  │  └──────────────────────────────────────────┘      │  │  │
 │  │  └────────────────────────────────────────────────────┘  │  │
 │  └──────────────────────────────────────────────────────────┘  │
@@ -46,6 +46,8 @@ A Contoso Corp precisa executar cargas de trabalho em containers para processos 
 
 > **Cobranca:** Container Instances geram cobranca enquanto estiverem Running. Pare com `az container stop` ao pausar o lab.
 
+**O que estamos fazendo e por que:** ACI e a forma mais simples de executar containers no Azure — sem cluster, sem orquestracao, sem configuracao de infraestrutura. Voce aponta para uma imagem e o Azure executa. Analogia: se VMs sao "alugar um apartamento" (voce gerencia tudo la dentro), ACI e "reservar um quarto de hotel" (voce chega, usa e vai embora). Ideal para tarefas rapidas, jobs batch e testes.
+
 1. Pesquise e selecione **Container instances** > **+ Create**
 
 2. Aba **Basics**:
@@ -53,7 +55,7 @@ A Contoso Corp precisa executar cargas de trabalho em containers para processos 
    | Setting        | Value                                        |
    | -------------- | -------------------------------------------- |
    | Subscription   | *sua subscription*                           |
-   | Resource group | `rg-contoso-compute` (ja existe do Modulo 1)             |
+   | Resource group | `rg-contoso-compute` (ja existe do Modulo 1) |
    | Container name | `ci-contoso-worker`                          |
    | Region         | **East US**                                  |
    | SKU            | **Standard**                                 |
@@ -63,20 +65,28 @@ A Contoso Corp precisa executar cargas de trabalho em containers para processos 
    | OS type        | **Linux**                                    |
    | Size           | **1 vcpu, 1.5 GiB memory**                   |
 
+   > **Image source:** Other registry = voce informa a URL da imagem manualmente. Docker Hub e Azure Container Registry sao atalhos. A imagem `aci-helloworld` e uma imagem de demonstracao da Microsoft que mostra uma pagina web simples.
+
+   > **Size:** Diferente de VMs que usam "families" (D-series, B-series), ACI permite especificar CPU e memoria de forma granular. Voce paga exatamente pelo que aloca, por segundo de execucao.
+
 3. Aba **Networking**:
 
-   | Setting         | Value                                      |
-   | --------------- | ------------------------------------------ |
-   | Networking type | **Public**                                 |
+   | Setting         | Value                                       |
+   | --------------- | ------------------------------------------- |
+   | Networking type | **Public**                                  |
    | DNS name label  | `ci-contoso-<uniqueid>` (globalmente unico) |
-   | Ports           | `80`                                       |
-   | Port protocol   | **TCP**                                    |
+   | Ports           | `80`                                        |
+   | Port protocol   | **TCP**                                     |
+
+   > **Networking type:** Public = IP publico acessivel pela internet. Private = integrado a uma VNet (so acessivel internamente). Para este lab, usamos Public para testar facilmente no navegador.
 
 4. Aba **Advanced**:
 
    | Setting        | Value          |
    | -------------- | -------------- |
    | Restart policy | **On failure** |
+
+   > **Restart policy** controla o que acontece quando o processo dentro do container termina. **Always** = reinicia sempre (para servicos long-running). **On failure** = reinicia so se o exit code indicar erro. **Never** = executa uma vez e para (para jobs batch).
 
 5. Clique em **Review + create** > **Create**
 
@@ -91,13 +101,17 @@ A Contoso Corp precisa executar cargas de trabalho em containers para processos 
    - **IP address** (publico)
    - **Restart count**
 
-   > **Conceito:** ACI e a forma mais simples de executar containers no Azure. Sem orquestracao, sem gerenciamento de cluster. Ideal para tarefas rapidas, batch jobs e cenarios simples.
+   > **Conceito:** ACI e a forma mais simples de executar containers no Azure. Sem orquestracao, sem gerenciamento de cluster. Ideal para tarefas rapidas, batch jobs e cenarios simples. Para orquestracao (auto-scaling, service discovery, load balancing), use Container Apps (Bloco 5) ou AKS.
+
+   > **Pegadinha AZ-104:** ACI monta volumes usando **Azure Files** (SMB), NAO Azure Blob Storage. Essa confusao apareceu em simulados. Blobs sao para armazenamento de objetos; Files sao para file shares montaveis.
 
 ---
 
 ### Task 4.2: Montar File Share do Bloco 1 como Volume
 
 > **Cobranca:** Container Instances geram cobranca enquanto estiverem Running. Pare com `az container stop` ao pausar o lab.
+
+**O que estamos fazendo e por que:** Containers sao **efemeros** por natureza — quando o container para, tudo dentro dele desaparece. Para persistir dados, voce monta um volume externo. Aqui, montamos o file share do Bloco 1, que ja contem arquivos criados pela VM (Bloco 2). Isso demonstra que diferentes plataformas de compute (VMs, containers) podem compartilhar os mesmos dados via Azure Files.
 
 Voce cria um novo container que monta o file share `contoso-files` do Bloco 1, demonstrando persistencia de dados entre containers e VMs.
 
@@ -111,8 +125,8 @@ Voce cria um novo container que monta o file share `contoso-files` do Bloco 1, d
 
    | Setting        | Value                                        |
    | -------------- | -------------------------------------------- |
-   | Resource group | `rg-contoso-compute`                                  |
-   | Container name | `ci-contoso-worker-2`                          |
+   | Resource group | `rg-contoso-compute`                         |
+   | Container name | `ci-contoso-worker-2`                        |
    | Region         | **East US**                                  |
    | Image source   | **Other registry**                           |
    | Image type     | **Public**                                   |
@@ -122,11 +136,11 @@ Voce cria um novo container que monta o file share `contoso-files` do Bloco 1, d
 
 4. Aba **Networking**:
 
-   | Setting         | Value                   |
-   | --------------- | ----------------------- |
-   | Networking type | **Public**              |
+   | Setting         | Value                    |
+   | --------------- | ------------------------ |
+   | Networking type | **Public**               |
    | DNS name label  | `ci-contoso2-<uniqueid>` |
-   | Ports           | `80`                    |
+   | Ports           | `80`                     |
 
 5. Aba **Advanced**:
 
@@ -136,14 +150,16 @@ Voce cria um novo container que monta o file share `contoso-files` do Bloco 1, d
 
 6. Em **Volume mounts**, clique em **+ Add volume**:
 
-   | Setting              | Value                              |
-   | -------------------- | ---------------------------------- |
-   | Volume name          | `filesharevolume`                  |
-   | Volume type          | **Azure file share**               |
+   | Setting              | Value                       |
+   | -------------------- | --------------------------- |
+   | Volume name          | `filesharevolume`           |
+   | Volume type          | **Azure file share**        |
    | Storage account name | `stcontosoprod01` (Bloco 1) |
-   | Storage account key  | *cole key1 copiada acima*          |
-   | File share name      | `contoso-files`                    |
-   | Mount path           | `/mnt/fileshare`                   |
+   | Storage account key  | *cole key1 copiada acima*   |
+   | File share name      | `contoso-files`             |
+   | Mount path           | `/mnt/fileshare`            |
+
+   > **Mount path** e o caminho dentro do container onde o file share aparece. `/mnt/fileshare` e uma convencao comum em Linux. Tudo que voce ler/escrever nesse caminho vai diretamente para o Azure File Share — persistente alem da vida do container.
 
 7. Clique em **Add**
 
@@ -160,7 +176,7 @@ Voce cria um novo container que monta o file share `contoso-files` do Bloco 1, d
     cat /mnt/fileshare/vm-test.txt
     ```
 
-    > Voce deve ver o arquivo `vm-test.txt` criado pela Windows VM no Bloco 2!
+    > Voce deve ver o arquivo `vm-test.txt` criado pela Windows VM no Bloco 2! Isso prova que os dados sao compartilhados entre plataformas diferentes.
 
 12. Crie um arquivo a partir do container:
 
@@ -170,11 +186,13 @@ Voce cria um novo container que monta o file share `contoso-files` do Bloco 1, d
 
 13. **Validacao cruzada:** Volte ao portal > Storage Account > **File shares** > **contoso-files** — confirme que `aci-test.txt` aparece
 
-    > **Conexao com Blocos 1 e 2:** O mesmo file share e acessado pela Windows VM (drive Z:) e pelo container ACI (/mnt/fileshare). Dados sao compartilhados entre compute platforms diferentes via Azure Files.
+    > **Conexao com Blocos 1 e 2:** O mesmo file share e acessado pela Windows VM (drive Z:) e pelo container ACI (/mnt/fileshare). Dados sao compartilhados entre compute platforms diferentes via Azure Files — uma VM Windows, um container Linux e o portal Azure todos veem os mesmos arquivos.
 
 ---
 
 ### Task 4.3: Revisar logs e eventos do container
+
+**O que estamos fazendo e por que:** Monitorar containers e essencial para troubleshooting. ACI fornece logs basicos (stdout/stderr do processo) e eventos de lifecycle (quando o container foi iniciado, parado, etc.). Esses sao os primeiros lugares para investigar quando algo da errado.
 
 1. Na container instance **ci-contoso-worker**, navegue para **Settings** > **Containers**
 
@@ -182,6 +200,8 @@ Voce cria um novo container que monta o file share `contoso-files` do Bloco 1, d
    - **Events**: mostra eventos de lifecycle (Pull, Start, etc.)
    - **Logs**: mostra stdout/stderr da aplicacao
    - **Properties**: configuracao detalhada
+
+   > **Events** mostra a sequencia: Pull (baixar imagem) → Create (criar container) → Start (iniciar processo). Se o container falhar, os eventos mostram em que etapa houve problema.
 
 3. Na aba **Logs**, revise as mensagens de log da aplicacao
 
@@ -192,11 +212,13 @@ Voce cria um novo container que monta o file share `contoso-files` do Bloco 1, d
    - **Memory Usage**
    - **Network Bytes Received/Sent**
 
-   > **Conceito:** ACI fornece metricas e logs basicos. Para cenarios mais avancados, integre com Azure Monitor e Log Analytics.
+   > **Conceito:** ACI fornece metricas e logs basicos. Para cenarios mais avancados (queries KQL, alertas, dashboards), integre com Azure Monitor e Log Analytics. Comparado com VMs, containers tem lifecycle mais curto — logs precisam ser exportados antes do container ser deletado.
 
 ---
 
 ### Task 4.4: Testar restart e lifecycle do container
+
+**O que estamos fazendo e por que:** Entender o ciclo de vida do container e importante para a prova. Containers podem ser stopped, started e restarted — e o comportamento de cobranca muda conforme o estado. Containers stopped NAO geram custo de compute, o que os torna mais economicos que VMs desalocadas (que param de cobrar compute mas continuam cobrando disco).
 
 1. Na container instance **ci-contoso-worker**, clique em **Restart** no blade **Overview**
 
@@ -210,9 +232,15 @@ Voce cria um novo container que monta o file share `contoso-files` do Bloco 1, d
 
 6. Acesse o FQDN novamente para confirmar que o container esta respondendo
 
-   > **Conceito:** ACI containers podem ser stopped/started. Quando stopped, voce NAO e cobrado por compute (apenas por storage de logs). A restart policy determina o comportamento automatico: Always, OnFailure, Never.
+   > **Conceito:** ACI containers podem ser stopped/started. Quando stopped, voce NAO e cobrado por compute (apenas por storage de logs). A restart policy determina o comportamento automatico: Always (servicos), OnFailure (jobs com retry), Never (jobs one-shot).
 
-   > **Dica AZ-104:** Na prova, diferencie: ACI = containers simples sem orquestracao; AKS = Kubernetes gerenciado com orquestracao completa; Container Apps = meio-termo (orquestracao serverless baseada em KEDA/Dapr).
+   > **Dica AZ-104:** Na prova, diferencie os tres servicos de containers:
+
+   | Servico            | Quando usar                         | Scaling                              | Complexidade  |
+   | ------------------ | ----------------------------------- | ------------------------------------ | ------------- |
+   | **ACI**            | Jobs simples, batch, teste rapido   | Manual (sem auto-scale)              | Mais simples  |
+   | **Container Apps** | Microservicos, APIs, event-driven   | Auto-scale (HTTP, KEDA)              | Medio         |
+   | **AKS**            | Kubernetes completo, controle total | Auto-scale (HPA, cluster autoscaler) | Mais complexo |
 
 ---
 
@@ -282,4 +310,3 @@ ACI cobra por segundo de uso de CPU e memoria. Containers no estado Stopped nao 
 </details>
 
 ---
-

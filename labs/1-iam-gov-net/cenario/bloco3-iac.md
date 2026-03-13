@@ -43,6 +43,10 @@ Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial de
 
 ### Task 3.1: Criar managed disk e exportar ARM template
 
+Voce comeca pelo metodo mais simples — criar um disco pelo portal — e depois **exporta o template** que o Azure gera automaticamente. Esse template sera a base para os deploys seguintes via codigo. Isso demonstra um fluxo comum em producao: "criar uma vez no portal para entender, depois replicar via IaC".
+
+> **Conceito:** Um **Managed Disk** e um disco de armazenamento gerenciado pelo Azure. Diferente de discos "unmanaged" (que ficam num Storage Account que voce gerencia), managed disks abstraem a infraestrutura — o Azure cuida da replicacao, disponibilidade e escalabilidade. Na prova, managed disks sao o padrao.
+
 1. Pesquise e selecione **Disks** > **Create**:
 
    | Setting           | Value                                     |
@@ -56,23 +60,35 @@ Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial de
    | Performance       | **Standard HDD** (altere o tamanho)       |
    | Size              | **32 GiB**                                |
 
+   > **Por que Standard HDD?** E o tipo mais barato — ideal para labs e testes. Em producao, voce escolheria entre Standard SSD (custo-beneficio), Premium SSD (alto desempenho) ou Ultra Disk (workloads criticas). Na prova, saiba que o tipo de disco afeta IOPS e throughput.
+
+   > **Source type = None** cria um disco vazio. Outras opcoes: Snapshot (copia de um disco existente), Storage blob (importar VHD), ou outro disco.
+
 2. Clique em **Review + Create** > **Create**
 
 3. Selecione **Go to resource**
 
 4. **Validacao de governanca:** No blade **Tags**, verifique que a tag **Cost Center = 000** foi automaticamente atribuida pela policy Modify do Bloco 2.
 
-   > **Conexao com Bloco 2:** A policy "Inherit tag from resource group if missing" esta funcionando! O disco herdou a tag do rg-contoso-identity sem voce precisar configura-la manualmente.
+   > **Conexao com Bloco 2:** A policy "Inherit tag from resource group if missing" esta funcionando! O disco herdou a tag do rg-contoso-identity sem voce precisar configura-la manualmente. Isso e o poder do efeito Modify em acao.
 
 5. No blade **Automation**, selecione **Export template**
 
+   > **O que e Export template?** O Azure gera um ARM template JSON que representa o estado atual do recurso. Voce pode usar esse template para recriar o recurso identico, ou edita-lo para criar variacoes. E engenharia reversa: do recurso ao codigo.
+
 6. Revise as abas **Template** e **Parameters**
+
+   > **Template** contem a definicao do recurso (tipo, propriedades, SKU). **Parameters** contem os valores variaveis (nome, tamanho). Separar os dois permite reusar o mesmo template com parametros diferentes — um template, multiplos ambientes.
 
 7. Clique em **Download** em cada aba para salvar os arquivos JSON
 
 ---
 
 ### Task 3.2: Editar template e fazer deploy de disk-iac-test-02 via portal
+
+Agora voce reutiliza o template exportado para criar um segundo disco. O portal tem um editor embutido para **Custom template deployment** — voce carrega o JSON, ajusta os parametros, e faz deploy. E o meio-termo entre portal puro e CLI.
+
+> **Conceito:** ARM (Azure Resource Manager) e a camada que processa TODAS as requisicoes no Azure, independente do metodo (portal, CLI, PowerShell, SDK). Quando voce clica "Create" no portal, ele gera um ARM template por baixo. Entender ARM e entender como o Azure realmente funciona.
 
 1. Pesquise **Deploy a custom template** > **Build your own template in the editor**
 
@@ -81,6 +97,8 @@ Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial de
 3. No editor, altere:
    - `disks_disk_iac_test_01_name` → `disk_name` (dois locais)
    - `disk-iac-test-01` → `disk-iac-test-02` (um local)
+
+   > Voce esta renomeando o parametro para algo mais generico (`disk_name`) e atualizando o valor padrao. Isso torna o template reutilizavel — em vez de "template do disco 01", agora e "template de disco generico".
 
 4. Clique em **Save**
 
@@ -108,6 +126,10 @@ Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial de
 
 ### Task 3.3: Configurar Cloud Shell e deploy de disk-iac-test-03 via PowerShell
 
+O Cloud Shell e um terminal (Bash ou PowerShell) embutido no portal Azure, com ferramentas pre-instaladas (az CLI, PowerShell Az modules, kubectl, terraform, etc.). Ele usa um **Azure File Share** para persistir seus arquivos entre sessoes. Configurar uma vez aqui e reusar nos Blocos 4 e 5.
+
+> **Conceito:** O Cloud Shell roda num container gerenciado pela Microsoft. Ele ja vem autenticado com sua conta Azure — nao precisa fazer `az login`. O file share garante que scripts, templates e configuracoes sobrevivam entre sessoes.
+
 1. Clique no icone do **Cloud Shell** no canto superior direito
 
 2. Selecione **PowerShell**
@@ -122,6 +144,8 @@ Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial de
    | Region          | *sua regiao*                                               |
    | Storage account | *nome unico globalmente (3-24 chars, lowercase + numeros)* |
    | File share      | `fs-cloudshell`                                            |
+
+   > **Nome unico globalmente:** Storage account names devem ser unicos em TODO o Azure (nao apenas na sua subscription). Use algo como `stcloudshell` + iniciais + numeros aleatorios.
 
 5. Clique em **Create**
 
@@ -139,6 +163,10 @@ Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial de
     New-AzResourceGroupDeployment -ResourceGroupName rg-contoso-identity -TemplateFile template.json -TemplateParameterFile parameters.json
     ```
 
+    > **Entendendo o comando:** `New-AzResourceGroupDeployment` e o cmdlet PowerShell para deploy de ARM templates. `-ResourceGroupName` define o RG alvo, `-TemplateFile` e o template, `-TemplateParameterFile` sao os parametros. Na prova, esse e o comando mais cobrado para deploy via PowerShell.
+
+    > **Dica AZ-104:** O equivalente para deploy no nivel da subscription (nao do RG) e `New-AzDeployment`. Na prova, preste atencao no ESCOPO do deploy — RG vs Subscription vs Management Group.
+
 10. Verifique que o ProvisioningState e **Succeeded**
 
 11. **Validacao de governanca:** Verifique a tag:
@@ -153,7 +181,13 @@ Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial de
 
 ### Task 3.4: Deploy via CLI (Bash) de disk-iac-test-04
 
+Agora voce faz o mesmo deploy usando **az CLI** no Bash. O objetivo e comparar os dois metodos: PowerShell (cmdlets com sintaxe verbo-substantivo) vs az CLI (comandos com sintaxe hierarquica). Ambos fazem a mesma coisa — a escolha e preferencia pessoal.
+
+> **Conceito:** PowerShell usa cmdlets como `New-AzResourceGroupDeployment`. Az CLI usa comandos como `az deployment group create`. Na prova, ambos aparecem — saiba reconhecer os dois formatos.
+
 1. No Cloud Shell, selecione **Bash** e **confirme**
+
+   > Trocar de PowerShell para Bash reinicia o shell, mas os arquivos no file share permanecem. Voce pode alternar quantas vezes quiser.
 
 2. Verifique os arquivos: `ls`
 
@@ -164,6 +198,8 @@ Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial de
    ```sh
    az deployment group create --resource-group rg-contoso-identity --template-file template.json --parameters parameters.json
    ```
+
+   > **Comparando com PowerShell:** O comando faz exatamente a mesma coisa. `az deployment group create` = deploy no nivel de RG. Os parametros usam `--` (double dash) em vez de `-` (single dash). Na prova, `--parameters` pode receber um arquivo JSON OU valores inline (ex: `--parameters diskName=test`).
 
 5. Verifique o ProvisioningState: **Succeeded**
 
@@ -178,6 +214,10 @@ Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial de
 ---
 
 ### Task 3.5: Deploy via Bicep de disk-iac-test-05
+
+Bicep e a linguagem de IaC nativa do Azure — uma alternativa mais legivel e concisa ao ARM JSON. Ela **compila para ARM JSON** por baixo, entao suporta exatamente os mesmos recursos. Se ARM JSON e Assembly, Bicep e uma linguagem de alto nivel.
+
+> **Conceito:** Bicep elimina a verbosidade do JSON. Compare: em ARM JSON, voce precisa de chaves, colchetes, aspas e estrutura rigida. Em Bicep, a mesma definicao usa metade das linhas. Na prova, saiba que Bicep compila para ARM e nao requer nenhum runtime adicional.
 
 1. Continue no **Cloud Shell** (Bash)
 
@@ -224,10 +264,14 @@ Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial de
    }
    ```
 
+   > **Anatomia do Bicep:** `param` define parametros de entrada (como variables no ARM JSON). `resource` define o recurso a ser criado. `@description` e `@minValue/@maxValue` sao decorators que adicionam metadados e validacao. `resourceGroup().location` e uma funcao que pega a location do RG alvo automaticamente.
+
 3. No **Editor**, faca as alteracoes:
    - Linha 2: `managedDiskName` default → `disk-iac-test-05`
    - Linha 27 (dentro do bloco `sku`): name → `StandardSSD_LRS`
    - Linha 7: `diskSizeinGiB` default → `32`
+
+   > **Por que mudar de UltraSSD_LRS para StandardSSD_LRS?** Ultra SSDs tem requisitos especificos (zona de disponibilidade, VM compativel) e custo elevado. StandardSSD_LRS e mais adequado para labs. Na prova, saiba os tipos: Standard HDD (LRS), Standard SSD (LRS), Premium SSD (LRS/ZRS), Ultra Disk (LRS).
 
 4. Salve com **Ctrl+S**
 
@@ -236,6 +280,8 @@ Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial de
    ```sh
    az deployment group create --resource-group rg-contoso-identity --template-file azuredeploydisk.bicep
    ```
+
+   > Note que o comando e **identico** ao deploy com ARM JSON — voce so troca o arquivo. O az CLI detecta que e Bicep e compila para ARM automaticamente antes de enviar ao Azure.
 
 6. **Validacao de governanca:**
 
@@ -249,11 +295,13 @@ Voce vai provisionar recursos usando diferentes metodos de IaC. O diferencial de
    az disk list --resource-group rg-contoso-identity --output table
    ```
 
+   > Neste ponto voce ja criou o mesmo tipo de recurso usando 4 metodos diferentes: Portal, ARM via Portal, ARM via PowerShell, ARM via CLI, e Bicep via CLI. Todos produziram o mesmo resultado — e todos herdaram a tag da policy. Isso demonstra que ARM e a camada unificada.
+
 ---
 
 ### Task 3.6: Teste de integracao — Allowed Locations policy
 
-Voce testa a policy do Bloco 2 que restringe recursos ao East US.
+Voce testa a policy do Bloco 2 que restringe recursos ao East US. Este e o momento de ver a governanca bloqueando uma acao indevida — exatamente como aconteceria em producao se alguem tentasse criar recursos em uma regiao nao autorizada.
 
 1. No Cloud Shell (Bash), tente criar um disco em **West US**:
 
@@ -263,13 +311,15 @@ Voce testa a policy do Bloco 2 que restringe recursos ao East US.
      --parameters managedDiskName=contoso-disk-test location=westus
    ```
 
+   > Note que voce esta passando `location=westus` como parametro, sobrescrevendo o default (`resourceGroup().location` = East US). A policy avalia o recurso ANTES de cria-lo.
+
 2. **Resultado esperado:** O deploy **falha** com erro de policy violation:
 
    ```
    "Resource 'contoso-disk-test' was disallowed by policy."
    ```
 
-   > **Conexao com Bloco 2:** A policy "Allowed locations" aplicada no Bloco 2 esta funcionando! Recursos so podem ser criados em East US neste resource group.
+   > **Conexao com Bloco 2:** A policy "Allowed locations" aplicada no Bloco 2 esta funcionando! Recursos so podem ser criados em East US neste resource group. Isso prova que policies funcionam independente do metodo de deploy (portal, CLI, PowerShell, API).
 
 3. Confirme que o disco de teste NAO foi criado:
 
@@ -283,7 +333,7 @@ Voce testa a policy do Bloco 2 que restringe recursos ao East US.
 
 ### Task 3.7: Teste de integracao — Guest user com Reader role (Opcional)
 
-Este teste valida o RBAC configurado no Bloco 2 (Reader para o guest user).
+Este teste valida o RBAC configurado no Bloco 2 (Reader para o guest user). Voce vera que o principio de least privilege funciona: o guest pode ver tudo mas nao pode mudar nada.
 
 > **Pre-requisito:** O guest user deve ter aceito o convite do Bloco 1.
 
@@ -299,7 +349,7 @@ Este teste valida o RBAC configurado no Bloco 2 (Reader para o guest user).
 
 6. Tente criar um novo disco (**Disks** > **Create**) — deve **falhar** com erro de permissao
 
-   > **Conexao com Blocos 1 e 2:** O guest user (convidado no Bloco 1) recebeu Reader (atribuido no Bloco 2) e pode ver mas nao criar recursos. Isso demonstra RBAC em acao.
+   > **Conexao com Blocos 1 e 2:** O guest user (convidado no Bloco 1) recebeu Reader (atribuido no Bloco 2) e pode ver mas nao criar recursos. Isso demonstra RBAC em acao: identidade (quem) + role (permissoes) + scope (onde) = acesso controlado.
 
 7. Feche a janela InPrivate
 
@@ -373,4 +423,3 @@ Bicep e uma DSL que compila transparentemente para ARM JSON. Ambos suportam os m
 </details>
 
 ---
-

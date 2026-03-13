@@ -12,38 +12,40 @@ Na Semana 2, voce criou VMs Windows (`vm-web-01`) e Linux (`vm-api-01`) no resou
 ## Diagrama
 
 ```
-┌────────────────────────────────────────────────────────────────────┐
-│                    rg-contoso-management                                 │
-│                                                                    │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │          Recovery Services Vault: rsv-contoso-backup                  │  │
-│  │                                                              │  │
-│  │  Backup Policies:                                            │  │
-│  │  ├─ DefaultPolicy (built-in, daily)                          │  │
-│  │  └─ rsvpol-contoso-12h (custom, 12h frequency)              │  │
-│  │                                                              │  │
-│  │  Protected Items:                                            │  │
-│  │  ├─ vm-web-01  (Semana 2, rg-contoso-compute) ◄── Custom policy    │  │
+┌────────────────────────────────────────────────────────────────────────┐
+│                    rg-contoso-management                               │
+│                                                                        │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │          Recovery Services Vault: rsv-contoso-backup             │  │
+│  │                                                                  │  │
+│  │  Backup Policies:                                                │  │
+│  │  ├─ DefaultPolicy (built-in, daily)                              │  │
+│  │  └─ rsvpol-contoso-12h (custom, 12h frequency)                   │  │
+│  │                                                                  │  │
+│  │  Protected Items:                                                │  │
+│  │  ├─ vm-web-01  (Semana 2, rg-contoso-compute) ◄── Custom policy  │  │
 │  │  └─ vm-api-01 (Semana 2, rg-contoso-compute) ◄── Default policy  │  │
-│  │                                                              │  │
-│  │  → Reutilizado no Bloco 2 (File Share backup)                │  │
-│  │  → Reutilizado no Bloco 3 (Site Recovery)                    │  │
-│  └──────────────────────────────────────────────────────────────┘  │
-│                                                                    │
-│    ┌──────────────────────────────────────────────────────────┐    │
-│    │  rg-contoso-compute (Semana 2 — VMs)                              │    │
-│    │                                                          │    │
-│    │  ├─ vm-web-01  (Windows Server) ─── backup ativo ✓    │    │
-│    │  └─ vm-api-01 (Ubuntu) ────────── backup ativo ✓    │    │
-│    └──────────────────────────────────────────────────────────┘    │
-└────────────────────────────────────────────────────────────────────┘
+│  │                                                                  │  │
+│  │  → Reutilizado no Bloco 2 (File Share backup)                    │  │
+│  │  → Reutilizado no Bloco 3 (Site Recovery)                        │  │
+│  └──────────────────────────────────────────────────────────────────┘  │
+│                                                                        │
+│    ┌──────────────────────────────────────────────────────────────┐    │
+│    │  rg-contoso-compute (Semana 2 — VMs)                         │    │
+│    │                                                              │    │
+│    │  ├─ vm-web-01  (Windows Server) ─── backup ativo ✓           │    │
+│    │  └─ vm-api-01 (Ubuntu) ────────── backup ativo ✓             │    │
+│    └──────────────────────────────────────────────────────────────┘    │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ### Task 1.1: Criar Recovery Services Vault
 
-O vault centraliza backups de VMs, file shares e configuracoes de Site Recovery. Voce usara este mesmo vault nos **Blocos 2 e 3**.
+O Recovery Services Vault e o "cofre" central onde o Azure armazena e gerencia backups. Pense nele como um cofre de banco: voce guarda copias de seguranca dos seus recursos e define regras de retencao. Tudo — VMs, file shares e configuracoes de DR — pode ser gerenciado a partir de um unico vault.
+
+O vault criado aqui sera reutilizado nos **Blocos 2 e 3**, entao ele e a base de toda a estrategia de protecao.
 
 > **Cobranca:** O vault em si e gratuito, mas cada instancia protegida (VM, File Share) gera cobranca.
 
@@ -53,14 +55,14 @@ O vault centraliza backups de VMs, file shares e configuracoes de Site Recovery.
 
 3. Preencha as configuracoes:
 
-   | Setting        | Value                                  |
-   | -------------- | -------------------------------------- |
-   | Subscription   | *sua subscription*                     |
+   | Setting        | Value                                        |
+   | -------------- | -------------------------------------------- |
+   | Subscription   | *sua subscription*                           |
    | Resource group | `rg-contoso-management` (crie se necessario) |
-   | Vault name     | `rsv-contoso-backup`                            |
-   | Region         | **East US**                            |
+   | Vault name     | `rsv-contoso-backup`                         |
+   | Region         | **East US**                                  |
 
-   > **Conceito:** O Recovery Services Vault deve estar na **mesma regiao** dos recursos que protege (para backup). Para Site Recovery (Bloco 3), o vault de DR ficara na regiao secundaria.
+   > **Conceito:** O Recovery Services Vault deve estar na **mesma regiao** dos recursos que protege (para backup). Para Site Recovery (Bloco 3), o vault de DR ficara na regiao secundaria. Isso e uma regra fundamental — vault em East US so protege recursos em East US.
 
 4. Clique em **Review + create** > **Create**
 
@@ -74,7 +76,9 @@ O vault centraliza backups de VMs, file shares e configuracoes de Site Recovery.
 
 ### Task 1.2: Criar custom backup policy
 
-A DefaultPolicy faz backup diario com retencao de 30 dias. Voce cria uma policy customizada com frequencia de 12 horas para VMs criticas.
+Uma backup policy define **quando** e **com que frequencia** o Azure faz backup, e **por quanto tempo** mantem os dados. A DefaultPolicy faz backup diario com retencao de 30 dias — suficiente para muitos cenarios. Mas VMs criticas (como servidores de producao) podem precisar de backups mais frequentes.
+
+**Analogia:** A policy e como a programacao de um alarme — voce define a hora, a frequencia e por quanto tempo quer manter o historico de gravacoes.
 
 1. No vault **rsv-contoso-backup**, va para **Manage** > **Backup policies**
 
@@ -86,7 +90,7 @@ A DefaultPolicy faz backup diario com retencao de 30 dias. Voce cria uma policy 
 
    | Setting              | Value                                            |
    | -------------------- | ------------------------------------------------ |
-   | Policy name          | `rsvpol-contoso-12h`                            |
+   | Policy name          | `rsvpol-contoso-12h`                             |
    | Frequency            | **Every 12 hours** (Hourly)                      |
    | Time                 | `6:00 AM`                                        |
    | Timezone             | **(UTC-03:00) Brasilia**                         |
@@ -95,19 +99,21 @@ A DefaultPolicy faz backup diario com retencao de 30 dias. Voce cria uma policy 
    | Weekly backup point  | **Enabled** — Sunday, retain **12** weeks        |
    | Monthly backup point | **Enabled** — First Sunday, retain **12** months |
 
-   > **Conceito:** Instant Restore usa snapshots locais para restauracao rapida (minutos). Daily/Weekly/Monthly sao pontos de retencao de longo prazo armazenados no vault.
+   > **Conceito:** **Instant Restore** usa snapshots locais para restauracao rapida (minutos em vez de horas). Os snapshots ficam no mesmo resource group da VM e permitem restore quase instantaneo. Ja os pontos daily/weekly/monthly sao armazenados no vault para retencao de longo prazo — mais lentos para restaurar, mas protegidos contra falha do resource group.
+
+   > **Frequency "Every 12 hours"** requer uma **Enhanced backup policy**. A Standard policy suporta apenas 1x por dia. Enhanced tambem habilita Multi-Disk Crash Consistency.
 
 5. Clique em **Create**
 
 6. Verifique que **rsvpol-contoso-12h** aparece na lista junto com **DefaultPolicy**
 
-   > **Dica AZ-104:** Na prova, atente para os limites de retencao: daily (9999 dias), weekly (5163 semanas), monthly (1188 meses), yearly (99 anos).
+   > **Dica AZ-104:** Na prova, atente para os limites de retencao: daily (9999 dias), weekly (5163 semanas), monthly (1188 meses), yearly (99 anos). Tambem saiba que Enhanced policy permite frequencias de 4, 6, 8 ou 12 horas.
 
 ---
 
 ### Task 1.3: Habilitar backup para vm-web-01 (custom policy)
 
-Voce protege a VM Windows da Semana 2 usando a policy customizada.
+Agora voce conecta a VM a policy que acabou de criar. Ao habilitar backup, o Azure instala automaticamente uma extensao na VM (VMSnapshot para Windows, VMSnapshotLinux para Linux) que coordena os snapshots. Voce nao precisa fazer nada dentro da VM.
 
 > **Cobranca:** Habilitar backup gera cobranca por instancia protegida e armazenamento de snapshots.
 
@@ -136,11 +142,13 @@ Voce protege a VM Windows da Semana 2 usando a policy customizada.
 
 8. Aguarde a notificacao de sucesso
 
-   > **Conceito:** O Azure instala automaticamente a extensao de backup na VM (VMSnapshot para Windows, VMSnapshotLinux para Linux). Nenhuma acao adicional e necessaria dentro da VM.
+   > **Conceito:** O Azure instala automaticamente a extensao de backup na VM (VMSnapshot para Windows, VMSnapshotLinux para Linux). Nenhuma acao adicional e necessaria dentro da VM. Essa extensao usa o VSS (Volume Shadow Copy Service) no Windows para garantir consistencia de aplicacao — ou seja, o backup captura um estado consistente mesmo com o banco de dados rodando.
 
 ---
 
 ### Task 1.4: Habilitar backup para vm-api-01 (DefaultPolicy)
+
+A VM Linux recebe a DefaultPolicy (backup diario). Isso demonstra um cenario comum: VMs com diferentes niveis de criticidade recebem policies diferentes. A vm-web-01 (producao, voltada para usuario) tem backup a cada 12h; a vm-api-01 (backend) tem backup diario.
 
 1. Ainda no vault **rsv-contoso-backup** > **Getting started** > **Backup**
 
@@ -167,6 +175,8 @@ Voce protege a VM Windows da Semana 2 usando a policy customizada.
 
 ### Task 1.5: Executar backup on-demand da vm-web-01
 
+O backup on-demand permite criar um ponto de restauracao **agora**, sem esperar o proximo agendamento. Isso e util antes de grandes mudancas (atualizacoes de SO, deploy de aplicacao) — voce cria um "checkpoint" para poder voltar caso algo de errado.
+
 1. No vault **rsv-contoso-backup**, va para **Protected items** > **Backup items**
 
 2. Clique em **Azure Virtual Machine**
@@ -179,28 +189,34 @@ Voce protege a VM Windows da Semana 2 usando a policy customizada.
    | ------------------ | --------------------------------------------- |
    | Retain Backup Till | *aceite o default (30 dias a partir de hoje)* |
 
+   > **Retain Backup Till** define ate quando este backup especifico sera mantido, independente da policy. E util para preservar um backup antes de uma grande mudanca, garantindo que ele nao sera removido pela retencao normal da policy.
+
 5. Clique em **OK**
 
 6. Monitore o progresso em **Monitoring** > **Backup Jobs**
 
-   > **Conceito:** O primeiro backup (full) pode levar mais tempo. Backups subsequentes sao incrementais. O job passa por fases: Snapshot → Transfer data to vault.
+   > **Conceito:** O primeiro backup (full) pode levar mais tempo porque copia todos os dados. Backups subsequentes sao **incrementais** — apenas as mudancas desde o ultimo backup sao copiadas. O job passa por duas fases: **Snapshot** (rapida, cria snapshot local) e **Transfer data to vault** (mais lenta, envia dados para o vault).
 
 7. Aguarde ate o status mudar para **Completed** (pode levar 20-30 minutos)
 
-   > **Dica AZ-104:** Na prova, saiba diferenciar: backup on-demand vs scheduled, full vs incremental, snapshot vs vault tier.
+   > **Dica AZ-104:** Na prova, saiba diferenciar: backup on-demand vs scheduled, full vs incremental, snapshot vs vault tier. O snapshot tier permite Instant Restore (restauracao em minutos); o vault tier e para retencao de longo prazo.
 
 ---
 
 ### Task 1.6: Verificar backup items e restore points
 
+Apos o backup completar, voce verifica os itens protegidos e os pontos de restauracao disponiveis. Cada restore point e um "momento no tempo" para o qual voce pode voltar — como salvar o jogo antes de uma fase dificil.
+
 1. No vault **rsv-contoso-backup** > **Protected items** > **Backup items** > **Azure Virtual Machine**
 
 2. Verifique que ambas as VMs aparecem:
 
-   | VM             | Policy              | Last Backup Status |
-   | -------------- | ------------------- | ------------------ |
-   | vm-web-01   | rsvpol-contoso-12h | Completed          |
-   | vm-api-01 | DefaultPolicy       | Warning (initial)  |
+   | VM        | Policy             | Last Backup Status |
+   | --------- | ------------------ | ------------------ |
+   | vm-web-01 | rsvpol-contoso-12h | Completed          |
+   | vm-api-01 | DefaultPolicy      | Warning (initial)  |
+
+   > O status **Warning (initial)** da vm-api-01 e normal — significa que nenhum backup foi executado ainda (apenas agendado). O primeiro backup agendado corrigira isso.
 
 3. Selecione **vm-web-01** > clique em **View all restore points**
 
@@ -212,13 +228,15 @@ Voce protege a VM Windows da Semana 2 usando a policy customizada.
    - **Replace existing** — substitui os discos da VM atual
    - **Cross Region Restore** — restaura na regiao secundaria (se habilitado)
 
+   > **Conceito:** Cada opcao atende um cenario diferente. **Create VM** e para quando a VM original foi perdida. **Restore disk** da mais controle — voce recebe managed disks e decide o que fazer. **Replace existing** e um "rollback" — substitui os discos atuais mantendo a mesma VM. **Cross Region Restore** e para DR (requer GRS no vault).
+
    > **Conexao com Bloco 3:** No Bloco 3 (Site Recovery), voce configurara replicacao cross-region como alternativa ao Cross Region Restore para cenarios de DR mais robustos.
 
 ---
 
 ### Task 1.6b: Explorar Cross Region Restore e replicacao do vault
 
-Voce revisa as configuracoes de replicacao de storage do vault e entende como habilitar Cross Region Restore.
+Voce revisa as configuracoes de replicacao de storage do vault e entende como habilitar Cross Region Restore. A replicacao do vault define **quantas copias** dos seus backups existem e **onde** elas ficam — e uma decisao critica que impacta diretamente a resiliencia da sua estrategia de protecao.
 
 1. Navegue para **rsv-contoso-backup** > **Properties**
 
@@ -226,11 +244,13 @@ Voce revisa as configuracoes de replicacao de storage do vault e entende como ha
 
 3. Observe o **Storage Replication Type** atual:
 
-   | Opcao           | Descricao                                                      |
-   | --------------- | -------------------------------------------------------------- |
-   | **LRS**         | 3 copias na mesma regiao (default)                             |
-   | **GRS**         | 6 copias: 3 na regiao primaria + 3 na regiao pareada           |
-   | **ZRS**         | 3 copias em zonas de disponibilidade diferentes (mesma regiao) |
+   | Opcao   | Descricao                                                      |
+   | ------- | -------------------------------------------------------------- |
+   | **LRS** | 3 copias na mesma regiao (default)                             |
+   | **GRS** | 6 copias: 3 na regiao primaria + 3 na regiao pareada           |
+   | **ZRS** | 3 copias em zonas de disponibilidade diferentes (mesma regiao) |
+
+   > **Analogia:** LRS e guardar 3 copias do documento no mesmo escritorio. ZRS e guardar em 3 escritorios diferentes da mesma cidade. GRS e guardar em 2 cidades diferentes. Quanto mais distribuido, maior a protecao contra desastres.
 
 4. Se nenhum backup item estiver configurado, voce pode alterar para **GRS** e habilitar **Cross Region Restore**
 
@@ -248,7 +268,7 @@ Voce revisa as configuracoes de replicacao de storage do vault e entende como ha
 
 ### Task 1.7: Simular restore de disco (dry run)
 
-Voce pratica o processo de restore sem criar recursos permanentes.
+Voce pratica o processo de restore sem criar recursos permanentes. Em producao, a restauracao mais comum e **Restore disks** — ela da flexibilidade para voce decidir como reconstruir a VM (novo nome, nova rede, etc.).
 
 1. No vault **rsv-contoso-backup** > **Protected items** > **Backup items** > **Azure Virtual Machine**
 
@@ -263,13 +283,13 @@ Voce pratica o processo de restore sem criar recursos permanentes.
    | Setting          | Value                                                  |
    | ---------------- | ------------------------------------------------------ |
    | Staging Location | *selecione um storage account existente (da Semana 2)* |
-   | Resource Group   | `rg-contoso-management`                                      |
+   | Resource Group   | `rg-contoso-management`                                |
 
-   > **Conexao com Semana 2:** Voce pode usar o storage account criado na Semana 2 como staging location. O restore process usa esse storage para armazenar temporariamente os discos restaurados.
+   > **Staging Location** e o storage account temporario onde o Azure coloca os discos restaurados e um ARM template de deploy. Voce pode usar o storage account criado na Semana 2. Apos a restauracao, voce pode usar o template para recriar a VM ou anexar os discos manualmente.
 
 6. **NAO clique em Restore** — apenas revise as opcoes e cancele
 
-   > **Conceito:** Restore disk cria managed disks que podem ser usados para recriar a VM manualmente ou via ARM template (skills do Bloco 3, Semana 1). Restore VM cria tudo automaticamente.
+   > **Conceito:** Restore disk cria managed disks que podem ser usados para recriar a VM manualmente ou via ARM template (skills do Bloco 3, Semana 1). Restore VM cria tudo automaticamente. Na prova, saiba que **Restore disks** e a unica opcao que permite restaurar discos individuais (ex: apenas o OS disk sem os data disks).
 
 ---
 
@@ -357,4 +377,3 @@ D) Cross Region Restore
 </details>
 
 ---
-

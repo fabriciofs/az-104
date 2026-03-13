@@ -38,7 +38,7 @@ A MedCloud tem 150 funcionarios, 5 clinicas conectadas via VPN, e 3 aplicacoes c
             │                                                                   │
             │  ┌──────────────────────────────────────┐                         │
             │  │     Recovery Services Vault          │                         │
-            │  │     mc-rsv-eastus                    │                         │
+            │  │     mc-rsv                           │                         │
             │  │                                      │                         │
             │  │  ┌────────────┐  ┌───────────────┐   │                         │
             │  │  │ VM Backup  │  │ File Share    │   │                         │
@@ -80,7 +80,7 @@ A MedCloud tem 150 funcionarios, 5 clinicas conectadas via VPN, e 3 aplicacoes c
             │                                                                   │
             │  ┌──────────────────────────────────────┐                         │
             │  │     Log Analytics Workspace          │                         │
-            │  │     mc-law-eastus                    │                         │
+            │  │     mc-law                           │                         │
             │  │                                      │                         │
             │  │  ┌──────────┐ ┌──────────┐ ┌──────┐  │                         │
             │  │  │  VM-01   │ │  VM-02   │ │VM-03 │  │  ← Azure Monitor Agent  │
@@ -282,7 +282,7 @@ Responda:
 
 ### Q3.3 — Diagnostic Settings (Cenario)
 
-Rafael habilitou **Diagnostic Settings** para as 3 VMs criticas da MedCloud, configurando o envio de logs para o Log Analytics Workspace `mc-law-eastus`. Apos 1 hora, ele executa uma query KQL e nao encontra nenhum log das VMs.
+Rafael habilitou **Diagnostic Settings** para as 3 VMs criticas da MedCloud, configurando o envio de logs para o Log Analytics Workspace `mc-law`. Apos 1 hora, ele executa uma query KQL e nao encontra nenhum log das VMs.
 
 Identifique as possiveis causas:
 

@@ -7,20 +7,20 @@
 
 ## Contexto
 
-Com o armazenamento configurado no Bloco 1, voce agora implanta cargas de trabalho de computacao. As VMs serao criadas nas VNets da Semana 1 (vnet-contoso-hub-eastus e vnet-contoso-spoke-eastus), usando o storage do Bloco 1 para dados. Voce tambem criara um VMSS com auto-scaling para cenarios de alta disponibilidade. Os data disks demonstram integracao com o storage, e a montagem do file share valida a conectividade end-to-end.
+Com o armazenamento configurado no Bloco 1, voce agora implanta cargas de trabalho de computacao. As VMs serao criadas nas VNets da Semana 1 (vnet-contoso-hub e vnet-contoso-spoke), usando o storage do Bloco 1 para dados. Voce tambem criara um VMSS com auto-scaling para cenarios de alta disponibilidade. Os data disks demonstram integracao com o storage, e a montagem do file share valida a conectividade end-to-end.
 
 ## Diagrama
 
 ```
 ┌───────────────────────────────────────────────────────────────────┐
-│                          rg-contoso-compute                                │
+│                          rg-contoso-compute                       │
 │                                                                   │
 │  ┌────────────────────────────┐  ┌─────────────────────────────┐  │
-│  │  vm-web-01              │  │  vm-api-01             │  │
+│  │  vm-web-01                 │  │  vm-api-01                  │  │
 │  │  (Windows Server 2022)     │  │  (Ubuntu 22.04 LTS)         │  │
 │  │                            │  │                             │  │
-│  │  VNet: vnet-contoso-hub-eastus    │  │  VNet: vnet-contoso-spoke-eastus    │  │
-│  │  Subnet: snet-apps (Semana 1)   │  │  Subnet: snet-apps      │  │
+│  │  VNet: vnet-contoso-hub    │  │  VNet: vnet-contoso-spoke   │  │
+│  │  Subnet: snet-apps (Sem 1) │  │  Subnet: snet-apps          │  │
 │  │  Size: Standard_D2s_v3     │  │  Size: Standard_D2s_v3      │  │
 │  │                            │  │                             │  │
 │  │  Data Disk: 32 GiB         │  │  Custom Script Ext.         │  │
@@ -29,11 +29,11 @@ Com o armazenamento configurado no Bloco 1, voce agora implanta cargas de trabal
 │  └────────────────────────────┘  └─────────────────────────────┘  │
 │                                                                   │
 │  ┌─────────────────────────────────────────────────────────────┐  │
-│  │  vmss-contoso-web                                                 │  │
+│  │  vmss-contoso-web                                           │  │
 │  │  (VM Scale Set - Ubuntu 22.04)                              │  │
 │  │                                                             │  │
-│  │  VNet: vnet-contoso-hub-eastus (Semana 1)                          │  │
-│  │  Subnet: snet-shared                               │  │
+│  │  VNet: vnet-contoso-hub (Semana 1)                          │  │
+│  │  Subnet: snet-shared                                        │  │
 │  │  Instances: min 1, max 3 (CPU > 75% scale out)              │  │
 │  │  → Usa rede ja protegida por NSG (Semana 1)                 │  │
 │  └─────────────────────────────────────────────────────────────┘  │
@@ -48,11 +48,13 @@ Com o armazenamento configurado no Bloco 1, voce agora implanta cargas de trabal
 
 ---
 
-### Task 2.1: Criar Windows VM na vnet-contoso-hub-eastus
+### Task 2.1: Criar Windows VM na vnet-contoso-hub
 
 > **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab (veja [Pausar entre Sessoes](../cenario-contoso.md#pausar-entre-sessoes)).
 
-A VM Windows sera implantada na vnet-contoso-hub-eastus criada na Semana 1, demonstrando cross-resource-group deployment.
+**O que estamos fazendo e por que:** VMs sao o recurso de computacao mais flexivel do Azure — voce controla o SO, software, rede e seguranca. Aqui criamos uma Windows VM no hub da rede (vnet-contoso-hub), demonstrando que VMs podem ser implantadas em VNets de **outros Resource Groups**. Isso e comum em producao: a equipe de rede gerencia as VNets, e a equipe de aplicacao cria VMs referenciando essas VNets.
+
+A VM Windows sera implantada na vnet-contoso-hub criada na Semana 1, demonstrando cross-resource-group deployment.
 
 1. Pesquise e selecione **Virtual Machines** > **Create** > **Azure Virtual Machine**
 
@@ -61,8 +63,8 @@ A VM Windows sera implantada na vnet-contoso-hub-eastus criada na Semana 1, demo
    | Setting              | Value                                         |
    | -------------------- | --------------------------------------------- |
    | Subscription         | *sua subscription*                            |
-   | Resource group       | `rg-contoso-compute` (ja existe do Modulo 1)              |
-   | Virtual machine name | `vm-web-01`                                |
+   | Resource group       | `rg-contoso-compute` (ja existe do Modulo 1)  |
+   | Virtual machine name | `vm-web-01`                                   |
    | Region               | **(US) East US**                              |
    | Availability options | No infrastructure redundancy required         |
    | Security type        | **Standard**                                  |
@@ -73,22 +75,26 @@ A VM Windows sera implantada na vnet-contoso-hub-eastus criada na Semana 1, demo
    | Public inbound ports | **Allow selected ports**                      |
    | Select inbound ports | **RDP (3389)**                                |
 
+   > **Security type:** Standard = sem recursos de seguranca adicionais. Trusted launch = Secure Boot + vTPM (protege contra rootkits). Confidential = criptografia de memoria. Para o lab, Standard e suficiente. Na prova, Trusted launch e o recomendado para producao.
+
+   > **Image Gen2 vs Gen1:** Gen2 suporta discos maiores, UEFI boot e features mais recentes. Gen1 e legado (BIOS). Sempre prefira Gen2 para novas VMs.
+
 3. Aba **Disks**: mantenha defaults (OS disk: Premium SSD)
 
 4. Aba **Networking**:
 
-   | Setting              | Value                                         |
-   | -------------------- | --------------------------------------------- |
-   | Virtual network      | **vnet-contoso-hub-eastus** (de rg-contoso-network, Semana 1) |
-   | Subnet               | **snet-apps** (10.20.0.0/24)                       |
-   | Public IP            | **(new) vm-web-01-ip**                     |
-   | NIC NSG              | **Basic**                                     |
-   | Public inbound ports | **Allow selected ports**                      |
-   | Select inbound ports | **RDP (3389)**                                |
+   | Setting              | Value                                                  |
+   | -------------------- | ------------------------------------------------------ |
+   | Virtual network      | **vnet-contoso-hub** (de rg-contoso-network, Semana 1) |
+   | Subnet               | **snet-apps** (10.20.0.0/24)                           |
+   | Public IP            | **(new) vm-web-01-ip**                                 |
+   | NIC NSG              | **Basic**                                              |
+   | Public inbound ports | **Allow selected ports**                               |
+   | Select inbound ports | **RDP (3389)**                                         |
 
    > **Nota:** Se a VNet da Semana 1 nao existir, crie uma VNet `ComputeVnet` (10.40.0.0/16) com subnet `ComputeSubnet` (10.40.0.0/24) no rg-contoso-compute.
 
-   > **Conexao com Semana 1:** A VM esta sendo implantada na mesma VNet usada para networking (cross-RG). Isso demonstra que VMs e VNets nao precisam estar no mesmo Resource Group.
+   > **Conexao com Semana 1:** A VM esta sendo implantada na mesma VNet usada para networking (cross-RG). Isso demonstra que VMs e VNets nao precisam estar no mesmo Resource Group — o Azure referencia por resource ID, nao por RG.
 
 5. Aba **Management**: mantenha defaults
 
@@ -103,9 +109,13 @@ A VM Windows sera implantada na vnet-contoso-hub-eastus criada na Semana 1, demo
    - **Public IP address**
    - **Status**: Running
 
+   > **Conceito:** A VM recebe um IP privado da subnet automaticamente (DHCP do Azure). O IP publico permite acesso externo (RDP/SSH). Em producao, use Azure Bastion em vez de IP publico para evitar exposicao direta da porta RDP na internet.
+
 ---
 
 ### Task 2.2: Adicionar Data Disk e montar File Share (Storage do Bloco 1)
+
+**O que estamos fazendo e por que:** O disco do SO (C:) contem o Windows e nao deve ser usado para dados de aplicacao. Data disks sao discos adicionais que voce "encaixa" na VM para armazenar dados — analogia: o disco C: e o HD interno do notebook, data disks sao HDs externos que voce conecta via USB. Alem disso, montar o file share do Bloco 1 demonstra que diferentes recursos de computacao (VMs, containers) podem compartilhar os mesmos dados.
 
 Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unidade de rede.
 
@@ -115,15 +125,19 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
 
 2. Clique em **+ Create and attach a new disk**:
 
-   | Setting      | Value                |
-   | ------------ | -------------------- |
-   | LUN          | `0`                  |
+   | Setting      | Value                 |
+   | ------------ | --------------------- |
+   | LUN          | `0`                   |
    | Disk name    | `disk-vm-web-01-data` |
-   | Storage type | **Premium SSD**      |
-   | Size (GiB)   | `32`                 |
-   | Encryption   | Default              |
+   | Storage type | **Premium SSD**       |
+   | Size (GiB)   | `32`                  |
+   | Encryption   | Default               |
+
+   > **LUN (Logical Unit Number)** e o "numero de identificacao" do disco na VM. LUN 0 = primeiro data disk, LUN 1 = segundo, etc. O SO usa o LUN para localizar o disco. O OS disk nao tem LUN (e tratado separadamente).
 
 3. Clique em **Apply**
+
+   > **Conceito:** Data disks podem ser anexados a VMs em execucao (hot-attach) sem reiniciar. Isso e diferente do OS disk, que requer stop/deallocate para trocar. Na prova, "anexar data disk sem downtime" = hot-attach (suportado).
 
 4. Conecte-se a VM via **RDP**:
    - Clique em **Connect** > **Connect** (native RDP)
@@ -134,6 +148,8 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
 6. Localize o disco de 32 GiB (offline). Clique com botao direito > **Bring Online** > **Yes**
 
 7. Clique com botao direito > **Initialize** (GPT)
+
+   > **Por que GPT e nao MBR?** GPT (GUID Partition Table) suporta discos maiores que 2 TB e mais particoes. MBR e legado. Para VMs Azure Gen2, GPT e o padrao.
 
 8. Clique com botao direito no espaco nao alocado > **New Simple Volume**:
    - Drive letter: `F`
@@ -159,21 +175,25 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
     }
     ```
 
+    > **Por que testar a porta 445 primeiro?** A porta 445 (SMB) e frequentemente bloqueada por ISPs e firewalls corporativos. O teste verifica se a VM consegue se comunicar com o storage antes de tentar montar. Se falhar, verifique NSGs e firewalls.
+
 12. Verifique que o drive **Z:** aparece no File Explorer com o conteudo do file share
 
 13. Crie um arquivo de teste no drive Z: `echo "Hello from VM" > Z:\vm-test.txt`
 
 14. Volte ao **Azure Portal** > Storage Account > **File shares** > **contoso-files** — confirme que `vm-test.txt` aparece
 
-    > **Conexao com Bloco 1:** O file share criado no Bloco 1 esta montado na VM. Isso demonstra integracao entre compute e storage. O mesmo share sera montado como volume no Bloco 4 (ACI).
+    > **Conexao com Bloco 1:** O file share criado no Bloco 1 esta montado na VM. Isso demonstra integracao entre compute e storage. O mesmo share sera montado como volume no Bloco 4 (ACI) — dados compartilhados entre plataformas diferentes.
 
 15. Desconecte do RDP
 
 ---
 
-### Task 2.3: Criar Linux VM na vnet-contoso-spoke-eastus com Custom Script Extension
+### Task 2.3: Criar Linux VM na vnet-contoso-spoke com Custom Script Extension
 
 > **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab (veja [Pausar entre Sessoes](../cenario-contoso.md#pausar-entre-sessoes)).
+
+**O que estamos fazendo e por que:** Alem de Windows, o Azure suporta diversas distribuicoes Linux. Aqui criamos uma Ubuntu VM na rede spoke (separada da hub) e instalamos Nginx usando Custom Script Extension. Isso demonstra como automatizar a configuracao de VMs apos a criacao — em vez de conectar manualmente via SSH para instalar software.
 
 1. Pesquise **Virtual Machines** > **Create** > **Azure Virtual Machine**
 
@@ -181,8 +201,8 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
 
    | Setting              | Value                                  |
    | -------------------- | -------------------------------------- |
-   | Resource group       | `rg-contoso-compute`                            |
-   | Virtual machine name | `vm-api-01`                       |
+   | Resource group       | `rg-contoso-compute`                   |
+   | Virtual machine name | `vm-api-01`                            |
    | Region               | **(US) East US**                       |
    | Security type        | **Standard**                           |
    | Image                | **Ubuntu Server 22.04 LTS - x64 Gen2** |
@@ -193,15 +213,17 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
    | Public inbound ports | **Allow selected ports**               |
    | Select inbound ports | **HTTP (80)**, **SSH (22)**            |
 
+   > **Authentication type:** Password e mais simples para labs. Em producao, use **SSH public key** — mais seguro porque nao transmite senha pela rede e nao pode ser "adivinhada" por brute force.
+
 3. Aba **Networking**:
 
-   | Setting         | Value                                          |
-   | --------------- | ---------------------------------------------- |
-   | Virtual network | **vnet-contoso-spoke-eastus** (de rg-contoso-network, Semana 1) |
-   | Subnet          | **snet-apps** (10.30.0.0/24)               |
-   | Public IP       | **(new) vm-api-01-ip**                    |
+   | Setting         | Value                                                    |
+   | --------------- | -------------------------------------------------------- |
+   | Virtual network | **vnet-contoso-spoke** (de rg-contoso-network, Semana 1) |
+   | Subnet          | **snet-apps** (10.30.0.0/24)                             |
+   | Public IP       | **(new) vm-api-01-ip**                                   |
 
-   > **Conexao com Semana 1:** A Linux VM fica na vnet-contoso-spoke-eastus. Se o peering da Semana 1 ainda existir, ela pode se comunicar com a Windows VM na vnet-contoso-hub-eastus.
+   > **Conexao com Semana 1:** A Linux VM fica na vnet-contoso-spoke. Se o peering da Semana 1 ainda existir, ela pode se comunicar com a Windows VM na vnet-contoso-hub.
 
 4. Aba **Monitoring**: **Disable** Boot diagnostics
 
@@ -214,18 +236,20 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
    ```bash
    sudo apt-get update
    sudo apt-get install -y nginx
-   echo "<h1>Hello from vm-api-01 (vnet-contoso-spoke-eastus)</h1>" | sudo tee /var/www/html/index.html
+   echo "<h1>Hello from vm-api-01 (vnet-contoso-spoke)</h1>" | sudo tee /var/www/html/index.html
    ```
 
 8. Clique em **Run** e aguarde a saida
 
 9. Copie o **Public IP** da VM e acesse via navegador — voce deve ver a pagina do Nginx
 
-   > **Conceito:** Custom Script Extension permite executar scripts pos-provisioning automaticamente. Util para configuracao, instalacao de software e deployment.
+   > **Conceito:** Custom Script Extension permite executar scripts pos-provisioning automaticamente. O script e executado pelo **VM Agent** (instalado em todas as VMs Azure). Util para configuracao, instalacao de software e deployment sem precisar de acesso SSH/RDP direto.
 
 ---
 
 ### Task 2.3b: Criar Linux VM com Cloud-init (Custom Data)
+
+**O que estamos fazendo e por que:** Cloud-init e o metodo nativo do Linux para configuracao automatica. A diferenca crucial: ele executa **durante o primeiro boot**, antes mesmo de voce conseguir fazer login. Isso significa que quando a VM estiver pronta, tudo ja esta configurado. Compare com Custom Script Extension, que executa **depois** da VM estar pronta.
 
 > **Conceito para prova:** Cloud-init e o metodo nativo do Linux para configuracao automatica no **primeiro boot**. Diferente do Custom Script Extension (pos-provisioning) e do Run Command (ad-hoc), o cloud-init executa durante o provisioning inicial da VM.
 
@@ -239,7 +263,7 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
    write_files:
      - path: /var/www/html/index.html
        content: |
-         <h1>Hello from cloud-init VM (vnet-contoso-spoke-eastus)</h1>
+         <h1>Hello from cloud-init VM (vnet-contoso-spoke)</h1>
          <p>Configurado automaticamente no primeiro boot</p>
    runcmd:
      - systemctl enable nginx
@@ -256,12 +280,14 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
      --size Standard_B1s \
      --admin-username localadmin \
      --admin-password '<senha-complexa>' \
-     --vnet-name vnet-contoso-spoke-eastus \
+     --vnet-name vnet-contoso-spoke \
      --subnet snet-apps \
      --custom-data cloud-init.yaml \
      --public-ip-sku Standard \
      --nsg-rule SSH
    ```
+
+   > **--custom-data** envia o arquivo cloud-init para a VM. O Azure injeta esse conteudo nos metadados da VM, e o cloud-init no Linux le e executa durante o boot. Isso nao funciona com Windows — Windows usa **Custom Script Extension** ou **DSC** para automacao.
 
 3. Aguarde o deploy (~2-3 min). O cloud-init executa automaticamente no boot
 
@@ -286,7 +312,7 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
    > **Comparacao para prova:**
    > | Metodo | Quando executa | Caso de uso |
    > |--------|----------------|-------------|
-   > | **Cloud-init** (Custom Data) | 1º boot apenas | Config inicial, pacotes, users |
+   > | **Cloud-init** (Custom Data) | 1 boot apenas | Config inicial, pacotes, users |
    > | **Custom Script Extension** | Pos-deploy (sob demanda) | Deploy de software, config |
    > | **Run Command** | Ad-hoc | Troubleshooting, diagnostico |
 
@@ -300,6 +326,8 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
 
 ### Task 2.4: Comparar tamanhos de VM e Resize
 
+**O que estamos fazendo e por que:** O tamanho (size) da VM determina quanto de CPU, memoria, IOPS e rede ela tem. Escolher o tamanho errado significa pagar mais do que precisa ou ter performance insuficiente. O Azure permite **redimensionar** VMs existentes sem recria-las — mas pode exigir reinicio.
+
 1. Navegue para **vm-web-01** > **Availability + scale** > **Size**
 
 2. Explore os tamanhos disponiveis. Observe as familias:
@@ -308,9 +336,11 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
    - **F-series**: otimizado para CPU
    - **B-series**: burstable (economico para workloads variaveis)
 
+   > **Analogia:** D-series = carro sedan (serve para tudo). E-series = van (mais espaco/capacidade). F-series = esportivo (mais velocidade). B-series = hibrido (economiza energia e usa mais quando precisa — acumula creditos de CPU em periodos ociosos).
+
 3. Selecione **Standard_DS1_v2** (menor custo) > **Resize**
 
-   > **Nota:** O resize pode reiniciar a VM. Alguns tamanhos requerem deallocate primeiro.
+   > **Nota:** O resize pode reiniciar a VM. Alguns tamanhos requerem deallocate primeiro — isso acontece quando o novo tamanho nao esta disponivel no hardware atual. O portal avisa se precisa desalocar.
 
 4. Aguarde a operacao. A VM sera reiniciada.
 
@@ -318,7 +348,7 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
 
 6. **Opcional:** Faca resize de volta para **Standard_D2s_v3**
 
-   > **Dica AZ-104:** Na prova, questoes sobre familias de VM sao comuns. Memorize: B=burstable, D=general purpose, E=memory optimized, F=compute optimized, N=GPU.
+   > **Dica AZ-104:** Na prova, questoes sobre familias de VM sao comuns. Memorize: B=burstable, D=general purpose, E=memory optimized, F=compute optimized, N=GPU. O sufixo "s" indica suporte a Premium SSD.
 
 ---
 
@@ -326,7 +356,9 @@ Voce adiciona um data disk gerenciado e monta o file share do Bloco 1 como unida
 
 > **Cobranca:** Cada instancia do VMSS gera cobranca. Escale para 0 ao pausar o lab.
 
-O VMSS sera implantado na snet-shared da vnet-contoso-hub-eastus (Semana 1), que ja tem o NSG `nsg-snet-shared` associado.
+**O que estamos fazendo e por que:** VMs individuais nao escalam automaticamente — se o trafego aumenta, voce precisa criar mais VMs manualmente. VMSS resolve isso: voce define regras (ex: "se CPU > 75% por 10 min, adicione uma VM") e o Azure cria/remove instancias automaticamente. Todas as instancias sao identicas (mesma imagem, tamanho, config), como uma frota de carros iguais.
+
+O VMSS sera implantado na snet-shared da vnet-contoso-hub (Semana 1), que ja tem o NSG `nsg-snet-shared` associado.
 
 1. Pesquise **Virtual machine scale sets** > **+ Create**
 
@@ -334,8 +366,8 @@ O VMSS sera implantado na snet-shared da vnet-contoso-hub-eastus (Semana 1), que
 
    | Setting             | Value                                  |
    | ------------------- | -------------------------------------- |
-   | Resource group      | `rg-contoso-compute`                            |
-   | VMSS name           | `vmss-contoso-web`                           |
+   | Resource group      | `rg-contoso-compute`                   |
+   | VMSS name           | `vmss-contoso-web`                     |
    | Region              | **(US) East US**                       |
    | Availability zone   | **None**                               |
    | Orchestration mode  | **Uniform**                            |
@@ -346,15 +378,17 @@ O VMSS sera implantado na snet-shared da vnet-contoso-hub-eastus (Semana 1), que
    | Username            | `localadmin`                           |
    | Password            | *senha complexa*                       |
 
+   > **Orchestration mode:** Uniform = todas as instancias sao identicas (mesmo tamanho, imagem). Flexible = permite misturar tamanhos e imagens. Uniform e mais simples e cobre a maioria dos cenarios. Na prova, Uniform e o padrao.
+
 3. Aba **Networking**:
 
-   | Setting         | Value                                         |
-   | --------------- | --------------------------------------------- |
-   | Virtual network | **vnet-contoso-hub-eastus** (de rg-contoso-network, Semana 1) |
-   | Subnet          | **snet-shared** (10.20.10.0/24)      |
-   | Load balancer   | **None** (para simplificar)                   |
+   | Setting         | Value                                                  |
+   | --------------- | ------------------------------------------------------ |
+   | Virtual network | **vnet-contoso-hub** (de rg-contoso-network, Semana 1) |
+   | Subnet          | **snet-shared** (10.20.10.0/24)                        |
+   | Load balancer   | **None** (para simplificar)                            |
 
-   > **Conexao com Semana 1:** O VMSS esta na snet-shared, que tem o NSG `nsg-snet-shared` associado (Semana 1, Bloco 4). Isso significa que as regras de inbound/outbound do NSG se aplicam a todas as instancias do VMSS automaticamente.
+   > **Conexao com Semana 1:** O VMSS esta na snet-shared, que tem o NSG `nsg-snet-shared` associado (Semana 1, Bloco 4). Isso significa que as regras de inbound/outbound do NSG se aplicam a todas as instancias do VMSS automaticamente — seguranca herdada da subnet.
 
 4. Aba **Scaling**:
 
@@ -372,6 +406,8 @@ O VMSS sera implantado na snet-shared da vnet-contoso-hub-eastus (Semana 1), que
    - Duration: `10` minutes
    - Increase count by: `1`
 
+   > **Duration** e crucial: a metrica precisa ficar **acima do threshold pelo periodo inteiro**. Se o CPU ficar em 80% por 8 minutos e depois cair, o scale-out NAO e disparado. Isso evita escalar por picos momentaneos.
+
 6. Configure a regra de scale-in:
    - Metric: **Percentage CPU**
    - Operator: **Less than**
@@ -385,11 +421,13 @@ O VMSS sera implantado na snet-shared da vnet-contoso-hub-eastus (Semana 1), que
 
 9. Apos o deploy, navegue para **vmss-contoso-web** > **Instances** > confirme que 1 instancia esta Running
 
-   > **Conceito:** VMSS permite criar e gerenciar um grupo de VMs identicas com auto-scaling. As instancias compartilham configuracao, imagem e regras de scaling.
+   > **Conceito:** VMSS permite criar e gerenciar um grupo de VMs identicas com auto-scaling. Diferente de criar VMs individuais, o VMSS garante configuracao homogenea e escala elastica. Em producao, VMSS e quase sempre usado atras de um Load Balancer para distribuir trafego.
 
 ---
 
 ### Task 2.6: Gerenciar VMSS — Upgrade Policy e instancias
+
+**O que estamos fazendo e por que:** Quando voce atualiza o "modelo" do VMSS (ex: nova imagem, novo tamanho), as instancias existentes nao mudam automaticamente (dependendo da upgrade policy). Entender como atualizacoes sao propagadas e essencial para evitar surpresas em producao.
 
 1. No **vmss-contoso-web**, navegue para **Settings** > **Scaling**
 
@@ -397,12 +435,14 @@ O VMSS sera implantado na snet-shared da vnet-contoso-hub-eastus (Semana 1), que
 
 3. Navegue para **Upgrade policy** e note a politica configurada (Manual ou Automatic)
 
-   > **Conceito:** Upgrade policies controlam como atualizacoes sao aplicadas as instancias. **Manual** requer acao explicita; **Automatic** atualiza instancias automaticamente; **Rolling** atualiza em lotes.
+   > **Conceito:** Upgrade policies controlam como atualizacoes sao aplicadas as instancias. **Manual** = voce decide quando cada instancia atualiza (mais controle). **Automatic** = Azure atualiza todas automaticamente (mais risco). **Rolling** = atualiza em lotes (ex: 20% de cada vez), minimizando impacto. Na prova, Rolling e a resposta quando o cenario pede "atualizar sem downtime".
 
 4. Navegue para **Instances** > selecione a instancia > explore:
    - **Status**: Running
    - **Latest model**: sim/nao (indica se esta atualizada)
    - **Protection**: opcoes de protecao contra scale-in
+
+   > **Latest model = No** significa que a instancia ainda usa a configuracao antiga. Para aplicar o novo modelo, voce precisa fazer "upgrade" da instancia (Manual) ou esperar o Azure fazer (Automatic/Rolling).
 
 5. **Opcional:** Force scale-out manual:
    - Em **Scaling**, altere temporariamente o **minimum** para `2`
@@ -413,6 +453,8 @@ O VMSS sera implantado na snet-shared da vnet-contoso-hub-eastus (Semana 1), que
 
 ### Task 2.7: Configurar VM Backup e testar Run Command
 
+**O que estamos fazendo e por que:** Azure Backup protege VMs com snapshots incrementais — voce pode restaurar a VM inteira ou arquivos individuais para qualquer ponto de recuperacao. Run Command permite executar scripts remotamente sem precisar de RDP/SSH, util para troubleshooting quando a rede da VM esta com problemas.
+
 1. Navegue para **vm-web-01** > **Operations** > **Backup**
 
 2. Revise as opcoes:
@@ -421,6 +463,8 @@ O VMSS sera implantado na snet-shared da vnet-contoso-hub-eastus (Semana 1), que
    | ----------------------- | ----------------------------------- |
    | Recovery Services vault | *crie ou selecione um existente*    |
    | Backup policy           | **DefaultPolicy** (diario, 30 dias) |
+
+   > **Recovery Services vault** e o "cofre" onde os backups sao armazenados. Ele pode conter backups de multiplas VMs, SQL databases e file shares. A policy define frequencia e retencao.
 
    > **Nota:** Nao e necessario habilitar o backup de fato (gera custo). Apenas revise as opcoes.
 
@@ -447,7 +491,7 @@ O VMSS sera implantado na snet-shared da vnet-contoso-hub-eastus (Semana 1), que
 
 7. Confirme que Nginx esta ativo e respondendo
 
-   > **Conceito:** Run Command e util para troubleshooting sem necessidade de RDP/SSH. Os comandos executam via VM Agent.
+   > **Conceito:** Run Command e util para troubleshooting sem necessidade de RDP/SSH. Os comandos executam via VM Agent. E especialmente valioso quando NSGs ou firewalls bloqueiam RDP/SSH — o Run Command usa um canal separado de gerenciamento que nao depende da rede da VM.
 
 ---
 
@@ -455,25 +499,27 @@ O VMSS sera implantado na snet-shared da vnet-contoso-hub-eastus (Semana 1), que
 
 > Esta task esclarece a confusao mais comum do AZ-104: quando usar Zone, Set ou Scale Set. Voce vai criar recursos e ver as restricoes na pratica.
 
+**O que estamos fazendo e por que:** Alta disponibilidade (HA) e um dos temas mais cobrados na prova. O Azure oferece tres mecanismos que protegem contra **tipos diferentes de falha**: Zones protegem contra falha de datacenter, Sets protegem contra falha de rack/hardware, e Scale Sets adicionam escalabilidade automatica. Entender quando usar cada um e a chave para acertar questoes de HA.
+
 **Criar VM em Availability Zone 1:**
 
 1. Pesquise **Virtual Machines** > **Create** > **Virtual machine**:
 
-   | Setting              | Value                                         |
-   | -------------------- | --------------------------------------------- |
-   | Resource group       | `rg-contoso-compute`                                   |
-   | Virtual machine name | `contoso-vm-zone1`                               |
-   | Region               | **(US) East US**                              |
-   | Availability options | **Availability zone**                         |
-   | Availability zone    | **Zone 1**                                    |
-   | Security type        | **Standard**                                  |
-   | Image                | **Ubuntu Server 22.04 LTS - x64 Gen2**        |
-   | Size                 | **Standard_B1s**                              |
-   | Authentication type  | **Password**                                  |
-   | Username             | `localadmin`                                  |
-   | Password             | *senha complexa*                              |
+   | Setting              | Value                                  |
+   | -------------------- | -------------------------------------- |
+   | Resource group       | `rg-contoso-compute`                   |
+   | Virtual machine name | `contoso-vm-zone1`                     |
+   | Region               | **(US) East US**                       |
+   | Availability options | **Availability zone**                  |
+   | Availability zone    | **Zone 1**                             |
+   | Security type        | **Standard**                           |
+   | Image                | **Ubuntu Server 22.04 LTS - x64 Gen2** |
+   | Size                 | **Standard_B1s**                       |
+   | Authentication type  | **Password**                           |
+   | Username             | `localadmin`                           |
+   | Password             | *senha complexa*                       |
 
-2. **Networking**: selecione **vnet-contoso-hub-eastus** > subnet **snet-apps**
+2. **Networking**: selecione **vnet-contoso-hub** > subnet **snet-apps**
 
 3. **Monitoring** > **Disable** Boot diagnostics
 
@@ -485,7 +531,7 @@ O VMSS sera implantado na snet-shared da vnet-contoso-hub-eastus (Semana 1), que
 
    | Setting              | Value              |
    | -------------------- | ------------------ |
-   | Virtual machine name | `contoso-vm-zone2`   |
+   | Virtual machine name | `contoso-vm-zone2` |
    | Availability zone    | **Zone 2**         |
 
 6. **Review + create** > **Create**
@@ -496,19 +542,21 @@ O VMSS sera implantado na snet-shared da vnet-contoso-hub-eastus (Semana 1), que
 
 8. Navegue para **contoso-vm-zone2** > **Overview** > verifique **Availability zone: 2**
 
-   > **Conceito:** Availability Zones sao **datacenters fisicamente separados** dentro da mesma regiao. Se o datacenter da Zone 1 falhar, a VM na Zone 2 continua operando. SLA: **99.99%**.
+   > **Conceito:** Availability Zones sao **datacenters fisicamente separados** dentro da mesma regiao, com energia, rede e refrigeracao independentes. Se o datacenter da Zone 1 sofrer um incendio, a VM na Zone 2 continua operando. SLA: **99.99%** (4 noves). Analogia: e como ter escritorios em bairros diferentes da mesma cidade — se um bairro alaga, o outro continua funcionando.
 
 **Criar Availability Set e entender a diferenca:**
 
 9. Pesquise **Availability Sets** > **+ Create**:
 
-   | Setting            | Value                |
-   | ------------------ | -------------------- |
-   | Resource group     | `rg-contoso-compute`          |
-   | Name               | `contoso-avset`        |
-   | Region             | **East US**          |
-   | Fault domains      | `2`                  |
-   | Update domains     | `5`                  |
+   | Setting        | Value                |
+   | -------------- | -------------------- |
+   | Resource group | `rg-contoso-compute` |
+   | Name           | `contoso-avset`      |
+   | Region         | **East US**          |
+   | Fault domains  | `2`                  |
+   | Update domains | `5`                  |
+
+   > **Fault domains** = racks fisicos separados (protege contra falha de hardware/energia de um rack). **Update domains** = grupos logicos para manutencao planejada (o Azure reinicia apenas um UD por vez, garantindo que nem todas as VMs ficam offline simultaneamente). Formula: com 5 update domains e 10 VMs, no maximo 2 VMs ficam offline ao mesmo tempo durante manutencao.
 
 10. **Review + create** > **Create**
 
@@ -522,7 +570,7 @@ O VMSS sera implantado na snet-shared da vnet-contoso-hub-eastus (Semana 1), que
 
 13. Cancele a criacao
 
-   > **REGRA AZ-104:** Uma VM pode estar em Availability **Zone** OU Availability **Set**, **nunca ambos**. Zone protege contra falha de datacenter. Set protege contra falha de rack/hardware dentro do mesmo datacenter.
+   > **REGRA AZ-104:** Uma VM pode estar em Availability **Zone** OU Availability **Set**, **nunca ambos**. Zone protege contra falha de datacenter. Set protege contra falha de rack/hardware dentro do mesmo datacenter. Essa escolha e feita na criacao e NAO pode ser alterada depois.
 
 **Comparar com Scale Set (ja criado na Task 2.5):**
 
@@ -534,11 +582,11 @@ O VMSS sera implantado na snet-shared da vnet-contoso-hub-eastus (Semana 1), que
 
    > **RESUMO PARA A PROVA:**
 
-   | Pergunta na prova | Resposta |
-   | --- | --- |
-   | "Proteger contra falha de **datacenter**" | **Availability Zone** |
-   | "Proteger contra falha de **rack/hardware**" | **Availability Set** |
-   | "**Escalar** automaticamente com demanda" | **VM Scale Set** |
+   | Pergunta na prova                             | Resposta                         |
+   | --------------------------------------------- | -------------------------------- |
+   | "Proteger contra falha de **datacenter**"     | **Availability Zone**            |
+   | "Proteger contra falha de **rack/hardware**"  | **Availability Set**             |
+   | "**Escalar** automaticamente com demanda"     | **VM Scale Set**                 |
    | "Proteger contra falha de **regiao** inteira" | **Region Pairs** + Site Recovery |
 
 ---
@@ -554,11 +602,11 @@ O VMSS sera implantado na snet-shared da vnet-contoso-hub-eastus (Semana 1), que
 
 ## Modo Desafio - Bloco 2
 
-- [ ] Criar `vm-web-01` (Windows) na subnet snet-apps da **vnet-contoso-hub-eastus (Semana 1)**
+- [ ] Criar `vm-web-01` (Windows) na subnet snet-apps da **vnet-contoso-hub (Semana 1)**
 - [ ] Adicionar Data Disk 32 GiB → inicializar como drive F: dentro da VM
 - [ ] **Integracao Bloco 1:** Montar File Share `contoso-files` como drive Z: na VM
 - [ ] Criar arquivo de teste no share via VM → confirmar no portal
-- [ ] Criar `vm-api-01` (Ubuntu) na subnet snet-apps da **vnet-contoso-spoke-eastus (Semana 1)**
+- [ ] Criar `vm-api-01` (Ubuntu) na subnet snet-apps da **vnet-contoso-spoke (Semana 1)**
 - [ ] Instalar Nginx via Custom Script Extension / Run Command
 - [ ] Comparar tamanhos de VM e executar resize
 - [ ] Criar VMSS `vmss-contoso-web` na **snet-shared (Semana 1)** com auto-scale (CPU 75%/25%)

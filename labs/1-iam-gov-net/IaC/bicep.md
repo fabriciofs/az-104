@@ -145,7 +145,7 @@ Bloco 3 (IaC) ◄──── Valida governanca ──────────�
                                                      ▼
 Bloco 4 (Networking)
   │
-  ├─ vnet-contoso-hub-eastus (10.20.0.0/16) + vnet-contoso-spoke-eastus (10.30.0.0/16)
+  ├─ vnet-contoso-hub (10.20.0.0/16) + vnet-contoso-spoke (10.30.0.0/16)
   ├─ NSG + ASG
   └─ DNS publico + privado
                                                      ▼
@@ -1380,9 +1380,9 @@ Salve como **`bloco4-networking.bicep`**:
 
 param location string = resourceGroup().location
 
-// ==================== VNet 1: vnet-contoso-hub-eastus ====================
+// ==================== VNet 1: vnet-contoso-hub ====================
 resource coreVnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
-  name: 'vnet-contoso-hub-eastus'
+  name: 'vnet-contoso-hub'
   location: location
   properties: {
     addressSpace: {
@@ -1408,9 +1408,9 @@ resource coreVnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
   }
 }
 
-// ==================== VNet 2: vnet-contoso-spoke-eastus ====================
+// ==================== VNet 2: vnet-contoso-spoke ====================
 resource mfgVnet 'Microsoft.Network/virtualNetworks@2023-05-01' = {
-  name: 'vnet-contoso-spoke-eastus'
+  name: 'vnet-contoso-spoke'
   location: location
   properties: {
     addressSpace: {
@@ -1542,10 +1542,10 @@ resource privateDns 'Microsoft.Network/privateDnsZones@2020-06-01' = {
   location: 'global'
 }
 
-// Virtual Network Link: vnet-contoso-spoke-eastus
+// Virtual Network Link: vnet-contoso-spoke
 // Referencia a VNet usando 'existing' keyword
 resource mfgVnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
-  name: 'vnet-contoso-spoke-eastus'
+  name: 'vnet-contoso-spoke'
   // Nao precisa de scope pois esta no mesmo RG
 }
 
@@ -1668,13 +1668,13 @@ A) Sim  B) Falha — sem link  C) Via DNS publico  D) Apenas com peering
 
 az network vnet subnet create \
     --resource-group "$RG4" \
-    --vnet-name "vnet-contoso-hub-eastus" \
+    --vnet-name "vnet-contoso-hub" \
     --name "snet-apps" \
     --address-prefixes "10.20.0.0/24"
 
 az network vnet subnet create \
     --resource-group "$RG4" \
-    --vnet-name "vnet-contoso-spoke-eastus" \
+    --vnet-name "vnet-contoso-spoke" \
     --name "snet-workloads" \
     --address-prefixes "10.30.0.0/24"
 
@@ -1712,9 +1712,9 @@ param vnetResourceGroup string = 'rg-contoso-network'
 // 'existing' + 'scope' permite referenciar recursos em outro RG!
 // Isso e essencial quando recursos estao organizados em RGs diferentes
 
-// Referencia a vnet-contoso-hub-eastus (em rg-contoso-network)
+// Referencia a vnet-contoso-hub (em rg-contoso-network)
 resource coreVnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
-  name: 'vnet-contoso-hub-eastus'
+  name: 'vnet-contoso-hub'
   scope: resourceGroup(vnetResourceGroup)  // Aponta para OUTRO resource group!
 }
 
@@ -1724,9 +1724,9 @@ resource coreSubnet 'Microsoft.Network/virtualNetworks/subnets@2023-05-01' exist
   name: 'snet-apps'
 }
 
-// Referencia a vnet-contoso-spoke-eastus (em rg-contoso-network)
+// Referencia a vnet-contoso-spoke (em rg-contoso-network)
 resource mfgVnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
-  name: 'vnet-contoso-spoke-eastus'
+  name: 'vnet-contoso-spoke'
   scope: resourceGroup(vnetResourceGroup)
 }
 
@@ -1908,18 +1908,18 @@ Salve como **`bloco5-peering.bicep`**:
 
 // Referenciar VNets existentes
 resource coreVnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
-  name: 'vnet-contoso-hub-eastus'
+  name: 'vnet-contoso-hub'
 }
 
 resource mfgVnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
-  name: 'vnet-contoso-spoke-eastus'
+  name: 'vnet-contoso-spoke'
 }
 
 // Peering 1: Core → Manufacturing
 // VNet Peering precisa ser criado em AMBAS as direcoes
 resource peeringCoreToMfg 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-05-01' = {
   parent: coreVnet
-  name: 'vnet-contoso-hub-eastus-to-vnet-contoso-spoke-eastus'
+  name: 'vnet-contoso-hub-to-vnet-contoso-spoke'
   properties: {
     remoteVirtualNetwork: {
       id: mfgVnet.id
@@ -1934,7 +1934,7 @@ resource peeringCoreToMfg 'Microsoft.Network/virtualNetworks/virtualNetworkPeeri
 // Peering 2: Manufacturing → Core
 resource peeringMfgToCore 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2023-05-01' = {
   parent: mfgVnet
-  name: 'vnet-contoso-spoke-eastus-to-vnet-contoso-hub-eastus'
+  name: 'vnet-contoso-spoke-to-vnet-contoso-hub'
   properties: {
     remoteVirtualNetwork: {
       id: coreVnet.id
@@ -1957,7 +1957,7 @@ az deployment group create \
 # Verificar status
 az network vnet peering list \
     --resource-group "$RG4" \
-    --vnet-name "vnet-contoso-hub-eastus" \
+    --vnet-name "vnet-contoso-hub" \
     --query "[].{name:name, status:peeringState}" -o table
 ```
 
@@ -1995,7 +1995,7 @@ az vm run-command invoke \
 # TASK 5.6b - Testar nao-transitividade do peering
 # ============================================================
 # CONCEITO AZ-104: Peering e NAO transitivo!
-# vnet-contoso-hub-eastus ↔ vnet-contoso-spoke-eastus, mas trafego NAO transita para outras VNets
+# vnet-contoso-hub ↔ vnet-contoso-spoke, mas trafego NAO transita para outras VNets
 # Para transitividade: hub-spoke com NVA ou Azure Virtual WAN.
 
 az vm run-command invoke \
@@ -2018,7 +2018,7 @@ Salve como **`bloco5-dns-update.bicep`**:
 // ============================================================
 // bloco5-dns-update.bicep
 // Scope: resourceGroup (rg-contoso-network)
-// Adiciona link para vnet-contoso-hub-eastus + registro com IP real
+// Adiciona link para vnet-contoso-hub + registro com IP real
 // ============================================================
 
 @description('IP privado da vm-web-01')
@@ -2030,10 +2030,10 @@ resource privateDns 'Microsoft.Network/privateDnsZones@2020-06-01' existing = {
 }
 
 resource coreVnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
-  name: 'vnet-contoso-hub-eastus'
+  name: 'vnet-contoso-hub'
 }
 
-// Link para vnet-contoso-hub-eastus
+// Link para vnet-contoso-hub
 resource coreLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
   parent: privateDns
   name: 'coreservices-link'
@@ -2128,7 +2128,7 @@ az deployment group create \
 # Criar subnet perimeter
 az network vnet subnet create \
     --resource-group "$RG4" \
-    --vnet-name "vnet-contoso-hub-eastus" \
+    --vnet-name "vnet-contoso-hub" \
     --name "perimeter" \
     --address-prefixes "10.20.1.0/24"
 
@@ -2137,7 +2137,7 @@ RT_ID=$(az network route-table show -g "$RG5" -n "rt-contoso-spoke" --query id -
 
 az network vnet subnet update \
     --resource-group "$RG4" \
-    --vnet-name "vnet-contoso-hub-eastus" \
+    --vnet-name "vnet-contoso-hub" \
     --name "snet-apps" \
     --route-table "$RT_ID"
 
@@ -2261,11 +2261,11 @@ A) Sim  B) Falha — sem link  C) Com forwarded traffic  D) Com DNS forwarder
 RG6="rg-contoso-network"
 az group create --name "$RG6" --location "$LOCATION" --tags "Cost Center=000"
 
-# Criar subnet snet-lb na vnet-contoso-hub-eastus (rg-contoso-network)
+# Criar subnet snet-lb na vnet-contoso-hub (rg-contoso-network)
 # A VNet ja existe do Bloco 4 — adicionamos a subnet via CLI
 az network vnet subnet create \
     --resource-group "$RG4" \
-    --vnet-name "vnet-contoso-hub-eastus" \
+    --vnet-name "vnet-contoso-hub" \
     --name "snet-lb" \
     --address-prefixes "10.20.40.0/24"
 
@@ -2300,14 +2300,14 @@ param adminUsername string = 'localadmin'
 @secure()
 param adminPassword string
 
-@description('RG onde a vnet-contoso-hub-eastus esta')
+@description('RG onde a vnet-contoso-hub esta')
 param vnetResourceGroup string = 'rg-contoso-network'
 
 // ==================== Referencia CROSS-RG a VNet ====================
 // 'existing' + 'scope' permite referenciar VNet de outro RG
 // As VMs ficam em rg-contoso-network mas usam subnet em rg-contoso-network
 resource coreVnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
-  name: 'vnet-contoso-hub-eastus'
+  name: 'vnet-contoso-hub'
   scope: resourceGroup(vnetResourceGroup)
 }
 
@@ -2528,7 +2528,7 @@ Salve como **`bloco6-public-lb.bicep`**:
 
 param location string = resourceGroup().location
 
-@description('RG onde a vnet-contoso-hub-eastus esta')
+@description('RG onde a vnet-contoso-hub esta')
 param vnetResourceGroup string = 'rg-contoso-network'
 
 // ==================== Public IP para o LB ====================
@@ -2664,7 +2664,7 @@ az deployment group create \
 NSG_ID=$(az network nsg show -g "$RG6" -n "nsg-snet-lb" --query id -o tsv)
 az network vnet subnet update \
     --resource-group "$RG4" \
-    --vnet-name "vnet-contoso-hub-eastus" \
+    --vnet-name "vnet-contoso-hub" \
     --name "snet-lb" \
     --network-security-group "$NSG_ID"
 
@@ -2773,12 +2773,12 @@ Salve como **`bloco6-internal-lb.bicep`**:
 
 param location string = resourceGroup().location
 
-@description('RG onde a vnet-contoso-hub-eastus esta')
+@description('RG onde a vnet-contoso-hub esta')
 param vnetResourceGroup string = 'rg-contoso-network'
 
 // Referencia cross-RG a subnet
 resource coreVnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
-  name: 'vnet-contoso-hub-eastus'
+  name: 'vnet-contoso-hub'
   scope: resourceGroup(vnetResourceGroup)
 }
 
@@ -2883,7 +2883,7 @@ az network nic ip-config address-pool add \
     --address-pool "bp-lbi-apps"
 
 echo "Internal LB criado com frontend IP 10.20.40.100"
-echo "Teste de qualquer VM na vnet-contoso-hub-eastus: curl http://10.20.40.100"
+echo "Teste de qualquer VM na vnet-contoso-hub: curl http://10.20.40.100"
 ```
 
 ---
@@ -2941,12 +2941,12 @@ Salve como **`bloco6-bastion.bicep`**:
 
 param location string = resourceGroup().location
 
-@description('RG onde a vnet-contoso-hub-eastus esta')
+@description('RG onde a vnet-contoso-hub esta')
 param vnetResourceGroup string = 'rg-contoso-network'
 
 // Referencia cross-RG a VNet
 resource coreVnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
-  name: 'vnet-contoso-hub-eastus'
+  name: 'vnet-contoso-hub'
   scope: resourceGroup(vnetResourceGroup)
 }
 
@@ -3024,7 +3024,7 @@ echo "Username: localadmin | Password: sua senha"
 
 ## Modo Desafio - Bloco 6
 
-- [ ] Criar RG `rg-contoso-network` e subnet `snet-lb` (10.20.40.0/24) na vnet-contoso-hub-eastus
+- [ ] Criar RG `rg-contoso-network` e subnet `snet-lb` (10.20.40.0/24) na vnet-contoso-hub
 - [ ] Deploy `bloco6-lb-infra.bicep` (Availability Set + 2 VMs cross-RG)
 - [ ] Instalar IIS em ambas VMs via `az vm run-command invoke`
 - [ ] Deploy `bloco6-public-lb.bicep` (Public LB + NSG)

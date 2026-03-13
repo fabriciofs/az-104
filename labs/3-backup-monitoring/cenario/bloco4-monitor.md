@@ -16,22 +16,22 @@ Com backup e DR configurados (Blocos 1-3), voce agora implementa monitoramento p
 │                    Azure Monitor                                   │
 │                                                                    │
 │  ┌──────────────────────────────────────────────────────────────┐  │
-│  │  Action Groups (rg-contoso-management)                            │  │
+│  │  Action Groups (rg-contoso-management)                       │  │
 │  │                                                              │  │
-│  │  └─ ag-contoso-ops: Email + SMS                                   │  │
+│  │  └─ ag-contoso-ops: Email + SMS                              │  │
 │  └──────────────────────────────────────────────────────────────┘  │
 │                                                                    │
 │  ┌──────────────────────────────────────────────────────────────┐  │
 │  │  Alert Rules                                                 │  │
 │  │                                                              │  │
-│  │  ├─ CPU Alert: vm-web-01 CPU > 80%                        │  │
-│  │  │  (VM da Semana 2) → ag-contoso-ops                             │  │
+│  │  ├─ CPU Alert: vm-web-01 CPU > 80%                           │  │
+│  │  │  (VM da Semana 2) → ag-contoso-ops                        │  │
 │  │  │                                                           │  │
 │  │  ├─ VM Deleted Alert: Activity Log delete VM                 │  │
-│  │  │  (qualquer VM) → ag-contoso-ops                                │  │
+│  │  │  (qualquer VM) → ag-contoso-ops                           │  │
 │  │  │                                                           │  │
 │  │  └─ Backup Failed Alert: Recovery Services vault             │  │
-│  │     (vault do Bloco 1) → ag-contoso-ops                           │  │
+│  │     (vault do Bloco 1) → ag-contoso-ops                      │  │
 │  └──────────────────────────────────────────────────────────────┘  │
 │                                                                    │
 │  ┌──────────────────────────────────────────────────────────────┐  │
@@ -50,7 +50,9 @@ Com backup e DR configurados (Blocos 1-3), voce agora implementa monitoramento p
 
 ### Task 4.1: Explorar metricas de VM
 
-Voce explora as metricas da VM criada na Semana 2 para entender o baseline de performance.
+Antes de criar alertas, voce precisa entender quais metricas estao disponiveis. O Azure Monitor coleta metricas **automaticamente** de todos os recursos — sem instalar nada. Essas metricas de "host" vem do hypervisor (a camada que gerencia as VMs) e incluem CPU, rede e disco.
+
+**O que NAO esta disponivel sem agente:** Metricas de dentro da VM (guest), como uso de **memoria**, processos e filesystem. Para isso voce precisa do Azure Monitor Agent (configurado no Bloco 5).
 
 1. Navegue para **vm-web-01** (em rg-contoso-compute, Semana 2)
 
@@ -60,10 +62,12 @@ Voce explora as metricas da VM criada na Semana 2 para entender o baseline de pe
 
    | Setting          | Value                    |
    | ---------------- | ------------------------ |
-   | Scope            | **vm-web-01**         |
+   | Scope            | **vm-web-01**            |
    | Metric Namespace | **Virtual Machine Host** |
    | Metric           | **Percentage CPU**       |
    | Aggregation      | **Avg**                  |
+
+   > **Aggregation** define como os datapoints sao combinados no periodo. **Avg** mostra a media (bom para tendencia), **Max** mostra o pico (bom para detectar spikes), **Min** mostra o vale, **Sum** mostra o total acumulado.
 
 4. Observe o grafico de CPU — este e o baseline da VM
 
@@ -87,22 +91,26 @@ Voce explora as metricas da VM criada na Semana 2 para entender o baseline de pe
 
 8. Clique em **Pin to dashboard** para salvar o grafico
 
-   > **Conceito:** Azure Monitor coleta metricas automaticamente de todos os recursos Azure. Metricas **Host** (CPU, Network, Disk) estao disponiveis sem agente. Metricas **Guest** (memoria, processos) requerem o Azure Monitor Agent (configurado no Bloco 5).
+   > **Conceito:** Azure Monitor coleta metricas automaticamente de todos os recursos Azure. Metricas **Host** (CPU, Network, Disk) estao disponiveis sem agente. Metricas **Guest** (memoria, processos) requerem o Azure Monitor Agent (configurado no Bloco 5). Essa e uma distincao critica na prova.
 
 ---
 
 ### Task 4.2: Criar Action Group
 
+O Action Group define **quem** recebe a notificacao e **como**. E um recurso reutilizavel — voce cria uma vez e pode associar a quantos alertas quiser. Pense nele como uma "lista de distribuicao" para incidentes.
+
 1. Pesquise e selecione **Monitor** > **Alerts** > **Action groups** > **+ Create**
 
 2. Aba **Basics**:
 
-   | Setting           | Value                                   |
-   | ----------------- | --------------------------------------- |
-   | Subscription      | *sua subscription*                      |
+   | Setting           | Value                                             |
+   | ----------------- | ------------------------------------------------- |
+   | Subscription      | *sua subscription*                                |
    | Resource group    | `rg-contoso-management` (mesmo RG dos Blocos 1-3) |
-   | Action group name | `ag-contoso-ops`                             |
-   | Display name      | `ag-contoso-ops`                             |
+   | Action group name | `ag-contoso-ops`                                  |
+   | Display name      | `ag-contoso-ops`                                  |
+
+   > **Display name** e limitado a 12 caracteres e aparece nos SMS/emails. Escolha algo curto e significativo.
 
 3. Aba **Notifications**:
 
@@ -115,11 +123,13 @@ Voce explora as metricas da VM criada na Semana 2 para entender o baseline de pe
 
 4. Aba **Actions**: pule por enquanto (sem automation neste lab)
 
+   > A aba **Actions** permite configurar automacoes quando o alerta dispara: Azure Functions, Logic Apps, ITSM (ServiceNow), webhooks e Automation Runbooks. Em producao, e comum ter uma Logic App que cria um ticket no sistema de incidentes.
+
 5. Clique em **Review + create** > **Create**
 
 6. Verifique seu email — voce deve receber uma confirmacao de que foi adicionado ao Action Group
 
-   > **Conceito:** Action Groups definem QUEM e notificado e COMO quando um alerta dispara. Podem incluir emails, SMS, push notifications, voice calls, Azure Functions, Logic Apps, ITSM, webhooks e runbooks.
+   > **Conceito:** Action Groups definem QUEM e notificado e COMO quando um alerta dispara. Podem incluir emails, SMS, push notifications, voice calls, Azure Functions, Logic Apps, ITSM, webhooks e runbooks. Todas as notificacoes e acoes sao executadas em **paralelo** (email E SMS ao mesmo tempo, nao um ou outro).
 
    > **Conexao com Bloco 5:** O mesmo Action Group sera reutilizado no Bloco 5 para alertas de Log Analytics.
 
@@ -127,7 +137,7 @@ Voce explora as metricas da VM criada na Semana 2 para entender o baseline de pe
 
 ### Task 4.3: Criar alerta de metrica (CPU alta)
 
-Este alerta monitora a CPU da VM da Semana 2 e notifica via Action Group.
+Este alerta monitora a CPU da VM e notifica quando ela ultrapassa 80%. E o tipo mais comum de alerta — um valor fixo (static threshold) que voce define com base no que considera aceitavel para o ambiente.
 
 > **Cobranca:** Alert rules geram cobranca minima por sinal monitorado.
 
@@ -135,9 +145,9 @@ Este alerta monitora a CPU da VM da Semana 2 e notifica via Action Group.
 
 2. Aba **Scope**: clique em **Select a resource**
 
-   | Setting                 | Value                        |
-   | ----------------------- | ---------------------------- |
-   | Filter by resource type | **Virtual machines**         |
+   | Setting                 | Value                              |
+   | ----------------------- | ---------------------------------- |
+   | Filter by resource type | **Virtual machines**               |
    | Resource                | **vm-web-01** (rg-contoso-compute) |
 
 3. Clique em **Apply**
@@ -155,6 +165,8 @@ Este alerta monitora a CPU da VM da Semana 2 e notifica via Action Group.
    | Check every      | **5 minutes**    |
    | Lookback period  | **5 minutes**    |
 
+   > **Check every** = frequencia de avaliacao (a cada 5 min o Azure verifica). **Lookback period** = janela de dados analisada (ultimos 5 min de metricas). Um lookback maior suaviza flutuacoes; um menor reage mais rapido. Na maioria dos cenarios, ambos com 5 minutos e o padrao adequado.
+
    > **Conexao com Semana 2:** Voce esta monitorando a mesma VM Windows da Semana 2. Se a carga de trabalho configurada naquela semana ultrapassar 80% de CPU, voce sera notificado automaticamente.
 
 6. Clique em **Next: Actions**
@@ -163,32 +175,34 @@ Este alerta monitora a CPU da VM da Semana 2 e notifica via Action Group.
 
 8. Aba **Details**:
 
-   | Setting                | Value                                        |
-   | ---------------------- | -------------------------------------------- |
-   | Subscription           | *sua subscription*                           |
-   | Resource group         | `rg-contoso-management`                           |
-   | Severity               | **2 - Warning**                              |
+   | Setting                | Value                                     |
+   | ---------------------- | ----------------------------------------- |
+   | Subscription           | *sua subscription*                        |
+   | Resource group         | `rg-contoso-management`                   |
+   | Severity               | **2 - Warning**                           |
    | Alert rule name        | `alert-vm-web-01-cpu`                     |
    | Alert rule description | `Alert when CPU exceeds 80% on vm-web-01` |
-   | Enable upon creation   | **Checked**                                  |
+   | Enable upon creation   | **Checked**                               |
+
+   > **Severity** vai de 0 (Critical) a 4 (Verbose). Na prova, saiba: 0 = Critical, 1 = Error, 2 = Warning, 3 = Informational, 4 = Verbose. A severity nao afeta o comportamento do alerta — e apenas para classificacao e filtragem.
 
 9. Clique em **Review + create** > **Create**
 
-   > **Conceito:** Alertas de metrica avaliam metricas em intervalos regulares. Static threshold compara com um valor fixo. Dynamic threshold usa ML para detectar anomalias com base no padrao historico.
+   > **Conceito:** Alertas de metrica avaliam metricas em intervalos regulares. Static threshold compara com um valor fixo. Dynamic threshold usa ML para detectar anomalias com base no padrao historico. O alerta tem 3 estados: **Fired** (disparou), **Resolved** (metrica voltou ao normal) e **Acknowledged** (operador confirmou que viu).
 
 ---
 
 ### Task 4.3b: Criar alerta com Dynamic Threshold
 
-Voce cria um segundo alerta de CPU usando Dynamic Threshold para comparar com o alerta estatico da Task 4.3.
+Dynamic threshold e a alternativa inteligente ao static — em vez de voce definir "80%", o Azure **aprende** o padrao normal da metrica e alerta quando detecta um desvio. Ideal para metricas que variam ao longo do dia (ex: CPU alta durante horario comercial e baixa a noite).
 
 1. Pesquise e selecione **Monitor** > **Alerts** > **+ Create** > **Alert rule**
 
 2. Aba **Scope**: clique em **Select a resource**
 
-   | Setting                 | Value                        |
-   | ----------------------- | ---------------------------- |
-   | Filter by resource type | **Virtual machines**         |
+   | Setting                 | Value                              |
+   | ----------------------- | ---------------------------------- |
+   | Filter by resource type | **Virtual machines**               |
    | Resource                | **vm-web-01** (rg-contoso-compute) |
 
 3. Clique em **Apply**
@@ -197,27 +211,29 @@ Voce cria um segundo alerta de CPU usando Dynamic Threshold para comparar com o 
 
 5. Configure:
 
-   | Setting          | Value        |
-   | ---------------- | ------------ |
-   | Threshold        | **Dynamic**  |
-   | Sensitivity      | **Medium**   |
-   | Check every      | **5 minutes** |
-   | Lookback period  | **5 minutes** |
+   | Setting         | Value         |
+   | --------------- | ------------- |
+   | Threshold       | **Dynamic**   |
+   | Sensitivity     | **Medium**    |
+   | Check every     | **5 minutes** |
+   | Lookback period | **5 minutes** |
 
 6. Observe o grafico de preview — o Azure mostra a banda de threshold calculada com base no historico da VM
+
+   > A "banda" azul no grafico e o intervalo que o Azure considera normal. Qualquer pico fora dessa banda dispara o alerta. Com **High sensitivity**, a banda e mais estreita (alerta com desvios pequenos). Com **Low**, a banda e mais larga (so alerta com desvios grandes).
 
 7. Clique em **Next: Actions** > selecione **ag-contoso-ops**
 
 8. Aba **Details**:
 
-   | Setting                | Value                                                |
-   | ---------------------- | ---------------------------------------------------- |
-   | Subscription           | *sua subscription*                                   |
-   | Resource group         | `rg-contoso-management`                                   |
-   | Severity               | **2 - Warning**                                      |
-   | Alert rule name        | `alert-vm-web-01-cpu-dynamic`                           |
-   | Alert rule description | `Dynamic threshold alert for CPU on vm-web-01`    |
-   | Enable upon creation   | **Checked**                                          |
+   | Setting                | Value                                          |
+   | ---------------------- | ---------------------------------------------- |
+   | Subscription           | *sua subscription*                             |
+   | Resource group         | `rg-contoso-management`                        |
+   | Severity               | **2 - Warning**                                |
+   | Alert rule name        | `alert-vm-web-01-cpu-dynamic`                  |
+   | Alert rule description | `Dynamic threshold alert for CPU on vm-web-01` |
+   | Enable upon creation   | **Checked**                                    |
 
 9. Clique em **Review + create** > **Create**
 
@@ -229,11 +245,15 @@ Voce cria um segundo alerta de CPU usando Dynamic Threshold para comparar com o 
 
 ### Task 4.4: Criar alerta de Activity Log (VM deletada)
 
-Este alerta dispara quando qualquer VM e deletada — protegendo recursos de todas as semanas.
+Este tipo de alerta monitora **operacoes de gerenciamento** (criar, deletar, atualizar recursos) em vez de metricas numericas. E fundamental para auditoria e seguranca — voce quer saber quando alguem deleta uma VM, mesmo que acidentalmente.
+
+**Diferenca-chave:** Alertas de metrica avaliam valores numericos em intervalos. Alertas de Activity Log disparam quando um **evento** ocorre (delete, create, role assignment). Nao ha aggregation nem lookback — ou o evento aconteceu ou nao.
 
 1. Em **Monitor** > **Alerts** > **+ Create** > **Alert rule**
 
 2. Aba **Scope**: selecione **sua subscription** inteira (para cobrir todas as semanas)
+
+   > Ao usar a subscription como scope, o alerta cobre VMs de **todos** os resource groups. Se voce usasse um RG especifico, so cobriria VMs naquele RG.
 
 3. Aba **Condition**: clique em **See all signals**
 
@@ -257,13 +277,13 @@ Este alerta dispara quando qualquer VM e deletada — protegendo recursos de tod
    | Setting         | Value                          |
    | --------------- | ------------------------------ |
    | Severity        | **1 - Error**                  |
-   | Alert rule name | `alert-vm-delete`       |
+   | Alert rule name | `alert-vm-delete`              |
    | Description     | `Alert when any VM is deleted` |
-   | Resource group  | `rg-contoso-management`             |
+   | Resource group  | `rg-contoso-management`        |
 
 9. Clique em **Review + create** > **Create**
 
-   > **Conceito:** Alertas de Activity Log monitoram operacoes de controle (create, delete, update) ao inves de metricas. Sao uteis para auditoria e compliance. Diferente de alertas de metrica, nao usam aggregation — disparam quando o evento ocorre.
+   > **Conceito:** Alertas de Activity Log monitoram operacoes de controle (create, delete, update) ao inves de metricas. Sao uteis para auditoria e compliance. Diferente de alertas de metrica, nao usam aggregation — disparam quando o evento ocorre. Activity Log alerts sao **gratuitos** (nao ha cobranca por alert rule de Activity Log).
 
    > **Conexao com Semanas 1-2:** Este alerta protege VMs de **todas** as semanas. Se alguem deletar uma VM (seja da Semana 2 ou qualquer outra), voce sera notificado imediatamente.
 
@@ -271,7 +291,7 @@ Este alerta dispara quando qualquer VM e deletada — protegendo recursos de tod
 
 ### Task 4.5: Disparar alerta de CPU (teste)
 
-Voce gera carga na VM para testar o alerta de CPU.
+Voce gera carga na VM para testar o alerta de CPU. Este e um passo importante — testar alertas em ambientes de lab garante que, em producao, voce vai receber as notificacoes quando precisar.
 
 1. Navegue para **vm-web-01** > **Operations** > **Run command** > **RunPowerShellScript**
 
@@ -286,6 +306,8 @@ Voce gera carga na VM para testar o alerta de CPU.
    }
    ```
 
+   > **Run Command** permite executar scripts dentro da VM sem precisar de RDP. O Azure envia o script via extensao de VM. O script acima faz calculos matematicos em loop para consumir CPU por 5 minutos.
+
 3. **Nao aguarde** o script terminar — va para o proximo passo
 
 4. Navegue para **Monitor** > **Alerts**
@@ -296,11 +318,13 @@ Voce gera carga na VM para testar o alerta de CPU.
 
 7. Clique no alerta para ver detalhes: metrica, threshold, timestamp
 
-   > **Nota:** O alerta pode levar alguns minutos para avaliar e disparar. Se nao receber em 10 minutos, verifique a configuracao da alert rule e se a VM realmente atingiu 80% de CPU.
+   > **Nota:** O alerta pode levar alguns minutos para avaliar e disparar. Se nao receber em 10 minutos, verifique a configuracao da alert rule e se a VM realmente atingiu 80% de CPU (pode ser que a VM tenha mais capacidade do que o script consome).
 
 ---
 
 ### Task 4.6: Explorar Azure Monitor Dashboard
+
+O Azure Monitor e o hub central de observabilidade. Aqui voce tem visao consolidada de metricas, alertas, logs e saude dos servicos. Vale a pena conhecer cada blade para saber onde procurar informacoes durante troubleshooting.
 
 1. Pesquise e selecione **Monitor**
 
@@ -315,6 +339,8 @@ Voce gera carga na VM para testar o alerta de CPU.
    | **Diagnostic settings** | Configuracao de envio de logs/metricas       |
    | **Service Health**      | Status dos servicos Azure na sua regiao      |
 
+   > **Activity Log** vs **Alerts** vs **Metrics** — sao 3 fontes de dados diferentes: Activity Log registra QUEM fez O QUE (operacoes de controle). Metrics mostra COMO o recurso esta se comportando (numeros). Alerts notifica quando algo precisa de atencao (regras configuradas por voce).
+
 3. Em **Alerts**, revise os alertas disparados e resolvidos
 
 4. Em **Activity Log**, filtre por **Resource group = rg-contoso-compute** para ver operacoes nas VMs da Semana 2
@@ -325,7 +351,9 @@ Voce gera carga na VM para testar o alerta de CPU.
 
 ### Task 4.6b: Criar alerta de Service Health
 
-Voce configura um alerta para ser notificado sobre problemas e manutencoes nos servicos Azure usados pela Contoso.
+Service Health monitora a saude da **plataforma Azure** — nao dos seus recursos. Ele notifica sobre outages, manutencoes planejadas e mudancas que podem afetar seus servicos. E diferente dos alertas de metrica, que monitoram a performance dos seus recursos.
+
+**Analogia:** Alertas de metrica monitoram se **sua casa** esta com problemas (vazamento, queda de energia). Service Health monitora se **a cidade** esta com problemas (apagao na regiao, obras na rua).
 
 1. Pesquise e selecione **Monitor** > **Service Health**
 
@@ -333,25 +361,27 @@ Voce configura um alerta para ser notificado sobre problemas e manutencoes nos s
 
 3. Configure:
 
-   | Setting      | Value                                                  |
-   | ------------ | ------------------------------------------------------ |
-   | Subscription | *sua subscription*                                     |
+   | Setting      | Value                                                            |
+   | ------------ | ---------------------------------------------------------------- |
+   | Subscription | *sua subscription*                                               |
    | Services     | **Virtual Machines**, **Storage Accounts**, **Virtual Networks** |
-   | Regions      | **East US**                                            |
-   | Event types  | **Service issue**, **Planned maintenance**             |
+   | Regions      | **East US**                                                      |
+   | Event types  | **Service issue**, **Planned maintenance**                       |
+
+   > Voce seleciona apenas os servicos e regioes que usa. Nao faz sentido receber alertas de servicos que voce nao utiliza ou de regioes onde nao tem recursos.
 
 4. Clique em **Actions** > selecione **ag-contoso-ops**
 
 5. Aba **Details**:
 
-   | Setting         | Value                         |
-   | --------------- | ----------------------------- |
+   | Setting         | Value                   |
+   | --------------- | ----------------------- |
    | Alert rule name | `alert-service-health`  |
-   | Resource group  | `rg-contoso-management`            |
+   | Resource group  | `rg-contoso-management` |
 
 6. Clique em **Create alert rule**
 
-   > **Conceito:** Service Health monitora 4 tipos de eventos: **Service issues** (outages que afetam sua regiao/servico), **Planned maintenance** (manutencoes agendadas pela Microsoft), **Health advisories** (mudancas que requerem acao, como deprecacao de features) e **Security advisories** (notificacoes de seguranca). Diferente de alertas de metrica, Service Health alerts sao gratuitos.
+   > **Conceito:** Service Health monitora 4 tipos de eventos: **Service issues** (outages que afetam sua regiao/servico), **Planned maintenance** (manutencoes agendadas pela Microsoft), **Health advisories** (mudancas que requerem acao, como deprecacao de features) e **Security advisories** (notificacoes de seguranca). Diferente de alertas de metrica, Service Health alerts sao **gratuitos**.
 
    > **Dica AZ-104:** Na prova, Service Health e frequentemente testado. Saiba que Service Health alerts so monitoram eventos da **plataforma Azure** (nao metricas dos seus recursos). Para monitorar CPU, memoria, etc., use alertas de metrica. Service Health + Action Group = notificacao automatica quando Azure tem problemas na sua regiao.
 
@@ -443,4 +473,3 @@ Dynamic thresholds usam machine learning para aprender o padrao historico da met
 </details>
 
 ---
-

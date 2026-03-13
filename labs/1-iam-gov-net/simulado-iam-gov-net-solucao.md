@@ -468,7 +468,7 @@ Mesmo que ambas as VNets estejam conectadas ao Hub, elas **nao** conseguem se co
 
 **[GOTCHA]** "Peering nao e transitivo" e provavelmente o gotcha MAIS testado em AZ-104 sobre networking. Se A↔B e B↔C, isso NAO significa que A↔C. E a primeira coisa a verificar quando duas VNets nao se comunicam.
 
-**Referencia no lab:** Bloco 5 — Configuracao de peering entre vnet-contoso-hub-eastus e vnet-contoso-spoke-eastus
+**Referencia no lab:** Bloco 5 — Configuracao de peering entre vnet-contoso-hub e vnet-contoso-spoke
 
 ---
 
@@ -553,7 +553,7 @@ Ou, para granularidade ainda maior, criar um **custom role** com apenas:
 
 Atribuir nos RGs necessarios.
 
-**Referencia no lab:** Bloco 5 — Peering entre vnet-contoso-hub-eastus e vnet-contoso-spoke-eastus
+**Referencia no lab:** Bloco 5 — Peering entre vnet-contoso-hub e vnet-contoso-spoke
 
 ---
 

@@ -16,20 +16,20 @@ O backup (Blocos 1-2) protege contra perda de dados, mas nao garante disponibili
 │          East US (Primaria)           │     │         West US (DR)                   │
 │                                       │     │                                        │
 │  ┌─────────────────────────────────┐  │     │  ┌──────────────────────────────────┐  │
-│  │ rg-contoso-compute (Semana 2)            │  │     │  │ rg-contoso-management                      │  │
+│  │ rg-contoso-compute (Semana 2)   │  │     │  │ rg-contoso-management            │  │
 │  │                                 │  │     │  │                                  │  │
 │  │ ┌──────────────┐                │  │     │  │ Recovery Services Vault:         │  │
-│  │ │vm-web-01  │────replicacao──│──│─────│──│─► rsv-contoso-dr-westus                   │  │
+│  │ │vm-web-01     │────replicacao──│──│─────│──│─► rsv-contoso-dr-westus          │  │
 │  │ │(Windows)     │                │  │     │  │                                  │  │
 │  │ └──────────────┘                │  │     │  │ Replicated Items:                │  │
-│  │                                 │  │     │  │ ├─ vm-web-01 (replicada)      │  │
+│  │                                 │  │     │  │ ├─ vm-web-01 (replicada)         │  │
 │  │ VNet da Semana 1 ◄──────────────│──│─────│──│─► VNet DR (auto-created)         │  │
 │  │                                 │  │     │  │                                  │  │
 │  │ Storage (Semana 2) ◄────────────│──│─────│──│─► Cache Storage (auto-created)   │  │
 │  └─────────────────────────────────┘  │     │  │                                  │  │
 │                                       │     │  │ Recovery Plans:                  │  │
-│  rg-contoso-management (Bloco 1)            │     │  │ └─ contoso-recovery-plan         │  │
-│  └─ rsv-contoso-backup (backup local)          │     │  └──────────────────────────────────┘  │
+│  rg-contoso-management (Bloco 1)      │     │  │ └─ contoso-recovery-plan         │  │
+│  └─ rsv-contoso-backup (backup local) │     │  └──────────────────────────────────┘  │
 │                                       │     │                                        │
 └───────────────────────────────────────┘     └────────────────────────────────────────┘
 ```
@@ -40,20 +40,22 @@ O backup (Blocos 1-2) protege contra perda de dados, mas nao garante disponibili
 
 ### Task 3.1: Criar Recovery Services Vault na regiao de DR
 
-Para Site Recovery, o vault deve estar na **regiao de destino** (DR), diferente do vault de backup (regiao primaria).
+Para Site Recovery, o vault deve estar na **regiao de destino** (DR), nao na regiao de origem. Isso e o oposto do vault de backup! A logica e simples: se a regiao primaria cair, voce precisa que o vault de DR continue acessivel — e ele so estara acessivel se estiver em outra regiao.
+
+**Analogia:** E como guardar a copia da chave da sua casa na casa de um vizinho, nao na mesma casa. Se sua casa for destruida, a copia continua acessivel.
 
 1. Pesquise e selecione **Recovery Services vaults** > **+ Create**
 
 2. Preencha as configuracoes:
 
-   | Setting        | Value                              |
-   | -------------- | ---------------------------------- |
-   | Subscription   | *sua subscription*                 |
+   | Setting        | Value                                         |
+   | -------------- | --------------------------------------------- |
+   | Subscription   | *sua subscription*                            |
    | Resource group | `rg-contoso-management` (mesmo RG do Bloco 1) |
-   | Vault name     | `rsv-contoso-dr-westus`                     |
-   | Region         | **West US**                        |
+   | Vault name     | `rsv-contoso-dr-westus`                       |
+   | Region         | **West US**                                   |
 
-   > **Conceito:** O vault de Site Recovery deve estar na regiao de **destino** (DR), nao na regiao de origem. Isso garante que o vault permanece acessivel mesmo se a regiao primaria ficar indisponivel.
+   > **Conceito:** O vault de Site Recovery deve estar na regiao de **destino** (DR), nao na regiao de origem. Isso garante que o vault permanece acessivel mesmo se a regiao primaria ficar indisponivel. Note que o vault de backup do Bloco 1 (East US) protege dados na mesma regiao; este vault (West US) protege disponibilidade em outra regiao. Sao propositos complementares.
 
 3. Clique em **Review + create** > **Create** > **Go to resource**
 
@@ -62,6 +64,8 @@ Para Site Recovery, o vault deve estar na **regiao de destino** (DR), diferente 
 ---
 
 ### Task 3.2: Habilitar replicacao para vm-web-01
+
+A replicacao ASR cria uma copia continua da VM na regiao de destino. O Azure replica os dados de forma assincrona — mudancas nos discos da VM de origem sao replicadas para discos na regiao de DR em intervalos de poucos minutos. Se a regiao primaria cair, voce faz failover e a VM sobe na regiao secundaria com dados quase atualizados.
 
 > **Cobranca:** A replicacao ASR gera cobranca continua por VM replicada. Nao pode ser pausada — so desabilitada.
 
@@ -75,28 +79,30 @@ Para Site Recovery, o vault deve estar na **regiao de destino** (DR), diferente 
    | -------------------------------- | -------------------- |
    | Region                           | **East US**          |
    | Subscription                     | *sua subscription*   |
-   | Resource group                   | `rg-contoso-compute`          |
+   | Resource group                   | `rg-contoso-compute` |
    | Virtual machine deployment model | **Resource Manager** |
 
 4. Clique em **Next**
 
 5. Aba **Virtual machines**: selecione **vm-web-01**
 
-   > **Conexao com Semana 2:** Voce esta configurando DR para a mesma VM que esta protegida por backup no Bloco 1. Backup e Site Recovery sao complementares: backup protege dados, ASR protege disponibilidade.
+   > **Conexao com Semana 2:** Voce esta configurando DR para a mesma VM que esta protegida por backup no Bloco 1. Backup e Site Recovery sao complementares: backup protege dados (recupera arquivos, discos), ASR protege disponibilidade (recupera o servico em outra regiao).
 
 6. Clique em **Next**
 
 7. Aba **Replication settings** — revise:
 
-   | Setting                  | Value                                |
-   | ------------------------ | ------------------------------------ |
-   | Target location          | **West US** (auto)                   |
-   | Target resource group    | `rg-contoso-compute-asr` (auto-created)       |
-   | Failover virtual network | auto-created ou selecione uma        |
-   | Target availability      | *aceite default*                     |
-   | Replication policy       | `24-hour-retention-policy` (default) |
+   | Setting                  | Value                                   |
+   | ------------------------ | --------------------------------------- |
+   | Target location          | **West US** (auto)                      |
+   | Target resource group    | `rg-contoso-compute-asr` (auto-created) |
+   | Failover virtual network | auto-created ou selecione uma           |
+   | Target availability      | *aceite default*                        |
+   | Replication policy       | `24-hour-retention-policy` (default)    |
 
-   > **Conceito:** O ASR cria automaticamente recursos na regiao de destino: RG, VNet, storage account para cache. A replication policy define RPO (Recovery Point Objective) e retencao de recovery points.
+   > **Conceito:** O ASR cria automaticamente recursos na regiao de destino: Resource Group, VNet, storage account para cache. A **replication policy** define RPO (Recovery Point Objective) e retencao de recovery points. O cache storage na regiao de origem armazena temporariamente os dados antes de enviar para a regiao de DR.
+
+   > **O que acontece nos bastidores:** O ASR instala o Mobility Service na VM de origem, que rastreia mudancas nos discos. As mudancas sao enviadas para o cache storage e depois replicadas para managed disks na regiao de destino. Recovery points sao criados a cada 5-15 minutos.
 
 8. Revise a aba **Manage** — note as opcoes de automation (runbooks, scripts pre/pos failover)
 
@@ -112,7 +118,7 @@ Para Site Recovery, o vault deve estar na **regiao de destino** (DR), diferente 
 
 ### Task 3.2b: Criar politica de replicacao customizada
 
-Voce cria uma replication policy com retencao e frequencia de snapshot diferentes da default para entender os trade-offs.
+Voce cria uma replication policy com retencao e frequencia de snapshot diferentes da default para entender os trade-offs. Mais retencao significa mais opcoes de rollback, mas tambem mais custo de storage.
 
 1. No vault **rsv-contoso-dr-westus** (West US), navegue para **Manage** > **Site Recovery Infrastructure**
 
@@ -120,11 +126,11 @@ Voce cria uma replication policy com retencao e frequencia de snapshot diferente
 
 3. Configure:
 
-   | Setting                              | Value                        |
-   | ------------------------------------ | ---------------------------- |
-   | Name                                 | `contoso-4h-retention`       |
-   | Recovery point retention             | **4 hours**                  |
-   | App-consistent snapshot frequency    | **2 hours**                  |
+   | Setting                           | Value                  |
+   | --------------------------------- | ---------------------- |
+   | Name                              | `contoso-4h-retention` |
+   | Recovery point retention          | **4 hours**            |
+   | App-consistent snapshot frequency | **2 hours**            |
 
 4. Clique em **Create**
 
@@ -132,14 +138,14 @@ Voce cria uma replication policy com retencao e frequencia de snapshot diferente
 
 6. Compare as duas policies:
 
-   | Setting                  | Default (24h retention)        | Custom (4h retention)      |
-   | ------------------------ | ------------------------------ | -------------------------- |
-   | Recovery point retention | 24 horas                       | 4 horas                    |
-   | App-consistent snapshot  | 4 horas                        | 2 horas                    |
-   | Storage de recovery pts  | Mais (mais pontos retidos)     | Menos (janela menor)       |
-   | RPO maximo atingivel     | Igual (depende da replicacao)  | Igual                      |
+   | Setting                  | Default (24h retention)       | Custom (4h retention) |
+   | ------------------------ | ----------------------------- | --------------------- |
+   | Recovery point retention | 24 horas                      | 4 horas               |
+   | App-consistent snapshot  | 4 horas                       | 2 horas               |
+   | Storage de recovery pts  | Mais (mais pontos retidos)    | Menos (janela menor)  |
+   | RPO maximo atingivel     | Igual (depende da replicacao) | Igual                 |
 
-   > **Conceito:** A **retention** define por quanto tempo recovery points sao mantidos — mais retencao = mais opcoes de rollback, mas maior custo de storage. **App-consistent snapshots** garantem consistencia de aplicacao (ex: SQL, IIS) usando VSS (Windows) ou scripts pre/pos (Linux). Snapshots **crash-consistent** sao criados continuamente e sao suficientes para a maioria dos cenarios.
+   > **Conceito:** A **retention** define por quanto tempo recovery points sao mantidos — mais retencao = mais opcoes de rollback, mas maior custo de storage. **App-consistent snapshots** garantem consistencia de aplicacao (ex: SQL, IIS) usando VSS (Windows) ou scripts pre/pos (Linux). Snapshots **crash-consistent** sao criados continuamente (a cada 5-15 min) e sao suficientes para a maioria dos cenarios — eles capturam o estado do disco como se a VM tivesse sido desligada abruptamente.
 
    > **Dica AZ-104:** Na prova: Recovery point retention NAO e o mesmo que RPO. Retention = por quanto tempo pontos sao mantidos. RPO = frequencia com que pontos sao criados (tipicamente a cada 5-15 minutos no ASR). App-consistent snapshots sao menos frequentes que crash-consistent e tem maior impacto no IO da VM.
 
@@ -147,7 +153,9 @@ Voce cria uma replication policy com retencao e frequencia de snapshot diferente
 
 ### Task 3.3: Criar Recovery Plan
 
-Um Recovery Plan define a ordem e agrupamento de VMs para failover coordenado.
+Um Recovery Plan define a **ordem** e **agrupamento** de VMs para failover coordenado. Em producao, voce nao quer fazer failover de VMs aleatoriamente — o banco de dados precisa subir antes do app server, que precisa subir antes do web server. O Recovery Plan orquestra isso.
+
+**Analogia:** E como a ordem de evacuacao de um predio — primeiro saem as pessoas no terreo, depois o primeiro andar, etc. Sem plano, vira caos.
 
 1. No vault **rsv-contoso-dr-westus** > **Manage** > **Recovery Plans (Site Recovery)**
 
@@ -173,13 +181,13 @@ Um Recovery Plan define a ordem e agrupamento de VMs para failover coordenado.
      └─ vm-web-01
    ```
 
-   > **Conceito:** Recovery Plans permitem agrupar VMs em grupos que fazem failover em sequencia (Group 1 primeiro, depois Group 2, etc.). Voce pode adicionar scripts pre/pos cada grupo para automacao (ex: atualizar DNS, notificar equipe).
+   > **Conceito:** Recovery Plans permitem agrupar VMs em grupos que fazem failover em sequencia (Group 1 primeiro, depois Group 2, etc.). VMs dentro do mesmo grupo fazem failover em **paralelo**. Voce pode adicionar scripts pre/pos cada grupo para automacao (ex: atualizar DNS, desligar conexoes, notificar equipe). Em cenarios reais com multiplas VMs, a estrutura seria algo como: Group 1 = banco de dados, Group 2 = app server, Group 3 = web server.
 
 ---
 
 ### Task 3.4: Executar Test Failover
 
-Test Failover valida a replicacao sem afetar a producao.
+Test Failover valida a replicacao **sem afetar a producao**. Ele cria uma copia isolada da VM na regiao de DR para que voce possa verificar se tudo funciona. A VM de origem continua rodando normalmente — zero impacto.
 
 > **Pre-requisito:** A VM deve estar com status **Protected** em Replicated items.
 
@@ -196,7 +204,12 @@ Test Failover valida a replicacao sem afetar a producao.
    | Recovery Point        | **Latest processed** (mais recente)                  |
    | Azure virtual network | *selecione a VNet auto-created ou crie uma de teste* |
 
-   > **Conceito:** Use uma VNet isolada para test failover para evitar conflitos de IP com a VM de producao. O "Latest processed" usa o recovery point mais recente ja processado pelo ASR.
+   > **Conceito:** Use uma VNet **isolada** para test failover para evitar conflitos de IP com a VM de producao. Se voce usar a mesma VNet, duas VMs com o mesmo IP podem causar problemas. O **Latest processed** usa o recovery point mais recente ja processado pelo ASR — geralmente e o ponto com menor perda de dados.
+
+   > **Tipos de Recovery Point:**
+   > - **Latest processed** — mais recente, menor RPO
+   > - **Latest app-consistent** — mais recente com consistencia de aplicacao
+   > - **Custom** — voce escolhe um ponto especifico no tempo
 
 5. Clique em **OK**
 
@@ -209,6 +222,8 @@ Test Failover valida a replicacao sem afetar a producao.
 ---
 
 ### Task 3.5: Cleanup Test Failover
+
+Apos validar que o test failover funcionou, voce precisa limpar os recursos criados. O ASR sinaliza claramente que ha um cleanup pendente — nao ignore este aviso.
 
 1. Volte para **Replicated items** > **vm-web-01**
 
@@ -228,11 +243,13 @@ Test Failover valida a replicacao sem afetar a producao.
 
    > **Conexao com Semanas 1-2:** O test failover validou que a VM criada na Semana 2, nas VNets da Semana 1, pode ser recuperada na regiao de DR. Em producao, o failover real redirecionaria o trafego para a regiao secundaria.
 
+   > **Dica AZ-104:** Na prova, a Microsoft recomenda executar test failover pelo menos a cada 6 meses. Enquanto houver um test failover pendente de cleanup, voce NAO pode executar outro test ou failover real.
+
 ---
 
 ### Task 3.5b: Entender Planned vs Unplanned Failover (walkthrough)
 
-Voce explora o dialogo de failover real para entender as diferencas entre os tipos de failover, sem executar.
+Voce explora o dialogo de failover real para entender as diferencas entre os tipos de failover, sem executar. Esta e uma das areas mais cobradas na prova AZ-104.
 
 1. No vault **rsv-contoso-dr-westus** > **Protected items** > **Replicated items**
 
@@ -246,21 +263,25 @@ Voce explora o dialogo de failover real para entender as diferencas entre os tip
 
 5. Entenda os 3 tipos de failover:
 
-   | Tipo                  | Quando usar                           | Perda de dados | Checkbox "Shut down" |
-   | --------------------- | ------------------------------------- | -------------- | -------------------- |
-   | **Test Failover**     | Validar DR sem impacto (Task 3.4)     | Nenhuma        | N/A (VM isolada)     |
-   | **Planned Failover**  | Manutencao ou migracao planejada      | Zero           | **Marcado** (sim)    |
-   | **Unplanned Failover**| Desastre real, regiao primaria caiu   | Possivel       | **Desmarcado** (nao) |
+   | Tipo                   | Quando usar                         | Perda de dados | Checkbox "Shut down" |
+   | ---------------------- | ----------------------------------- | -------------- | -------------------- |
+   | **Test Failover**      | Validar DR sem impacto (Task 3.4)   | Nenhuma        | N/A (VM isolada)     |
+   | **Planned Failover**   | Manutencao ou migracao planejada    | Zero           | **Marcado** (sim)    |
+   | **Unplanned Failover** | Desastre real, regiao primaria caiu | Possivel       | **Desmarcado** (nao) |
 
 6. **NAO clique em Failover** — clique em **Cancel** para sair do dialogo
 
    > **Conceito:** No **Planned Failover**, o checkbox "Shut down machines before beginning failover" e marcado — o ASR desliga a VM de origem, sincroniza os ultimos dados e entao inicia a VM na regiao de DR, garantindo **zero perda de dados**. No **Unplanned Failover**, a VM de origem pode estar inacessivel (desastre), entao o ASR usa o ultimo recovery point disponivel — pode haver perda dos dados entre o ultimo ponto e o momento do desastre.
+
+   > **Apos o failover:** Voce precisa fazer **Commit** para confirmar o failover (descarta recovery points antigos e finaliza) ou **Change recovery point** para usar outro ponto. Depois do commit, para voltar a regiao original, voce configura **Re-protect** (replicacao reversa) e depois faz failback.
 
    > **Dica AZ-104:** Na prova, a diferenca entre Planned e Unplanned Failover e frequentemente testada. Planned = zero data loss (VM desligada antes, dados sincronizados). Unplanned = possivel data loss (ultimo recovery point disponivel). Test Failover = nao afeta producao, cria VM isolada. Apos qualquer failover real, voce precisa fazer **Commit** para confirmar ou **Change recovery point** para usar outro ponto.
 
 ---
 
 ### Task 3.6: Revisar RPO e metricas de replicacao
+
+Esta task e sobre monitoramento — voce verifica se a replicacao esta saudavel e qual o RPO atual. Em producao, voce configuraria alertas para ser notificado quando o RPO ultrapassar o aceitavel.
 
 1. No vault **rsv-contoso-dr-westus** > **Protected items** > **Replicated items** > **vm-web-01**
 
@@ -273,11 +294,13 @@ Voce explora o dialogo de failover real para entender as diferencas entre os tip
    | **Latest recovery point** | Timestamp do ponto mais recente               |
    | **Failover health**       | Se a VM esta pronta para failover             |
 
+   > **RPO na pratica:** Se o RPO mostra "5 minutes", significa que no pior caso (failover agora), voce perderia ate 5 minutos de dados. Se mostra "30 minutes", algo pode estar atrasando a replicacao (rede lenta, IO alto na VM de origem).
+
 3. Va para **Compute and Network** — revise as configuracoes da VM na regiao de destino
 
 4. Va para **Disks** — verifique quais discos estao sendo replicados
 
-   > **Conceito:** RPO (Recovery Point Objective) indica a perda de dados maxima aceitavel. Um RPO de 5 minutos significa que, no pior caso, voce perde ate 5 minutos de dados. RTO (Recovery Time Objective) depende do tamanho da VM e complexidade do recovery plan.
+   > **Conceito:** RPO (Recovery Point Objective) indica a perda de dados maxima aceitavel. Um RPO de 5 minutos significa que, no pior caso, voce perde ate 5 minutos de dados. RTO (Recovery Time Objective) depende do tamanho da VM e complexidade do recovery plan. RPO e sobre **dados**, RTO e sobre **tempo de indisponibilidade**.
 
 ---
 
@@ -367,4 +390,3 @@ Recovery Plans executam grupos em **sequencia numerica**. VMs dentro do mesmo gr
 </details>
 
 ---
-

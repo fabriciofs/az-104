@@ -12,47 +12,51 @@ A Contoso Corp ja configurou backup com Recovery Services Vault (Bloco 1) e Site
 ## Diagrama
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                                                                     │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │ rg-contoso-compute (VMs da Semana 2)                                  │   │
-│  │                                                              │   │
-│  │  vm-web-01 ──────────────── Move ──→ rg-contoso-moved       │   │
-│  │  vm-api-01                                              │   │
-│  │                                                              │   │
-│  │  (VM Move = mesma regiao, diferente RG)                      │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-│                                                                     │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │ rg-contoso-management (NOVO)                                           │   │
-│  │                                                              │   │
-│  │  ┌──────────────────────────────────────────────────────┐    │   │
-│  │  │ Backup Vault: bv-contoso-disks                               │    │   │
-│  │  │ Storage Redundancy: LRS                              │    │   │
-│  │  │                                                      │    │   │
-│  │  │ Backup Policy: bvpol-contoso-disk-daily                       │    │   │
-│  │  │ • Retention: 30 days                                 │    │   │
-│  │  │                                                      │    │   │
-│  │  │ vs Recovery Services Vault (rsv-contoso-backup, Bloco 1):     │    │   │
-│  │  │ • RSV: VM backup, File Share backup, Site Recovery   │    │   │
-│  │  │ • BV: Azure Disks, Blobs, PostgreSQL, AKS            │    │   │
-│  │  └──────────────────────────────────────────────────────┘    │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│                                                                          │
+│  ┌───────────────────────────────────────────────────────────────────┐   │
+│  │ rg-contoso-compute (VMs da Semana 2)                              │   │
+│  │                                                                   │   │
+│  │  vm-web-01 ──────────────── Move ──→ rg-contoso-moved             │   │
+│  │  vm-api-01                                                        │   │
+│  │                                                                   │   │
+│  │  (VM Move = mesma regiao, diferente RG)                           │   │
+│  └───────────────────────────────────────────────────────────────────┘   │
+│                                                                          │
+│  ┌───────────────────────────────────────────────────────────────────┐   │
+│  │ rg-contoso-management (NOVO)                                      │   │
+│  │                                                                   │   │
+│  │  ┌───────────────────────────────────────────────────────────┐    │   │
+│  │  │ Backup Vault: bv-contoso-disks                            │    │   │
+│  │  │ Storage Redundancy: LRS                                   │    │   │
+│  │  │                                                           │    │   │
+│  │  │ Backup Policy: bvpol-contoso-disk-daily                   │    │   │
+│  │  │ • Retention: 30 days                                      │    │   │
+│  │  │                                                           │    │   │
+│  │  │ vs Recovery Services Vault (rsv-contoso-backup, Bloco 1): │    │   │
+│  │  │ • RSV: VM backup, File Share backup, Site Recovery        │    │   │
+│  │  │ • BV: Azure Disks, Blobs, PostgreSQL, AKS                 │    │   │
+│  │  └───────────────────────────────────────────────────────────┘    │   │
+│  └───────────────────────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ### Task 6.1: Mover VM para outro Resource Group
 
-Voce move uma VM entre Resource Groups para entender o processo e suas limitacoes.
+Mover recursos entre Resource Groups e uma operacao comum em organizacoes que estao reorganizando a estrutura de RGs (ex: separando por equipe, por ambiente, ou por centro de custo). O ponto-chave e que mover entre RGs na **mesma regiao** e simples e **sem downtime** — a VM continua rodando.
+
+**O que muda:** O resource ID (caminho completo do recurso no Azure). **O que NAO muda:** Regiao, configuracoes, IP, estado da VM.
+
+**Analogia:** E como mudar um funcionario de departamento — ele muda de sala, mas continua fazendo o mesmo trabalho. O "endereco" (resource ID) muda, mas as habilidades e configuracoes permanecem.
 
 1. Primeiro, crie o Resource Group de destino. Pesquise **Resource groups** > **+ Create**:
 
-   | Setting        | Value            |
-   | -------------- | ---------------- |
+   | Setting        | Value              |
+   | -------------- | ------------------ |
    | Resource group | `rg-contoso-moved` |
-   | Region         | **(US) East US** |
+   | Region         | **(US) East US**   |
 
 2. Clique em **Review + create** > **Create**
 
@@ -64,8 +68,8 @@ Voce move uma VM entre Resource Groups para entender o processo e suas limitacoe
 
 5. Selecione:
 
-   | Setting               | Value            |
-   | --------------------- | ---------------- |
+   | Setting               | Value              |
+   | --------------------- | ------------------ |
    | Target resource group | `rg-contoso-moved` |
 
 6. O Azure mostrara os **recursos dependentes** que precisam ser movidos junto:
@@ -73,6 +77,8 @@ Voce move uma VM entre Resource Groups para entender o processo e suas limitacoe
    - OS Disk
    - Public IP (se existir)
    - NSG (se associado a NIC)
+
+   > **Por que recursos dependentes?** Uma VM nao existe sozinha — ela depende de NIC (rede), Disk (armazenamento) e Public IP (acesso). Se voce mover a VM mas deixar o disco no RG antigo, a referencia quebraria. O Azure valida isso e exige que dependencias sejam movidas juntas.
 
 7. Marque todos os recursos dependentes
 
@@ -96,11 +102,13 @@ Voce move uma VM entre Resource Groups para entender o processo e suas limitacoe
       --ids $VM_ID $NIC_ID $DISK_ID
     ```
 
-    > **Conceito:** Mover um recurso entre RGs altera apenas o Resource Group — o resource ID muda mas a regiao e todas as configuracoes permanecem iguais. A VM NAO precisa ser desligada para move entre RGs (mesma regiao). Recursos dependentes devem ser movidos juntos.
+    > **Conceito:** Mover um recurso entre RGs altera apenas o Resource Group — o resource ID muda mas a regiao e todas as configuracoes permanecem iguais. A VM NAO precisa ser desligada para move entre RGs (mesma regiao). Recursos dependentes devem ser movidos juntos. Recursos com **delete locks** nao podem ser movidos — voce precisa remover o lock primeiro.
 
 ---
 
 ### Task 6.2: Entender limitacoes de move entre regioes
+
+Mover entre Resource Groups (mesma regiao) e simples. Mover entre **regioes** e fundamentalmente diferente — nao existe um "mover" real. O Azure precisa **recriar** o recurso na nova regiao, o que envolve copiar dados, reconfigurar rede, etc.
 
 1. Navegue para a VM em `rg-contoso-moved` > **Move** > **Move to another region**
 
@@ -114,6 +122,8 @@ Voce move uma VM entre Resource Groups para entender o processo e suas limitacoe
    | Move entre regioes               | Azure Site Recovery (replicar)  | Minimo   |
    | Move entre regioes (alternativa) | Recriar VM na nova regiao       | Variavel |
    | Move entre subscriptions         | `az resource move` (portal/CLI) | Nenhum   |
+
+   > **Move entre subscriptions** funciona de forma similar a move entre RGs — sem downtime, apenas muda a subscription no resource ID. Mas tem restricoes adicionais: ambas subscriptions devem estar no mesmo Azure AD tenant, e o resource provider deve estar registrado na subscription de destino.
 
 4. **NAO execute** o move entre regioes — apenas entenda o processo
 
@@ -133,22 +143,22 @@ Voce move uma VM entre Resource Groups para entender o processo e suas limitacoe
 
    > **Conexao com Bloco 3:** O Azure Site Recovery (configurado no Bloco 3) e a forma recomendada de mover VMs entre regioes, pois permite replicacao continua e failover controlado.
 
-   > **Dica AZ-104:** Na prova: Move entre RGs = sem downtime, resource ID muda. Move entre regioes = requer ASR ou recriar. Move entre subscriptions = possivel mas com restricoes (ex: resources com locks nao podem ser movidos). Sempre verifique `az resource move` support matrix.
+   > **Dica AZ-104:** Na prova: Move entre RGs = sem downtime, resource ID muda. Move entre regioes = requer ASR ou recriar. Move entre subscriptions = possivel mas com restricoes (ex: resources com locks nao podem ser movidos, ambas subscriptions devem estar no mesmo tenant). Sempre verifique `az resource move` support matrix.
 
 ---
 
 ### Task 6.2b: Explorar Azure Resource Mover
 
-Voce explora o Azure Resource Mover, ferramenta dedicada para mover recursos entre regioes de forma orquestrada.
+O Azure Resource Mover e uma ferramenta dedicada para mover recursos entre regioes de forma **orquestrada**. Diferente de fazer manualmente (exportar template, ajustar, fazer deploy), o Resource Mover resolve dependencias automaticamente e executa o move em etapas controladas.
 
 1. Pesquise **Azure Resource Mover** no portal
 
 2. Clique em **Create move collection**:
 
-   | Setting        | Value          |
-   | -------------- | -------------- |
-   | Source region  | **East US**    |
-   | Target region  | **West US**    |
+   | Setting       | Value       |
+   | ------------- | ----------- |
+   | Source region | **East US** |
+   | Target region | **West US** |
 
 3. Clique em **+ Add resources**
 
@@ -156,6 +166,13 @@ Voce explora o Azure Resource Mover, ferramenta dedicada para mover recursos ent
    - Observe como o Resource Mover identifica **dependencias** automaticamente (ex: VM depende de NIC, Disk, VNet)
    - Revise os tipos de recurso suportados: VMs, VNets, NSGs, Public IPs, Availability Sets, etc.
    - Note o fluxo: **Add** → **Validate** → **Prepare** → **Initiate move** → **Commit**
+
+   > **O fluxo em 5 etapas:**
+   > 1. **Add** — seleciona os recursos para mover
+   > 2. **Validate** — verifica dependencias e compatibilidade
+   > 3. **Prepare** — cria recursos auxiliares na regiao de destino
+   > 4. **Initiate move** — executa a movimentacao (usa ASR para VMs)
+   > 5. **Commit** — confirma o move e limpa recursos temporarios
 
 5. **NAO execute** o move — apenas explore a interface e entenda o processo
 
@@ -169,16 +186,20 @@ Voce explora o Azure Resource Mover, ferramenta dedicada para mover recursos ent
 
 ### Task 6.3: Criar Azure Backup Vault
 
-O Backup Vault e o servico mais recente de backup do Azure, projetado para workloads que o Recovery Services Vault nao suporta nativamente.
+O Azure Backup Vault e um servico **separado** do Recovery Services Vault, projetado para workloads mais modernos. A confusao entre os dois e muito cobrada na prova. A regra geral: RSV = VMs e File Shares (workloads classicos). Backup Vault = Discos, Blobs, PostgreSQL, AKS (workloads cloud-native).
+
+**Analogia:** Pense em dois cofres na mesma agencia bancaria — um para documentos tradicionais (RSV = VMs, File Shares), outro para ativos digitais (Backup Vault = Discos, Blobs, AKS). Ambos sao cofres, mas guardam coisas diferentes.
 
 1. Pesquise **Backup vaults** > **+ Create**:
 
-   | Setting            | Value                              |
-   | ------------------ | ---------------------------------- |
+   | Setting            | Value                                                    |
+   | ------------------ | -------------------------------------------------------- |
    | Resource group     | `rg-contoso-management` (mesmo RG dos Blocos anteriores) |
-   | Backup vault name  | `bv-contoso-disks`                         |
-   | Region             | **(US) East US**                   |
-   | Storage redundancy | **Locally-redundant (LRS)**        |
+   | Backup vault name  | `bv-contoso-disks`                                       |
+   | Region             | **(US) East US**                                         |
+   | Storage redundancy | **Locally-redundant (LRS)**                              |
+
+   > **Storage redundancy** no Backup Vault funciona igual ao RSV: LRS (3 copias local), GRS (6 copias cross-region), ZRS (3 copias entre zonas). Diferente do RSV, voce pode alterar a redundancia **depois** de criar o vault (mas antes de configurar backup items).
 
 2. **Review + create** > **Create** > **Go to resource**
 
@@ -187,11 +208,13 @@ O Backup Vault e o servico mais recente de backup do Azure, projetado para workl
    - Foco em workloads de dados (Blobs, Disks, PostgreSQL, AKS)
    - Nao suporta VM backup completo (isso continua no RSV)
 
-   > **Conceito:** Azure Backup Vault e o successor parcial do Recovery Services Vault. Atualmente, cada vault suporta workloads diferentes. Em novos projetos, verifique qual vault suporta o workload que voce precisa proteger.
+   > **Conceito:** Azure Backup Vault e o successor parcial do Recovery Services Vault. Atualmente, cada vault suporta workloads diferentes. Em novos projetos, verifique qual vault suporta o workload que voce precisa proteger. A Microsoft esta gradualmente movendo funcionalidades para o Backup Vault.
 
 ---
 
 ### Task 6.4: Comparar Backup Vault vs Recovery Services Vault
+
+Esta comparacao e **critica** para a prova. Saber qual vault suporta qual workload pode ser a diferenca entre acertar ou errar uma questao.
 
 1. Navegue para o **Recovery Services Vault** `rsv-contoso-backup` (do Bloco 1, em rg-contoso-management) — se ainda existir
 
@@ -211,12 +234,14 @@ O Backup Vault e o servico mais recente de backup do Azure, projetado para workl
    | **Interface**            | Classic                       | Modern                      |
    | **Cross Region Restore** | Sim (com GRS)                 | Sim (com GRS)               |
 
+   > **Regra mnemonica:** RSV protege "maquinas" (VMs, SQL in VM, SAP HANA, File Shares). Backup Vault protege "dados" (Discos, Blobs, PostgreSQL, AKS). Se a questao fala de backup de VM completa → RSV. Se fala de backup de disco individual → Backup Vault.
+
 3. No portal, explore os menus do Backup Vault:
    - **Backup center**: visao unificada de AMBOS os vaults
    - **Backup instances**: lista de workloads protegidos
    - **Backup policies**: configuracao de retencao
 
-   > **Conceito:** A Microsoft esta gradualmente movendo workloads para o Backup Vault. Hoje, a maioria das organizacoes usa ambos: RSV para VMs e Azure Files; BV para Disks, Blobs e workloads cloud-native. O **Backup Center** no portal unifica a gestao de ambos.
+   > **Conceito:** A Microsoft esta gradualmente movendo workloads para o Backup Vault. Hoje, a maioria das organizacoes usa ambos: RSV para VMs e Azure Files; BV para Disks, Blobs e workloads cloud-native. O **Backup Center** no portal unifica a gestao de ambos — voce ve todos os backup items de RSV e BV num unico lugar.
 
    > **Dica AZ-104:** Na prova, saber qual vault suporta qual workload e critico. VM backup = RSV. Disk backup = BV. File Share = RSV. Blob backup = BV. Site Recovery = RSV apenas.
 
@@ -224,13 +249,15 @@ O Backup Vault e o servico mais recente de backup do Azure, projetado para workl
 
 ### Task 6.5: Configurar politica de backup no Backup Vault
 
+Agora voce configura uma policy e um backup de disco. O backup de disco no Backup Vault usa **snapshots incrementais** — apenas as mudancas desde o ultimo snapshot sao capturadas, o que e mais rapido e economico que o backup completo de VM.
+
 1. No **Backup Vault** `bv-contoso-disks`, navegue para **Manage** > **Backup policies**
 
 2. Clique em **+ Add**:
 
-   | Setting         | Value                  |
-   | --------------- | ---------------------- |
-   | Datasource type | **Azure Disks**        |
+   | Setting         | Value                      |
+   | --------------- | -------------------------- |
+   | Datasource type | **Azure Disks**            |
    | Policy name     | `bvpol-contoso-disk-daily` |
 
 3. Configure o schedule:
@@ -241,27 +268,29 @@ O Backup Vault e o servico mais recente de backup do Azure, projetado para workl
    | Time               | *horario desejado* |
    | Retention duration | **30 days**        |
 
+   > A policy de disco e mais simples que a de VM — nao tem opcoes de weekly/monthly/yearly retention como no RSV. O foco e em snapshots incrementais com retencao curta a media.
+
 4. Clique em **Create**
 
 5. Agora configure um backup de disco. Navegue para **+ Configure backup**:
 
-   | Setting         | Value                  |
-   | --------------- | ---------------------- |
-   | Datasource type | **Azure Disks**        |
-   | Backup vault    | `bv-contoso-disks`             |
+   | Setting         | Value                      |
+   | --------------- | -------------------------- |
+   | Datasource type | **Azure Disks**            |
+   | Backup vault    | `bv-contoso-disks`         |
    | Backup policy   | `bvpol-contoso-disk-daily` |
 
 6. Selecione o disco da VM `vm-web-01` (ou outra VM disponivel)
 
-   > **Nota:** O Backup Vault precisa de permissoes no disco. O portal guiara a atribuicao da role **Disk Backup Reader** na VM/disco e **Disk Snapshot Contributor** no snapshot resource group.
+   > **Nota:** O Backup Vault precisa de permissoes no disco. O portal guiara a atribuicao da role **Disk Backup Reader** na VM/disco e **Disk Snapshot Contributor** no snapshot resource group. Essas permissoes sao atribuidas a managed identity do Backup Vault — sem elas, o backup falha.
 
 7. Complete a configuracao seguindo os prompts do portal
 
 8. **Validacao:** Navegue para **Backup instances** e confirme que o disco aparece como protegido
 
-   > **Conceito:** Backup de discos no Backup Vault usa snapshots incrementais — apenas as alteracoes desde o ultimo snapshot sao capturadas. Isso e mais eficiente que o backup completo de VM do RSV. Ideal para proteger discos individuais sem o overhead de backup de VM completo.
+   > **Conceito:** Backup de discos no Backup Vault usa snapshots incrementais — apenas as alteracoes desde o ultimo snapshot sao capturadas. Isso e mais eficiente que o backup completo de VM do RSV. Ideal para proteger discos individuais sem o overhead de backup de VM completo. O custo depende apenas do volume de mudancas (delta), nao do tamanho total do disco.
 
-   > **Dica AZ-104:** Na prova: Disk backup via Backup Vault cria snapshots incrementais (menor custo e tempo). VM backup via RSV cria um ponto de restauracao completo (snapshot + dados em vault). Escolha baseado no RPO e granularidade desejados.
+   > **Dica AZ-104:** Na prova: Disk backup via Backup Vault cria snapshots incrementais (menor custo e tempo). VM backup via RSV cria um ponto de restauracao completo (snapshot + dados em vault). Escolha baseado no RPO e granularidade desejados. Se a questao pede "backup do disco de dados sem fazer backup da VM inteira" → Backup Vault.
 
 ---
 

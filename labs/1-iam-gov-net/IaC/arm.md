@@ -1270,7 +1270,7 @@ Salve como **`bloco4-networking.json`**:
         {
             "type": "Microsoft.Network/virtualNetworks",
             "apiVersion": "2023-05-01",
-            "name": "vnet-contoso-hub-eastus",
+            "name": "vnet-contoso-hub",
             "location": "[parameters('location')]",
             "dependsOn": [
                 "[resourceId('Microsoft.Network/networkSecurityGroups', 'nsg-snet-shared')]"
@@ -1301,7 +1301,7 @@ Salve como **`bloco4-networking.json`**:
         {
             "type": "Microsoft.Network/virtualNetworks",
             "apiVersion": "2023-05-01",
-            "name": "vnet-contoso-spoke-eastus",
+            "name": "vnet-contoso-spoke",
             "location": "[parameters('location')]",
             "properties": {
                 "addressSpace": {
@@ -1439,7 +1439,7 @@ Salve como **`bloco4-dns.json`**:
             ],
             "properties": {
                 "virtualNetwork": {
-                    "id": "[resourceId('Microsoft.Network/virtualNetworks', 'vnet-contoso-spoke-eastus')]"
+                    "id": "[resourceId('Microsoft.Network/virtualNetworks', 'vnet-contoso-spoke')]"
                 },
                 "registrationEnabled": false
             }
@@ -1546,11 +1546,11 @@ A) Sim  B) Falha sem link  C) DNS publico  D) Com peering
 
 ```bash
 az network vnet subnet create \
-    --resource-group "$RG4" --vnet-name "vnet-contoso-hub-eastus" \
+    --resource-group "$RG4" --vnet-name "vnet-contoso-hub" \
     --name "snet-apps" --address-prefixes "10.20.0.0/24"
 
 az network vnet subnet create \
-    --resource-group "$RG4" --vnet-name "vnet-contoso-spoke-eastus" \
+    --resource-group "$RG4" --vnet-name "vnet-contoso-spoke" \
     --name "snet-workloads" --address-prefixes "10.30.0.0/24"
 ```
 
@@ -1590,8 +1590,8 @@ Salve como **`bloco5-vms.json`**:
         }
     },
     "variables": {
-        "coreSubnetId": "[resourceId(parameters('vnetResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets', 'vnet-contoso-hub-eastus', 'snet-apps')]",
-        "mfgSubnetId": "[resourceId(parameters('vnetResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets', 'vnet-contoso-spoke-eastus', 'snet-workloads')]"
+        "coreSubnetId": "[resourceId(parameters('vnetResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets', 'vnet-contoso-hub', 'snet-apps')]",
+        "mfgSubnetId": "[resourceId(parameters('vnetResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets', 'vnet-contoso-spoke', 'snet-workloads')]"
     },
     "resources": [
         {
@@ -1734,14 +1734,14 @@ Salve como **`bloco5-vms.json`**:
 
 > **Cross-RG reference em ARM:**
 > ```json
-> "[resourceId(parameters('vnetResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets', 'vnet-contoso-hub-eastus', 'snet-apps')]"
+> "[resourceId(parameters('vnetResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets', 'vnet-contoso-hub', 'snet-apps')]"
 > ```
 > O primeiro parametro de `resourceId()` e o nome do RG. Quando omitido, assume o RG do deploy.
 >
 > **Em Bicep seria:**
 > ```bicep
 > resource coreVnet 'Microsoft.Network/virtualNetworks@2023-05-01' existing = {
->   name: 'vnet-contoso-hub-eastus'
+>   name: 'vnet-contoso-hub'
 >   scope: resourceGroup('rg-contoso-network')
 > }
 > ```
@@ -1803,10 +1803,10 @@ Salve como **`bloco5-peering.json`**:
         {
             "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
             "apiVersion": "2023-05-01",
-            "name": "vnet-contoso-hub-eastus/vnet-contoso-hub-eastus-to-vnet-contoso-spoke-eastus",
+            "name": "vnet-contoso-hub/vnet-contoso-hub-to-vnet-contoso-spoke",
             "properties": {
                 "remoteVirtualNetwork": {
-                    "id": "[resourceId('Microsoft.Network/virtualNetworks', 'vnet-contoso-spoke-eastus')]"
+                    "id": "[resourceId('Microsoft.Network/virtualNetworks', 'vnet-contoso-spoke')]"
                 },
                 "allowVirtualNetworkAccess": true,
                 "allowForwardedTraffic": true,
@@ -1817,10 +1817,10 @@ Salve como **`bloco5-peering.json`**:
         {
             "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
             "apiVersion": "2023-05-01",
-            "name": "vnet-contoso-spoke-eastus/vnet-contoso-spoke-eastus-to-vnet-contoso-hub-eastus",
+            "name": "vnet-contoso-spoke/vnet-contoso-spoke-to-vnet-contoso-hub",
             "properties": {
                 "remoteVirtualNetwork": {
-                    "id": "[resourceId('Microsoft.Network/virtualNetworks', 'vnet-contoso-hub-eastus')]"
+                    "id": "[resourceId('Microsoft.Network/virtualNetworks', 'vnet-contoso-hub')]"
                 },
                 "allowVirtualNetworkAccess": true,
                 "allowForwardedTraffic": true,
@@ -1833,8 +1833,8 @@ Salve como **`bloco5-peering.json`**:
 ```
 
 > **Comparacao com Bicep:**
-> - ARM: `"name": "vnet-contoso-hub-eastus/vnet-contoso-hub-eastus-to-vnet-contoso-spoke-eastus"` — nome composto
-> - Bicep: `parent: coreVnet` + `name: 'vnet-contoso-hub-eastus-to-vnet-contoso-spoke-eastus'`
+> - ARM: `"name": "vnet-contoso-hub/vnet-contoso-hub-to-vnet-contoso-spoke"` — nome composto
+> - Bicep: `parent: coreVnet` + `name: 'vnet-contoso-hub-to-vnet-contoso-spoke'`
 > - ARM: sem `dependsOn` aqui pois as VNets ja existem (deploy anterior)
 > - Nota: ambas VNets devem existir no mesmo RG para este template funcionar
 
@@ -1845,7 +1845,7 @@ az deployment group create \
     --resource-group "$RG4" \
     --template-file bloco5-peering.json
 
-az network vnet peering list -g "$RG4" --vnet-name "vnet-contoso-hub-eastus" \
+az network vnet peering list -g "$RG4" --vnet-name "vnet-contoso-hub" \
     --query "[].{name:name, status:peeringState}" -o table
 ```
 
@@ -1873,7 +1873,7 @@ az vm run-command invoke \
 # TASK 5.6b - Testar nao-transitividade do peering
 # ============================================================
 # CONCEITO AZ-104: Peering e NAO transitivo!
-# vnet-contoso-hub-eastus ↔ vnet-contoso-spoke-eastus, mas trafego NAO transita para outras VNets
+# vnet-contoso-hub ↔ vnet-contoso-spoke, mas trafego NAO transita para outras VNets
 # Para transitividade: hub-spoke com NVA ou Azure Virtual WAN.
 
 az vm run-command invoke \
@@ -1912,7 +1912,7 @@ Salve como **`bloco5-dns-update.json`**:
             "location": "global",
             "properties": {
                 "virtualNetwork": {
-                    "id": "[resourceId('Microsoft.Network/virtualNetworks', 'vnet-contoso-hub-eastus')]"
+                    "id": "[resourceId('Microsoft.Network/virtualNetworks', 'vnet-contoso-hub')]"
                 },
                 "registrationEnabled": false
             }
@@ -2007,13 +2007,13 @@ az deployment group create \
 
 # Criar subnet perimeter
 az network vnet subnet create \
-    --resource-group "$RG4" --vnet-name "vnet-contoso-hub-eastus" \
+    --resource-group "$RG4" --vnet-name "vnet-contoso-hub" \
     --name "perimeter" --address-prefixes "10.20.1.0/24"
 
 # Associar route table
 RT_ID=$(az network route-table show -g "$RG5" -n "rt-contoso-spoke" --query id -o tsv)
 az network vnet subnet update \
-    --resource-group "$RG4" --vnet-name "vnet-contoso-hub-eastus" \
+    --resource-group "$RG4" --vnet-name "vnet-contoso-hub" \
     --name "snet-apps" --route-table "$RT_ID"
 ```
 
@@ -2062,7 +2062,7 @@ A) Nao  B) Sim, qualquer RG na subscription  C) Apenas ARM  D) Mover VNet
 
 Em ARM JSON, cross-RG e feito com `resourceId()` passando o RG como primeiro parametro:
 ```json
-"[resourceId('rg-contoso-network', 'Microsoft.Network/virtualNetworks/subnets', 'vnet-contoso-hub-eastus', 'snet-apps')]"
+"[resourceId('rg-contoso-network', 'Microsoft.Network/virtualNetworks/subnets', 'vnet-contoso-hub', 'snet-apps')]"
 ```
 Em Bicep: `existing` + `scope: resourceGroup('rg-contoso-network')`.
 
@@ -2122,7 +2122,7 @@ az group create --name "$RG6" --location "$LOCATION" --tags "Cost Center=000"
 
 az network vnet subnet create \
     --resource-group "$RG4" \
-    --vnet-name "vnet-contoso-hub-eastus" \
+    --vnet-name "vnet-contoso-hub" \
     --name "snet-lb" \
     --address-prefixes "10.20.40.0/24"
 
@@ -2155,12 +2155,12 @@ Salve como **`bloco6-lb-infra.json`**:
         "vnetResourceGroup": {
             "type": "string",
             "defaultValue": "rg-contoso-network",
-            "metadata": { "description": "RG onde a vnet-contoso-hub-eastus esta" }
+            "metadata": { "description": "RG onde a vnet-contoso-hub esta" }
         }
     },
     "variables": {
         "avSetName": "avail-contoso-lb",
-        "vnetName": "vnet-contoso-hub-eastus",
+        "vnetName": "vnet-contoso-hub",
         "subnetName": "snet-lb",
         "subnetId": "[resourceId(parameters('vnetResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('subnetName'))]"
     },
@@ -2508,7 +2508,7 @@ az deployment group create \
 # Associar NSG a snet-lb
 NSG_ID=$(az network nsg show -g "$RG6" -n "nsg-snet-lb" --query id -o tsv)
 az network vnet subnet update \
-    --resource-group "$RG4" --vnet-name "vnet-contoso-hub-eastus" \
+    --resource-group "$RG4" --vnet-name "vnet-contoso-hub" \
     --name "snet-lb" --network-security-group "$NSG_ID"
 
 # Adicionar VMs ao Backend Pool
@@ -2603,7 +2603,7 @@ Salve como **`bloco6-internal-lb.json`**:
         "frontendName": "int-fe-lbe-web",
         "backendPoolName": "bp-lbi-apps",
         "probeName": "int-http-probe",
-        "subnetId": "[resourceId(parameters('vnetResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets', 'vnet-contoso-hub-eastus', 'snet-lb')]",
+        "subnetId": "[resourceId(parameters('vnetResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets', 'vnet-contoso-hub', 'snet-lb')]",
         "lbId": "[resourceId('Microsoft.Network/loadBalancers', variables('lbName'))]"
     },
     "resources": [
@@ -2743,13 +2743,13 @@ Salve como **`bloco6-bastion.json`**:
     "variables": {
         "bastionName": "bas-contoso-hub",
         "bastionPipName": "bas-contoso-hub-pip",
-        "bastionSubnetId": "[resourceId(parameters('vnetResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets', 'vnet-contoso-hub-eastus', 'AzureBastionSubnet')]"
+        "bastionSubnetId": "[resourceId(parameters('vnetResourceGroup'), 'Microsoft.Network/virtualNetworks/subnets', 'vnet-contoso-hub', 'AzureBastionSubnet')]"
     },
     "resources": [
         {
             "type": "Microsoft.Network/virtualNetworks/subnets",
             "apiVersion": "2023-05-01",
-            "name": "vnet-contoso-hub-eastus/AzureBastionSubnet",
+            "name": "vnet-contoso-hub/AzureBastionSubnet",
             "properties": {
                 "addressPrefix": "10.20.30.0/26"
             }
@@ -2807,7 +2807,7 @@ Salve como **`bloco6-bastion.json`**:
 # Alternativa: criar AzureBastionSubnet via CLI
 az network vnet subnet create \
     --resource-group "$RG4" \
-    --vnet-name "vnet-contoso-hub-eastus" \
+    --vnet-name "vnet-contoso-hub" \
     --name "AzureBastionSubnet" \
     --address-prefixes "10.20.30.0/26"
 ```
@@ -2820,7 +2820,7 @@ Deploy:
 # ============================================================
 # Primeiro criar a subnet (se nao usou o template acima para isso)
 az network vnet subnet create \
-    --resource-group "$RG4" --vnet-name "vnet-contoso-hub-eastus" \
+    --resource-group "$RG4" --vnet-name "vnet-contoso-hub" \
     --name "AzureBastionSubnet" --address-prefixes "10.20.30.0/26" 2>/dev/null
 
 # Deploy Bastion (pode levar 5-10 minutos)
@@ -3253,12 +3253,12 @@ sourceApplicationSecurityGroups: [ { id: asg.id } ]
 ### Cross-RG Reference
 ```json
 // ARM:
-"[resourceId('rg-contoso-network', 'Microsoft.Network/virtualNetworks/subnets', 'vnet-contoso-hub-eastus', 'snet-apps')]"
+"[resourceId('rg-contoso-network', 'Microsoft.Network/virtualNetworks/subnets', 'vnet-contoso-hub', 'snet-apps')]"
 ```
 ```bicep
 // Bicep:
 resource coreVnet 'type' existing = {
-  name: 'vnet-contoso-hub-eastus'
+  name: 'vnet-contoso-hub'
   scope: resourceGroup('rg-contoso-network')
 }
 ```

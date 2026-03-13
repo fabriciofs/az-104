@@ -1967,7 +1967,7 @@ Deploy:
 az deployment group create \
     --resource-group "$RG7" \
     --template-file bloco2-vm-cloudinit.json \
-    --parameters subnetId="/subscriptions/<sub>/resourceGroups/rg-contoso-network/providers/Microsoft.Network/virtualNetworks/vnet-contoso-spoke-eastus/subnets/Manufacturing" \
+    --parameters subnetId="/subscriptions/<sub>/resourceGroups/rg-contoso-network/providers/Microsoft.Network/virtualNetworks/vnet-contoso-spoke/subnets/Manufacturing" \
     adminPassword="$ADMIN_PASSWORD"
 
 # Verificar cloud-init via Run Command
@@ -3823,7 +3823,7 @@ az webapp config backup list -g rg-contoso-compute --webapp-name "$APP_NAME" -o 
 # Requer subnet dedicada (/28 minimo), delegada a Microsoft.Web/serverFarms
 
 VNET_RG="rg-contoso-network"
-VNET_NAME="vnet-contoso-hub-eastus"
+VNET_NAME="vnet-contoso-hub"
 
 # 1. Criar subnet dedicada
 az network vnet subnet create \
@@ -3849,7 +3849,7 @@ az webapp vnet-integration list -g rg-contoso-compute -n "$APP_NAME" -o table
 - [ ] Explorar Custom Domain no App Service — CNAME + TXT verification
 - [ ] Configurar HTTPS Only + TLS 1.2
 - [ ] Configurar backup do App Service para Storage Account com schedule diario
-- [ ] Configurar VNet Integration com vnet-contoso-hub-eastus
+- [ ] Configurar VNet Integration com vnet-contoso-hub
 
 ---
 
