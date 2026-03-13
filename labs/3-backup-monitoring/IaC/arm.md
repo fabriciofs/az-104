@@ -20,6 +20,21 @@
 > O Cloud Shell ja possui Azure CLI pre-instalado e a autenticacao e automatica.
 > Para criar os arquivos `.json`, use o editor integrado: `code nome-do-arquivo.json`
 
+### O que e um ARM Template e por que usar
+
+ARM Templates sao arquivos JSON que descrevem a infraestrutura Azure de forma **declarativa** -- voce diz O QUE quer, nao COMO criar. O Azure Resource Manager interpreta o template e provisiona os recursos na ordem correta.
+
+> **Conceito: Declarativo vs Imperativo**
+>
+> | Abordagem | Descricao | Exemplo |
+> |-----------|-----------|---------|
+> | **Declarativo** (ARM/Bicep) | Descreve o estado desejado; o engine resolve | "Quero um vault chamado X na regiao Y" |
+> | **Imperativo** (CLI/PowerShell) | Executa comandos passo a passo | "Crie um vault, depois crie uma policy, depois habilite backup" |
+>
+> ARM Templates sao **idempotentes**: rodar o mesmo template duas vezes nao cria recursos duplicados -- o Azure atualiza o que existe e cria apenas o que falta.
+
+> **Dica prova:** Na AZ-104, questoes sobre ARM Templates cobram: estrutura do JSON (schema, parameters, variables, resources, outputs), funcoes como `resourceId()` e `concat()`, e a diferenca entre `dependsOn` explicito (ARM) vs implicito (Bicep).
+
 Antes de comecar, relembre a estrutura de um ARM template:
 
 ```json
@@ -73,19 +88,31 @@ Antes de comecar, relembre a estrutura de um ARM template:
 
 ### Funcoes ARM Essenciais (Revisao)
 
-| Funcao | Uso | Exemplo |
-|--------|-----|---------|
-| `[parameters('x')]` | Ler parametro | `[parameters('location')]` |
-| `[variables('x')]` | Ler variavel | `[variables('vaultName')]` |
-| `[resourceId(...)]` | ID de recurso | `[resourceId('Microsoft.RecoveryServices/vaults', 'myVault')]` |
-| `[concat(...)]` | Concatenar strings | `[concat('prefix-', parameters('name'))]` |
-| `[resourceGroup().location]` | Regiao do RG | Usado como default em location |
-| `[subscription().subscriptionId]` | ID da subscription | Usado em scopes |
-| `[guid(...)]` | GUID deterministico | `[guid(resourceGroup().id, 'name')]` |
+| Funcao                            | Uso                 | Exemplo                                                        |
+| --------------------------------- | ------------------- | -------------------------------------------------------------- |
+| `[parameters('x')]`               | Ler parametro       | `[parameters('location')]`                                     |
+| `[variables('x')]`                | Ler variavel        | `[variables('vaultName')]`                                     |
+| `[resourceId(...)]`               | ID de recurso       | `[resourceId('Microsoft.RecoveryServices/vaults', 'myVault')]` |
+| `[concat(...)]`                   | Concatenar strings  | `[concat('prefix-', parameters('name'))]`                      |
+| `[resourceGroup().location]`      | Regiao do RG        | Usado como default em location                                 |
+| `[subscription().subscriptionId]` | ID da subscription  | Usado em scopes                                                |
+| `[guid(...)]`                     | GUID deterministico | `[guid(resourceGroup().id, 'name')]`                           |
 
 ---
 
 ## Verificacao e Variaveis
+
+Antes de iniciar qualquer deploy, configure as variaveis globais e valide o ambiente. Essas variaveis serao referenciadas ao longo de todo o lab como parametros dos templates ARM.
+
+> **Conceito: Parameters vs Variables em ARM**
+>
+> | Elemento | Definido em | Valor vem de | Uso |
+> |----------|-------------|--------------|-----|
+> | **Parameter** | Template JSON | Usuario (no deploy) | Valores que mudam entre ambientes (senha, nome, regiao) |
+> | **Variable** | Template JSON | Calculado internamente | Valores derivados (`concat`, `format`) |
+> | **Variavel Bash** | Terminal | Script do usuario | Passadas como `--parameters` no `az deployment` |
+>
+> Na prova: `securestring` e o tipo de parametro para senhas -- o valor NAO aparece em logs, outputs ou historico de deploy.
 
 ```bash
 # ============================================================
@@ -160,6 +187,8 @@ Bloco 5 (Log Analytics)     → ARM templates + CLI
 
 ### Task 1.1: Criar Resource Groups
 
+Resource Groups sao containers logicos para recursos Azure. Neste lab, criamos RGs separados para organizar recursos por funcao (backup, storage, monitoramento). Em ARM, RGs sao criados via CLI porque sao pre-requisitos para o deploy dos templates.
+
 ```bash
 # ============================================================
 # TASK 1.1 - Criar Resource Groups para o lab
@@ -174,6 +203,11 @@ echo "RGs criados: $RG11, $RG12, $RG13"
 ---
 
 ### Task 1.2: Criar VM para backup (ARM)
+
+Este template cria uma VM completa com todos os recursos de rede necessarios (NSG, PIP, VNet, NIC). Observe como em ARM JSON cada recurso precisa de `dependsOn` explicito para garantir a ordem de criacao -- a NIC depende da VNet e do PIP, e a VM depende da NIC.
+
+> **Conceito: dependsOn em ARM JSON**
+> Em ARM, voce PRECISA declarar `dependsOn` sempre que um recurso referencia outro. Se voce esquecer, o deploy pode falhar porque o Azure tenta criar recursos em paralelo. Em Bicep, essas dependencias sao detectadas automaticamente via referencias simbolicas.
 
 Salve como **`bloco1-vm.json`**:
 
@@ -391,6 +425,10 @@ az vm show -g "$RG11" -n "vm-web-01" \
 
 ### Task 1.3: Recovery Services Vault via ARM
 
+O Recovery Services Vault e o cofre central que armazena dados de backup e configuracoes de replicacao. Este template cria o vault como um recurso independente -- note que nao precisa de `dependsOn` porque nao referencia outros recursos do template.
+
+> **Dica prova:** O vault DEVE estar na mesma regiao dos recursos protegidos para backup. Para Site Recovery (DR), o vault fica na regiao de DESTINO. Essa diferenca e frequentemente cobrada.
+
 > **Cobranca:** O vault em si e gratuito, mas cada instancia protegida (VM, File Share) gera cobranca.
 
 Salve como **`bloco1-rsv.json`**:
@@ -494,6 +532,15 @@ az backup vault show \
 ---
 
 ### Task 1.4: Backup Policy via ARM
+
+A Backup Policy e um recurso **filho** do vault (`Microsoft.RecoveryServices/vaults/backupPolicies`). Em ARM JSON, recursos filhos usam nome composto com barra (`vaultName/policyName`). A policy define QUANDO (schedule) e POR QUANTO TEMPO (retention) manter backups.
+
+> **Conceito: Recursos filho em ARM JSON**
+> Recursos filhos podem ser declarados de duas formas:
+> 1. **Tipo completo + nome composto:** `"type": "Microsoft.RecoveryServices/vaults/backupPolicies"` com `"name": "[concat(vaultName, '/', policyName)]"`
+> 2. **Aninhado dentro do pai:** Declarado dentro do array `resources` do recurso pai (menos comum)
+>
+> Em Bicep, usa-se `parent:` que e mais limpo e gera o nome composto automaticamente.
 
 Salve como **`bloco1-backup-policy.json`**:
 
@@ -836,6 +883,10 @@ A) AzureVM  B) AzureIaasVM  C) AzureCompute  D) VirtualMachine
 ---
 
 ### Task 2.1: Storage Account com File Share (ARM)
+
+Este template demonstra a hierarquia de recursos do Azure Storage: Storage Account → Blob Services / File Services → Containers / Shares. Cada nivel e um recurso filho do anterior, exigindo `dependsOn` explicito e nome composto com barras (`storageAccountName/default/shareName`).
+
+> **Dica prova:** Soft delete para blobs, containers e file shares sao features **separadas** -- cada uma deve ser habilitada individualmente. Soft delete protege contra delecao acidental; versioning protege contra sobrescrita.
 
 Salve como **`bloco2-storage.json`**:
 
@@ -1194,6 +1245,10 @@ A) BlobStorage  B) StorageV2 ou BlobStorage  C) Premium_LRS apenas  D) Qualquer 
 ---
 
 ### Task 3.1: ASR Fabric e Protection Container (ARM)
+
+Este template cria a infraestrutura base do Azure Site Recovery: dois Fabrics (um por regiao) e dois Protection Containers (um por fabric). O template demonstra o uso de `variables` para construir nomes compostos de forma reutilizavel -- padrao recomendado quando varios recursos compartilham convencoes de nomenclatura.
+
+> **Dica prova:** A hierarquia do ASR e frequentemente cobrada: Vault → Fabric (regiao) → Container (agrupamento) → Protected Item (VM). Cada nivel e um recurso filho do anterior.
 
 Salve como **`bloco3-asr-infra.json`**:
 
@@ -1609,6 +1664,16 @@ D) Apenas via runbook
 
 ### Task 4.1: Action Group via ARM
 
+O Action Group define QUEM sera notificado e COMO quando um alerta dispara. Observe que a `location` e `"global"` -- Action Groups sao recursos globais que nao pertencem a nenhuma regiao especifica. O template inclui email receivers e ARM Role receivers (notifica todos com determinada role).
+
+> **Conceito: Separacao de responsabilidades no Azure Monitor**
+>
+> | Recurso | Pergunta que responde | Exemplo |
+> |---------|----------------------|---------|
+> | **Action Group** | QUEM notificar? | Email admin, SMS oncall, webhook Slack |
+> | **Alert Rule** | QUANDO notificar? | CPU > 80%, VM desligada, Service Health |
+> | **Diagnostic Settings** | COMO coletar dados? | Metricas → Log Analytics |
+
 Salve como **`bloco4-action-group.json`**:
 
 ```json
@@ -1732,6 +1797,10 @@ az monitor action-group show \
 ---
 
 ### Task 4.2: Metric Alert Rule via ARM
+
+A Metric Alert monitora metricas de recursos em tempo real e aciona o Action Group quando a condicao e atendida. Este template demonstra referencia cross-resource-group -- a VM monitorada pode estar em outro RG, referenciada via `resourceId(rgName, type, name)`.
+
+> **Dica prova:** `evaluationFrequency` e `windowSize` sao valores ISO 8601 (`PT5M` = 5 minutos, `PT1H` = 1 hora). O windowSize SEMPRE deve ser >= evaluationFrequency. A diferenca entre eles e frequentemente cobrada.
 
 > **Cobranca:** Alert rules geram cobranca minima por sinal monitorado.
 
@@ -2160,6 +2229,10 @@ D) O action group e desabilitado
 
 ### Task 5.1: Log Analytics Workspace via ARM
 
+O Log Analytics Workspace e o repositorio central de logs do Azure Monitor. Todos os dados coletados sao consultados via KQL (Kusto Query Language). O template usa `allowedValues` no parametro SKU para restringir opcoes validas -- padrao recomendado para evitar erros de deploy.
+
+> **Dica prova:** O SKU `PerGB2018` e o unico disponivel atualmente. Retencao de 30 dias e gratuita; acima disso cobra por GB/dia retido. O `customerId` no output e o identificador do workspace usado em queries e configuracoes de agente.
+
 > **Cobranca:** O workspace gera cobranca por GB de dados ingeridos.
 
 Salve como **`bloco5-law.json`**:
@@ -2283,6 +2356,10 @@ az monitor log-analytics workspace show \
 
 ### Task 5.2: Azure Monitor Agent via ARM (VM Extension)
 
+VM Extensions sao recursos filhos de VMs que instalam software adicional. O AMA (Azure Monitor Agent) substitui o legado MMA e coleta logs/metricas do SO. O nome composto `vmName/AzureMonitorWindowsAgent` segue o padrao de recursos filhos em ARM.
+
+> **Dica prova:** Na AZ-104, saber a diferenca entre AMA e MMA e essencial. AMA usa Data Collection Rules (DCR); MMA usa configuracao direta no workspace. MMA foi deprecated em agosto 2024. Para Windows use `AzureMonitorWindowsAgent`, para Linux use `AzureMonitorLinuxAgent`.
+
 Salve como **`bloco5-ama-extension.json`**:
 
 ```json
@@ -2374,6 +2451,14 @@ az vm extension show \
 ---
 
 ### Task 5.3: Data Collection Rule via ARM
+
+A Data Collection Rule (DCR) define O QUE coletar das VMs e PARA ONDE enviar. E o mecanismo moderno de configuracao de coleta que substituiu a configuracao direta no workspace. Uma DCR pode ser associada a multiplas VMs, centralizando a configuracao.
+
+> **Conceito: Fluxo de dados com AMA + DCR**
+> ```
+> VM (com AMA instalado) → DCR (filtra/transforma) → Log Analytics Workspace
+> ```
+> A DCR tem tres componentes: `dataSources` (o que coletar), `destinations` (para onde enviar) e `dataFlows` (conecta sources a destinations). A associacao DCR → VM e feita via CLI apos o deploy do template.
 
 Salve como **`bloco5-dcr.json`**:
 
@@ -2535,6 +2620,10 @@ fi
 ---
 
 ### Task 5.4: Saved Search (KQL) via ARM
+
+Saved Searches sao queries KQL salvas no workspace para reutilizacao. Sao recursos filhos do workspace (`Microsoft.OperationalInsights/workspaces/savedSearches`). Cada query neste template demonstra um cenario real de monitoramento: CPU alta, erros no Event Log, disco cheio e VMs sem heartbeat.
+
+> **Dica prova:** KQL usa sintaxe pipe-based (`Tabela | where | summarize | order`). As tabelas mais comuns na prova sao: `Perf` (performance), `Event` (eventos Windows), `Heartbeat` (conectividade do agente), `Syslog` (eventos Linux) e `AzureActivity` (operacoes de controle).
 
 Salve como **`bloco5-saved-searches.json`**:
 
@@ -2956,6 +3045,11 @@ echo "VM movida de volta para rg-contoso-compute com sucesso"
 
 ### Task 6.3: Criar Azure Backup Vault via ARM JSON
 
+O Backup Vault (`Microsoft.DataProtection/backupVaults`) e o servico mais recente de backup, projetado para workloads que o Recovery Services Vault nao suporta. Note que o tipo ARM e completamente diferente (`DataProtection` vs `RecoveryServices`), o que reflete serem servicos independentes.
+
+> **Conceito: Backup Vault vs Recovery Services Vault**
+> A escolha entre os dois depende do **tipo de workload** a proteger. Na prova, saber qual vault suporta qual recurso e critico. Disco e Blob = Backup Vault. VM e File Share = Recovery Services Vault. Site Recovery = RSV apenas.
+
 Crie o arquivo `bloco6-backup-vault.json`:
 
 ```json
@@ -3196,21 +3290,21 @@ az dataprotection backup-policy show \
 > **Esta task e conceitual — nao requer template ARM.**
 > A tabela abaixo e a referencia principal para o AZ-104.
 
-| Aspecto | Recovery Services Vault (RSV) | Backup Vault (BV) |
-|---------|-------------------------------|---------------------|
-| **Tipo ARM** | `Microsoft.RecoveryServices/vaults` | `Microsoft.DataProtection/backupVaults` |
-| **VM Backup** | Sim (Windows + Linux) | Nao |
-| **Azure Files** | Sim (File Share backup) | Nao |
-| **Site Recovery** | Sim (DR/replicacao) | Nao |
-| **Azure Disks** | Nao | Sim (snapshot-based) |
-| **Azure Blobs** | Nao | Sim (vaulted + operational) |
-| **PostgreSQL** | Nao | Sim |
-| **AKS** | Nao | Sim |
-| **SAP HANA** | Sim | Nao |
-| **SQL in VM** | Sim | Nao |
-| **Cross Region Restore** | Sim (com GRS) | Sim (com GRS) |
-| **Soft Delete** | 14 dias (configuravel) | Habilitado por padrao |
-| **ARM JSON child resource** | Nome composto + `dependsOn` | Nome composto + `dependsOn` |
+| Aspecto                     | Recovery Services Vault (RSV)       | Backup Vault (BV)                       |
+| --------------------------- | ----------------------------------- | --------------------------------------- |
+| **Tipo ARM**                | `Microsoft.RecoveryServices/vaults` | `Microsoft.DataProtection/backupVaults` |
+| **VM Backup**               | Sim (Windows + Linux)               | Nao                                     |
+| **Azure Files**             | Sim (File Share backup)             | Nao                                     |
+| **Site Recovery**           | Sim (DR/replicacao)                 | Nao                                     |
+| **Azure Disks**             | Nao                                 | Sim (snapshot-based)                    |
+| **Azure Blobs**             | Nao                                 | Sim (vaulted + operational)             |
+| **PostgreSQL**              | Nao                                 | Sim                                     |
+| **AKS**                     | Nao                                 | Sim                                     |
+| **SAP HANA**                | Sim                                 | Nao                                     |
+| **SQL in VM**               | Sim                                 | Nao                                     |
+| **Cross Region Restore**    | Sim (com GRS)                       | Sim (com GRS)                           |
+| **Soft Delete**             | 14 dias (configuravel)              | Habilitado por padrao                   |
+| **ARM JSON child resource** | Nome composto + `dependsOn`         | Nome composto + `dependsOn`             |
 
 > **Dica AZ-104:** Na prova, saber qual vault suporta qual workload e critico.
 > VM backup = RSV. Disk backup = BV. File Share = RSV. Blob backup = BV. Site Recovery = RSV apenas.
@@ -3506,40 +3600,40 @@ echo "Verifique com: az group list --query \"[?starts_with(name,'rg-contoso-')].
 
 ## Resumo de Templates Criados
 
-| Template | Tipo | Scope | Recursos |
-|----------|------|-------|----------|
-| `bloco1-vm.json` | ARM | Resource Group | NSG, PIP, VNet, NIC, VM |
-| `bloco1-rsv.json` | ARM | Resource Group | Recovery Services Vault |
-| `bloco1-backup-policy.json` | ARM | Resource Group | Backup Policy (VM) |
-| `bloco2-storage.json` | ARM | Resource Group | Storage Account, Blob/File Services, File Share |
-| `bloco2-fileshare-policy.json` | ARM | Resource Group | Backup Policy (File Share) |
-| `bloco3-asr-infra.json` | ARM | Resource Group | ASR Fabrics (2), Protection Containers (2) |
-| `bloco3-asr-policy.json` | ARM | Resource Group | Replication Policy |
-| `bloco4-action-group.json` | ARM | Resource Group | Action Group |
-| `bloco4-metric-alert.json` | ARM | Resource Group | Metric Alert Rule |
-| `bloco4-diagnostics.json` | ARM | Resource Group | Diagnostic Settings |
-| `bloco5-law.json` | ARM | Resource Group | Log Analytics Workspace |
-| `bloco5-ama-extension.json` | ARM | Resource Group | VM Extension (AMA) |
-| `bloco5-dcr.json` | ARM | Resource Group | Data Collection Rule |
-| `bloco5-saved-searches.json` | ARM | Resource Group | Saved Searches (4 KQL queries) |
-| `bloco6-backup-vault.json` | ARM | Resource Group | Backup Vault (LRS) + disk backup policy |
+| Template                       | Tipo | Scope          | Recursos                                        |
+| ------------------------------ | ---- | -------------- | ----------------------------------------------- |
+| `bloco1-vm.json`               | ARM  | Resource Group | NSG, PIP, VNet, NIC, VM                         |
+| `bloco1-rsv.json`              | ARM  | Resource Group | Recovery Services Vault                         |
+| `bloco1-backup-policy.json`    | ARM  | Resource Group | Backup Policy (VM)                              |
+| `bloco2-storage.json`          | ARM  | Resource Group | Storage Account, Blob/File Services, File Share |
+| `bloco2-fileshare-policy.json` | ARM  | Resource Group | Backup Policy (File Share)                      |
+| `bloco3-asr-infra.json`        | ARM  | Resource Group | ASR Fabrics (2), Protection Containers (2)      |
+| `bloco3-asr-policy.json`       | ARM  | Resource Group | Replication Policy                              |
+| `bloco4-action-group.json`     | ARM  | Resource Group | Action Group                                    |
+| `bloco4-metric-alert.json`     | ARM  | Resource Group | Metric Alert Rule                               |
+| `bloco4-diagnostics.json`      | ARM  | Resource Group | Diagnostic Settings                             |
+| `bloco5-law.json`              | ARM  | Resource Group | Log Analytics Workspace                         |
+| `bloco5-ama-extension.json`    | ARM  | Resource Group | VM Extension (AMA)                              |
+| `bloco5-dcr.json`              | ARM  | Resource Group | Data Collection Rule                            |
+| `bloco5-saved-searches.json`   | ARM  | Resource Group | Saved Searches (4 KQL queries)                  |
+| `bloco6-backup-vault.json`     | ARM  | Resource Group | Backup Vault (LRS) + disk backup policy         |
 
 ---
 
 ## Operacoes que NAO sao ARM (e por que)
 
-| Operacao | Motivo | Alternativa |
-|----------|--------|-------------|
-| Backup on-demand | Acao imperativa (executar agora) | CLI: `az backup protection backup-now` |
-| Restore VM/File Share | Acao imperativa | CLI: `az backup restore` |
-| Failover ASR | Acao imperativa de emergencia | CLI/Portal |
-| Container Mapping | Configuracao complexa de ASR | CLI: `az rest` |
-| Recovery Plan | Orquestracao de failover | CLI: `az rest` |
-| KQL queries (ad-hoc) | Leitura/consulta, nao provisionamento | CLI: `az rest --method post --url <workspace-id>/api/query` |
-| Connection Monitor | Monitoramento de rede | CLI: `az network watcher connection-monitor` |
-| Network Watcher enable | Configuracao regional | CLI: `az network watcher configure` |
-| VM Move entre RGs | Operacao imperativa (`az resource move`) | CLI: `az resource move --destination-group` |
-| Disk backup instance | Depende de IDs existentes + role assignments | CLI: `az dataprotection backup-instance create` |
+| Operacao               | Motivo                                       | Alternativa                                                 |
+| ---------------------- | -------------------------------------------- | ----------------------------------------------------------- |
+| Backup on-demand       | Acao imperativa (executar agora)             | CLI: `az backup protection backup-now`                      |
+| Restore VM/File Share  | Acao imperativa                              | CLI: `az backup restore`                                    |
+| Failover ASR           | Acao imperativa de emergencia                | CLI/Portal                                                  |
+| Container Mapping      | Configuracao complexa de ASR                 | CLI: `az rest`                                              |
+| Recovery Plan          | Orquestracao de failover                     | CLI: `az rest`                                              |
+| KQL queries (ad-hoc)   | Leitura/consulta, nao provisionamento        | CLI: `az rest --method post --url <workspace-id>/api/query` |
+| Connection Monitor     | Monitoramento de rede                        | CLI: `az network watcher connection-monitor`                |
+| Network Watcher enable | Configuracao regional                        | CLI: `az network watcher configure`                         |
+| VM Move entre RGs      | Operacao imperativa (`az resource move`)     | CLI: `az resource move --destination-group`                 |
+| Disk backup instance   | Depende de IDs existentes + role assignments | CLI: `az dataprotection backup-instance create`             |
 
 ---
 

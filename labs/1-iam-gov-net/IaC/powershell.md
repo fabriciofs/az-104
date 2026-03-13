@@ -9,6 +9,9 @@
 > **Objetivo:** Reproduzir **todo** o lab unificado v2 (~49 recursos) usando exclusivamente PowerShell.
 > Cada comando e fortemente comentado para aprendizado.
 
+> **Conceito: PowerShell e abordagem imperativa**
+> Diferente de ARM/Bicep (declarativos — "quero este estado final"), PowerShell e **imperativo** — voce descreve os passos sequenciais ("crie isto, depois aquilo"). A vantagem e o controle fino sobre cada operacao e a capacidade de adicionar logica condicional, loops e tratamento de erros. A desvantagem e que NAO e idempotente por padrao: rodar o mesmo script duas vezes pode dar erro se o recurso ja existir. Na prova AZ-104, PowerShell aparece em questoes sobre cmdlets especificos (`New-Az*`, `Get-Az*`, `Set-Az*`).
+
 ---
 
 ## Pre-requisitos: Cloud Shell e Conexao
@@ -46,6 +49,8 @@ Get-MgContext                      # Mostra scopes do Graph
 ---
 
 ## Variaveis Globais
+
+Defina todas as variaveis antes de iniciar. Note o padrao PowerShell: `ConvertTo-SecureString` converte a senha em texto plano para um objeto seguro, e `PSCredential` combina usuario + senha num unico objeto reutilizavel. Essa abordagem evita expor a senha em texto claro nos cmdlets subsequentes.
 
 > **IMPORTANTE:** Ajuste os valores marcados com `# ← ALTERE` antes de executar.
 > Todos os outros valores sao usados consistentemente ao longo do lab.
@@ -197,6 +202,10 @@ Bloco 5 (Connectivity) ◄──── VMs nas VNets do Bloco 4
 
 ### Task 1.1: Criar usuario contoso-user1
 
+Criamos um usuario no Entra ID usando `New-MgUser` do modulo Microsoft.Graph. O PowerShell e a unica das tres abordagens (ARM, Bicep, PS) que consegue criar usuarios E configurar todas as propriedades num unico passo, sem precisar de `az rest` para Graph API.
+
+> **Dica prova:** `New-MgUser` vs `New-AzADUser` — ambos criam usuarios, mas `New-MgUser` (Graph SDK) oferece mais propriedades e e o padrao atual. `New-AzADUser` (modulo Az) e mais limitado.
+
 ```powershell
 # ============================================================
 # TASK 1.1 - Criar usuario interno no Entra ID
@@ -243,6 +252,10 @@ Get-MgUser -UserId $user1.Id | Select-Object DisplayName, UserPrincipalName, Job
 ---
 
 ### Task 1.2: Convidar usuario externo (Guest/B2B)
+
+O convite B2B permite que usuarios externos (Gmail, Outlook pessoal, etc.) acessem recursos do seu tenant usando suas proprias credenciais. O cmdlet `New-MgInvitation` envia o convite e ja cria o objeto Guest no Entra ID, mesmo antes do usuario aceitar.
+
+> **Dica prova:** Guest users tem `UserType = Guest` e NAO podem usar SSPR (Self-Service Password Reset) — eles resetam a senha no tenant de origem deles.
 
 ```powershell
 # ============================================================
@@ -291,6 +304,8 @@ Write-Host "`n>>> ACEITE O CONVITE NO EMAIL ANTES DE CONTINUAR <<<" -ForegroundC
 
 ### Task 1.3: Criar grupo IT Lab Administrators
 
+Grupos de seguranca (Security Groups) sao a base do RBAC no Azure. Em vez de atribuir roles a usuarios individuais, voce atribui ao grupo — todos os membros herdam as permissoes. O parametro `-GroupTypes @()` (array vazio) define o grupo como Assigned (membros manuais), diferente de Dynamic que usa regras automaticas.
+
 ```powershell
 # ============================================================
 # TASK 1.3 - Criar grupo de seguranca IT Lab Administrators
@@ -333,6 +348,8 @@ Get-MgGroupMember -GroupId $groupIT.Id | ForEach-Object {
 
 ### Task 1.4: Criar grupo helpdesk
 
+Criamos um segundo grupo com composicao diferente (apenas contoso-user1, sem guest). Isso demonstra como o RBAC granular funciona: cada grupo pode receber roles distintos em escopos diferentes. No Bloco 2, IT Lab Administrators recebera VM Contributor enquanto helpdesk podera receber outro role.
+
 ```powershell
 # ============================================================
 # TASK 1.4 - Criar grupo helpdesk
@@ -367,6 +384,10 @@ Write-Host "`n=== Grupos criados ===" -ForegroundColor Green
 ---
 
 ### Task 1.5: Criar grupo dinamico (requer Entra ID P1/P2)
+
+Grupos dinamicos automatizam a gestao de membros com base em propriedades do usuario. A regra `(user.department -eq "IT")` faz com que qualquer usuario com Department=IT seja adicionado automaticamente. O processamento da regra pode levar ate 24h (tipicamente minutos), e requer licenca Entra ID Premium P1 ou P2.
+
+> **Dica prova:** A diferenca entre Assigned e Dynamic e tema recorrente. Dynamic user = regras sobre propriedades do usuario. Dynamic device = regras sobre propriedades do dispositivo. Ambos requerem P1/P2.
 
 ```powershell
 # ============================================================
@@ -477,9 +498,22 @@ A propriedade **UsageLocation** e obrigatoria para atribuir licencas. No PowerSh
 **Tecnologia:** Az PowerShell module
 **Recursos criados:** 1 Management Group, 2 Resource Groups, 3 RBAC assignments, 1 custom role, 3 policy assignments, 1 resource lock
 
+> **Conceito: Hierarquia de governanca Azure**
+> A hierarquia de escopo do Azure e: **Tenant → Management Group → Subscription → Resource Group → Resource**. Policies e RBAC sao herdados de cima para baixo. Neste bloco, configuramos todos os niveis: MG para heranca ampla, RGs para organizacao, policies para compliance e locks para protecao.
+>
+> | Efeito de Policy | Comportamento | Requer MI? |
+> |---|---|---|
+> | **Deny** | Bloqueia criacao/modificacao | Nao |
+> | **Audit** | Permite, mas marca non-compliant | Nao |
+> | **Modify** | Altera propriedades automaticamente | Sim |
+> | **DeployIfNotExists** | Cria recurso complementar | Sim |
+> | **Append** | Adiciona campos ao request | Nao |
+
 ---
 
 ### Task 2.1: Criar Management Group e mover subscription
+
+Management Groups organizam subscriptions em hierarquia para aplicar policies e RBAC em escala. O passo critico aqui e `New-AzManagementGroupSubscription` — sem mover a subscription para dentro do MG, roles atribuidos no MG nao terao efeito nos recursos.
 
 ```powershell
 # ============================================================
@@ -514,6 +548,10 @@ $mg.Children | ForEach-Object { Write-Host "  - $($_.DisplayName) ($($_.Name))" 
 ---
 
 ### Task 2.2: Atribuir role built-in (Virtual Machine Contributor)
+
+`New-AzRoleAssignment` conecta tres elementos: **quem** (ObjectId do grupo), **o que** (RoleDefinitionName) e **onde** (Scope). O scope no formato `/providers/Microsoft.Management/managementGroups/<name>` faz com que o role seja herdado por todas as subscriptions e RGs dentro do MG.
+
+> **Dica prova:** VM Contributor permite `Microsoft.Compute/virtualMachines/*` mas NAO inclui acesso a rede, storage ou outros recursos. RBAC e aditivo — so pode fazer o que os roles permitem explicitamente.
 
 ```powershell
 # ============================================================
@@ -551,6 +589,11 @@ Get-AzRoleAssignment -Scope "/providers/Microsoft.Management/managementGroups/$m
 ---
 
 ### Task 2.3: Criar custom RBAC role
+
+Custom roles permitem permissoes sob medida quando os 120+ built-in roles nao atendem. A estrutura e: `Actions` (o que pode fazer), `NotActions` (excecoes removidas de Actions) e `AssignableScopes` (onde o role pode ser atribuido). No PowerShell, usamos uma hashtable que e convertida internamente para a definicao JSON.
+
+> **Conceito: Actions vs NotActions**
+> `Actions = @("*/read", "Microsoft.Support/*")` + `NotActions = @("Microsoft.Support/register/action")` resulta em: pode ler tudo E fazer tudo em Support, EXCETO registrar o provider. NotActions e uma subtracao, nao um deny explicito.
 
 ```powershell
 # ============================================================
@@ -595,6 +638,8 @@ Get-AzRoleDefinition -Name "Custom Support Request" |
 
 ### Task 2.4: Monitorar role assignments via Activity Log
 
+O Activity Log registra todas as operacoes de controle (control plane) por 90 dias. Filtrar por `Microsoft.Authorization` e `roleAssignments` mostra quem atribuiu roles, quando e o status da operacao.
+
 ```powershell
 # ============================================================
 # TASK 2.4 - Verificar atividades de RBAC no Activity Log
@@ -615,6 +660,8 @@ Get-AzActivityLog `
 ---
 
 ### Task 2.5: Criar Resource Groups com tags
+
+Resource Groups sao containers logicos para recursos Azure. A tag `Cost Center: 000` aplicada aqui sera herdada automaticamente pelos recursos internos quando a policy Modify (Task 2.7) estiver ativa. Tags sao fundamentais para billing, organizacao e automacao.
 
 ```powershell
 # ============================================================
@@ -644,6 +691,10 @@ Get-AzResourceGroup -Name $rg3 | Select-Object ResourceGroupName, Location, Tags
 ---
 
 ### Task 2.6: Aplicar Azure Policy (Deny) - Require tag no rg-contoso-identity
+
+A policy "Require a tag and its value on resources" usa efeito Deny para bloquear a criacao de recursos que nao possuam a tag especificada. Note o padrao PowerShell: `Get-AzPolicyDefinition` busca a definicao built-in pelo DisplayName, e `-PolicyParameterObject` passa os parametros como hashtable.
+
+> **Dica prova:** Policies Deny NAO precisam de Managed Identity (so bloqueiam). Policies Modify e DeployIfNotExists precisam de MI porque alteram/criam recursos.
 
 ```powershell
 # ============================================================
@@ -685,6 +736,8 @@ Write-Host ">>> Enquanto espera, leia sobre os efeitos: Deny vs Audit vs Modify 
 
 ### Task 2.6b: Testar e remover Deny policy
 
+Testamos a policy criando um disco SEM a tag obrigatoria. O bloco `try/catch` captura o erro de policy violation. Depois removemos a Deny policy para substituir por Modify (mais flexivel — adiciona a tag automaticamente em vez de bloquear).
+
 ```powershell
 # ============================================================
 # TASK 2.6b - Testar a policy Deny e depois remover
@@ -715,6 +768,10 @@ Write-Host "`nPolicy Deny removida do $rg2"
 ---
 
 ### Task 2.7: Aplicar Modify policy (Inherit tag) no rg-contoso-identity
+
+A policy Modify requer dois passos extras comparada a Deny: (1) `-IdentityType SystemAssigned` cria uma Managed Identity para a policy, e (2) essa MI precisa do role **Tag Contributor** no scope para ter permissao de alterar tags. Sem esses dois passos, a policy detecta non-compliance mas nao consegue corrigir.
+
+> **Dica prova:** Na prova, se perguntarem "policy Modify nao esta funcionando" — verifique se a MI tem o role adequado no scope. Esse e o erro mais comum.
 
 ```powershell
 # ============================================================
@@ -771,6 +828,8 @@ Write-Host "`nPolicy Modify atribuida ao $rg2"
 
 ### Task 2.8: Aplicar Modify policy (Inherit tag) no rg-contoso-identity
 
+Repetimos a mesma policy Modify no segundo RG. Cada policy assignment e independente — mesmo usando a mesma policy definition, cada uma tem sua propria Managed Identity e scope. Isso demonstra que policies sao atribuidas por scope, nao globalmente.
+
 ```powershell
 # ============================================================
 # TASK 2.8 - Aplicar policy Modify: Inherit tag no rg-contoso-identity
@@ -809,6 +868,8 @@ Write-Host "Policy Modify atribuida ao $rg3"
 
 ### Task 2.9: Aplicar Allowed Locations policy no rg-contoso-identity
 
+"Allowed locations" e uma das policies mais usadas em producao. Ela restringe em quais regioes Azure os recursos podem ser criados. O efeito Deny bloqueia o deploy fora das regioes listadas. No Bloco 3, testaremos criando um disco em West US que sera bloqueado.
+
 ```powershell
 # ============================================================
 # TASK 2.9 - Aplicar policy Deny: Allowed Locations no rg-contoso-identity
@@ -842,6 +903,8 @@ Write-Host ">>> Aguarde 5-15 minutos para as policies entrarem em vigor <<<" -Fo
 
 ### Task 2.10: Atribuir Reader role ao Guest user no rg-contoso-identity
 
+O role Reader (`*/read`) permite apenas visualizar recursos, sem criar ou modificar. Atribuimos ao guest user (criado no Bloco 1) no escopo do RG. Isso demonstra RBAC granular: membros vs guests com permissoes diferentes no mesmo tenant.
+
 ```powershell
 # ============================================================
 # TASK 2.10 - Atribuir Reader ao guest user no rg-contoso-identity
@@ -865,6 +928,10 @@ Get-AzRoleAssignment -ResourceGroupName $rg3 |
 ---
 
 ### Task 2.11: Configurar Resource Lock
+
+Resource Locks protegem recursos contra exclusao acidental. Existem dois niveis: `CanNotDelete` (permite modificar, impede excluir) e `ReadOnly` (impede modificar E excluir). O ponto critico: locks sobrescrevem QUALQUER permissao, incluindo Owner. O lock precisa ser removido primeiro.
+
+> **Dica prova:** Locks sao herdados. Um lock no RG protege todos os recursos dentro dele. Para deletar um recurso protegido, primeiro remova o lock — mesmo sendo Owner.
 
 ```powershell
 # ============================================================
@@ -1018,6 +1085,8 @@ Get-AzPolicySetDefinition -Name "contoso-governance-initiative" |
 ---
 
 ### Task 2.13: Teste de integracao — Verificar acesso do contoso-user1
+
+Este teste valida toda a cadeia de governanca configurada: usuario no grupo (Bloco 1), grupo com VM Contributor no MG (Task 2.2), heranca para RGs e recursos. A verificacao programatica mostra os roles efetivos; para teste real, use login como contoso-user1 em InPrivate.
 
 ```powershell
 # ============================================================
@@ -1190,6 +1259,16 @@ O role **Reader** permite apenas visualizar. Guest users podem receber qualquer 
 
 ### Task 3.1: Criar disk-iac-test-01
 
+O padrao PowerShell para managed disks e em dois passos: `New-AzDiskConfig` cria um objeto de configuracao local (nada e criado no Azure), e `New-AzDisk` envia a configuracao para o Azure e cria o recurso. Apos a criacao, validamos se a policy Modify do Bloco 2 herdou a tag automaticamente.
+
+> **Conceito: SKUs de disco Azure**
+> | SKU | Tipo | Uso tipico |
+> |---|---|---|
+> | `Standard_LRS` | HDD | Backup, dev/test |
+> | `StandardSSD_LRS` | SSD Standard | Workloads leves |
+> | `Premium_LRS` | SSD Premium | Producao, IOPS alto |
+> | `UltraSSD_LRS` | Ultra Disk | SAP HANA, databases |
+
 ```powershell
 # ============================================================
 # TASK 3.1 - Criar disk-iac-test-01 via PowerShell
@@ -1285,6 +1364,8 @@ Write-Host "$($diskNames[3]) criado - Tag Cost Center: $($disk4Tags['Cost Center
 
 ### Task 3.5: Criar disk-iac-test-05 (StandardSSD)
 
+Este disco usa SKU diferente (`StandardSSD_LRS`) para demonstrar flexibilidade. Note que criamos um novo `$diskConfig5` porque o SKU e diferente dos anteriores. A policy Modify funciona independente do SKU — qualquer recurso no RG herda a tag.
+
 ```powershell
 # ============================================================
 # TASK 3.5 - Criar disk-iac-test-05 (StandardSSD para variar)
@@ -1312,6 +1393,8 @@ Get-AzDisk -ResourceGroupName $rg3 |
 ---
 
 ### Task 3.6: Teste de integracao — Allowed Locations policy
+
+Este teste valida a policy "Allowed locations" do Bloco 2. Tentamos criar um disco em `westus` (fora da lista permitida que so contem `eastus`). O bloco `try/catch` confirma que a policy Deny bloqueia o deploy com erro "Resource was disallowed by policy".
 
 ```powershell
 # ============================================================
@@ -1344,6 +1427,8 @@ Write-Host "`nDiscos no $rg3 : $diskCount (esperado: 5)"
 ---
 
 ### Task 3.7: Teste de integracao — Guest user com Reader role (Informativo)
+
+Verificamos que o guest user (Bloco 1) com role Reader (Bloco 2) pode ver os discos mas nao criar novos. Isso fecha o ciclo Identity → Governance → IaC: usuario externo com permissao minima necessaria (principio do menor privilegio).
 
 ```powershell
 # ============================================================
@@ -1441,9 +1526,14 @@ D) `New-AzManagedDisk`
 **Tecnologia:** Az PowerShell module
 **Recursos criados:** 2 VNets, 4 subnets, 1 ASG, 1 NSG, 1 DNS public zone, 1 DNS private zone, 1 VNet link
 
+> **Conceito: Padrao PowerShell para networking**
+> No PowerShell, a maioria dos cmdlets de rede segue o padrao "config local → aplica no Azure". Exemplo: `New-AzVirtualNetworkSubnetConfig` cria um objeto local, e so `Set-AzVirtualNetwork` aplica no Azure. Isso difere do ARM/Bicep onde tudo e declarado e aplicado de uma vez. Esquecer o `Set-Az*` e um erro comum — as mudancas ficam apenas em memoria.
+
 ---
 
 ### Task 4.1: Criar VNet vnet-contoso-hub
+
+Criamos a VNet hub com duas subnets iniciais. No PowerShell, as subnets sao definidas como configs ANTES da VNet e passadas como array no parametro `-Subnet`. Este e o padrao hub-spoke: hub centraliza servicos compartilhados (DNS, firewall), spokes isolam workloads.
 
 ```powershell
 # ============================================================
@@ -1490,6 +1580,8 @@ $vnetCoreObj.Subnets | ForEach-Object {
 
 ### Task 4.2: Criar VNet vnet-contoso-spoke
 
+A VNet spoke usa address space diferente (nao pode sobrepor com o hub para peering). As subnets sensor isolam workloads de IoT/manufacturing. No Bloco 5, adicionaremos mais subnets e conectaremos as VNets via peering.
+
 ```powershell
 # ============================================================
 # TASK 4.2 - Criar vnet-contoso-spoke com 2 subnets
@@ -1520,6 +1612,11 @@ $vnetMfgObj.Subnets | ForEach-Object {
 
 ### Task 4.3: Criar ASG e NSG
 
+ASG (Application Security Group) agrupa VMs por funcao logica ("web servers", "db servers") para usar em regras NSG sem precisar de IPs fixos. NSG (Network Security Group) e o firewall virtual — filtra trafego por regras de allow/deny. ASG e NSG trabalham juntos: a regra referencia o ASG como source/destination em vez de ranges de IP.
+
+> **Conceito: Service Tags vs ASG**
+> Service Tags (ex: `Internet`, `VirtualNetwork`, `AzureLoadBalancer`) sao mantidos pela Microsoft e representam ranges de IP de servicos Azure. ASGs sao definidos por voce para agrupar seus recursos. Ambos podem ser usados em regras NSG.
+
 ```powershell
 # ============================================================
 # TASK 4.3 - Criar ASG (asg-web) e NSG (nsg-snet-shared)
@@ -1547,6 +1644,10 @@ Write-Host "NSG criado: $($nsg.Name)"
 ---
 
 ### Task 4.4: Associar NSG a subnet + regras inbound/outbound
+
+Este e o fluxo completo de NSG no PowerShell: (1) associar NSG a subnet via `Set-AzVirtualNetworkSubnetConfig`, (2) aplicar com `Set-AzVirtualNetwork`, (3) adicionar regras com `Add-AzNetworkSecurityRuleConfig`, (4) aplicar com `Set-AzNetworkSecurityGroup`. Note que as regras sao avaliadas por priority (menor numero = maior prioridade).
+
+> **Dica prova:** A priority 4096 para DenyInternetOutbound funciona porque a regra default `AllowInternetOutBound` tem priority 65001. Regras custom (100-4096) sao avaliadas ANTES das defaults (65000+).
 
 ```powershell
 # ============================================================
@@ -1621,6 +1722,10 @@ Get-AzNetworkSecurityGroup -Name $nsgName -ResourceGroupName $rg4 |
 
 ### Task 4.5: Criar zona DNS publica com registro A
 
+DNS zones publicas resolvem na internet. O fluxo PowerShell e: `New-AzDnsZone` cria a zona, `New-AzDnsRecordSet` + `Add-AzDnsRecordConfig` + `Set-AzDnsRecordSet` cria o registro. Note o padrao de tres passos — record set e uma configuracao local que precisa ser salva com `Set-Az*`.
+
+> **Dica prova:** `New-AzDnsZone` (DNS publico) vs `New-AzPrivateDnsZone` (DNS privado) — comandos diferentes, modulos diferentes. DNS publico nao precisa de Virtual Network Link.
+
 ```powershell
 # ============================================================
 # TASK 4.5 - Criar DNS zone publica + registro A
@@ -1661,6 +1766,16 @@ Write-Host "  nslookup www.$dnsPublic $nameServer"
 ---
 
 ### Task 4.6: Criar zona DNS privada com virtual network link
+
+DNS zones privadas resolvem nomes apenas dentro de VNets linkadas. O Virtual Network Link e obrigatorio — sem ele, VMs na VNet nao conseguem resolver nomes da zona. O parametro `-EnableRegistration $false` significa que VMs NAO serao registradas automaticamente (auto-registration).
+
+> **Conceito: DNS publico vs privado**
+> | Aspecto | Public Zone | Private Zone |
+> |---|---|---|
+> | Resolucao | Internet | Apenas VNets linkadas |
+> | Name servers | Sim (NS records) | Nao |
+> | Virtual Network Link | Nao aplicavel | Obrigatorio |
+> | Auto-registration | Nao | Opcional (EnableRegistration) |
 
 ```powershell
 # ============================================================
@@ -1814,9 +1929,14 @@ Peering entre VNets NAO implica resolucao DNS automatica — o link precisa ser 
 
 > **Nota:** Este bloco cria VMs que geram custo. Faca o cleanup assim que terminar.
 
+> **Conceito: Anatomia de uma VM Azure no PowerShell**
+> No PowerShell, criar uma VM requer montar o recurso em camadas: `New-AzVMConfig` (tamanho/nome) → `Set-AzVMOperatingSystem` (OS/credenciais) → `Set-AzVMSourceImage` (imagem) → `Add-AzVMNetworkInterface` (NIC) → `New-AzVM` (cria no Azure). A NIC e criada separadamente com `New-AzNetworkInterface` e referencia a subnet pelo ID completo, permitindo cross-RG.
+
 ---
 
 ### Task 5.1: Adicionar subnets para VMs nas VNets existentes
+
+Adicionamos subnets a VNets existentes usando `Add-AzVirtualNetworkSubnetConfig` + `Set-AzVirtualNetwork`. Diferente da criacao inicial (onde as subnets sao passadas com a VNet), aqui atualizamos VNets ja existentes. O padrao "config local → Set-Az*" e consistente.
 
 ```powershell
 # ============================================================
@@ -1864,6 +1984,8 @@ Write-Host "=== Subnets de $vnetMfg ==="
 ### Task 5.2: Criar vm-web-01
 
 > **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab.
+
+A VM e criada no `rg-contoso-compute` mas usa subnet do `rg-contoso-network` — isso e referencia cross-RG, feita pelo ID completo da subnet (`$subnetCoreObj.Id` contem o path `/resourceGroups/rg-contoso-network/...`). O `-AsJob` executa a criacao em background para nao bloquear o terminal.
 
 ```powershell
 # ============================================================
@@ -1921,6 +2043,8 @@ Write-Host "$vmCore sendo criada em background. Continue para a proxima task."
 
 > **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab.
 
+Segunda VM na VNet spoke (vnet-contoso-spoke). Com `Get-Job | Wait-Job` aguardamos ambas as VMs terminarem o provisionamento antes de prosseguir. As VMs estao em VNets diferentes e NAO se comunicam ate configurarmos peering (Task 5.5).
+
 ```powershell
 # ============================================================
 # TASK 5.3 - Criar vm-app-01
@@ -1965,6 +2089,8 @@ Get-AzVM -ResourceGroupName $rg5 |
 
 ### Task 5.4: Network Watcher — Connection Troubleshoot
 
+`Test-AzNetworkWatcherConnectivity` testa se duas VMs conseguem se comunicar. ANTES do peering, o resultado deve ser `Unreachable` — VNets diferentes sao isoladas por padrao, mesmo estando na mesma subscription. Essa e a baseline para comprovar que o peering (Task 5.5) resolvera a conectividade.
+
 ```powershell
 # ============================================================
 # TASK 5.4 - Network Watcher: testar conectividade ANTES do peering
@@ -2001,6 +2127,16 @@ if ($test.ConnectionStatus -eq "Unreachable") {
 ---
 
 ### Task 5.5: Configurar VNet Peering bidirecional
+
+VNet Peering conecta duas VNets pelo backbone da Microsoft (baixa latencia, sem internet publica). E necessario criar o peering em AMBAS as direcoes — cada `Add-AzVirtualNetworkPeering` cria um link unidirecional. O `-AllowForwardedTraffic` permite trafego encaminhado por NVAs (necessario para cenarios hub-spoke com firewall).
+
+> **Conceito: Propriedades do VNet Peering**
+> | Propriedade | Significado |
+> |---|---|
+> | AllowForwardedTraffic | Aceita trafego encaminhado por NVA |
+> | AllowGatewayTransit | Permite que o peer use seu VPN Gateway |
+> | UseRemoteGateways | Usa o VPN Gateway do peer remoto |
+> | PeeringState = Connected | Ambos os lados configurados e ativos |
 
 ```powershell
 # ============================================================
@@ -2043,6 +2179,8 @@ Get-AzVirtualNetworkPeering -VirtualNetworkName $vnetMfg -ResourceGroupName $rg4
 
 ### Task 5.6: Testar conexao via Run Command
 
+`Invoke-AzVMRunCommand` executa scripts dentro da VM remotamente via o agente da VM. Usamos `Test-NetConnection` (cmdlet do Windows) para verificar que a porta 3389 (RDP) esta acessivel entre as VMs apos o peering. O resultado `TcpTestSucceeded: True` confirma a conectividade.
+
 ```powershell
 # ============================================================
 # TASK 5.6 - Testar conectividade APOS peering via Run Command
@@ -2069,6 +2207,8 @@ $result.Value[0].Message
 ---
 
 ### Task 5.6b: Testar nao-transitividade do peering
+
+Este teste demonstra uma das propriedades mais cobradas na prova: peering e NAO transitivo. Se A fala com B e B fala com C, A NAO fala com C automaticamente. Para transitividade, use hub-spoke com NVA/Azure Firewall ou Azure Virtual WAN.
 
 ```powershell
 # ============================================================
@@ -2098,6 +2238,8 @@ $result.Value[0].Message
 ---
 
 ### Task 5.7: Teste de integracao — DNS privado com IP real da VM
+
+Integramos DNS privado (Bloco 4) com VMs reais (Bloco 5). Criamos um Virtual Network Link para vnet-contoso-hub (complementando o link da vnet-contoso-spoke feito no Bloco 4) e um registro A com o IP real da vm-web-01. Testamos resolucao de dentro da vm-app-01 usando `Resolve-DnsName`.
 
 ```powershell
 # ============================================================
@@ -2149,6 +2291,10 @@ $dnsResult.Value[0].Message
 ---
 
 ### Task 5.8: Criar subnet perimeter, Route Table e custom route
+
+UDRs (User-Defined Routes) sobrescrevem as rotas de sistema do Azure. Aqui criamos uma Route Table com rota customizada apontando para um NVA (Network Virtual Appliance) como next hop. O NVA funciona como firewall/proxy — todo trafego para 10.20.0.0/16 passa por ele antes de chegar ao destino. Se o NVA nao existir no IP configurado, o trafego e descartado (dropped).
+
+> **Dica prova:** Para NVA funcionar como next hop, a NIC do NVA precisa ter **IP forwarding habilitado**. Sem isso, o Azure descarta pacotes que nao sao destinados ao IP da NIC.
 
 ```powershell
 # ============================================================
@@ -2212,6 +2358,8 @@ Write-Host "Route table associada a subnet $subnetCore"
 
 ### Task 5.9: Teste de integracao — Verificar isolamento NSG por subnet
 
+Confirmamos que o NSG associado a snet-shared (Bloco 4) NAO afeta VMs em outras subnets. NSGs sao associados a subnets ou NICs, nao a VNets inteiras. As VMs vm-web-01 (subnet Core) e vm-app-01 (subnet Manufacturing) estao livres das regras do NSG.
+
 ```powershell
 # ============================================================
 # TASK 5.9 - Verificar que o NSG afeta apenas snet-shared
@@ -2239,6 +2387,8 @@ Write-Host "NSGs sao associados a subnets ou NICs, NAO a VNets inteiras."
 ---
 
 ### Task 5.10: Teste de integracao final — RBAC de ponta a ponta
+
+Teste end-to-end que valida toda a cadeia construida nos Blocos 1-5: identidade (usuario/grupo), governanca (RBAC/policies/locks), recursos (discos), networking (VNets/NSG/DNS) e conectividade (peering/VMs). A verificacao programatica lista os roles efetivos; o teste manual requer login como contoso-user1 em InPrivate.
 
 ```powershell
 # ============================================================
@@ -2390,9 +2540,23 @@ Private DNS Zones resolvem nomes apenas para VNets com Virtual Network Link conf
 
 > **Nota:** Este bloco cria VMs, Public IPs e Bastion que geram custo. Faca cleanup assim que terminar.
 
+> **Conceito: Load Balancer Standard vs Basic**
+> | Aspecto | Basic | Standard |
+> |---|---|---|
+> | Trafego padrao | Permite | **Bloqueia** (NSG obrigatorio) |
+> | Backend | NIC-based | VNet-based |
+> | Zones | Nao suporta | Suporta (zone-redundant) |
+> | Health probes | TCP, HTTP | TCP, HTTP, HTTPS |
+> | SLA | Sem SLA | 99.99% |
+> | Preco | Gratis | Pago |
+>
+> Na prova AZ-104, Standard LB e o padrao. A principal "pegadinha" e: Standard LB BLOQUEIA trafego por padrao — sem NSG com regra Allow, nada funciona.
+
 ---
 
 ### Task 6.1: Criar RG, subnet e Availability Set
+
+Preparamos a infraestrutura para o Load Balancer: RG para os recursos, subnet dedicada para as VMs do LB. A subnet `snet-lb` e adicionada a VNet existente (mesmo padrao cross-RG do Bloco 5).
 
 ```powershell
 # ============================================================
@@ -2415,6 +2579,10 @@ Write-Host "RG rg-contoso-network e subnet snet-lb criados" -ForegroundColor Gre
 ---
 
 ### Task 6.1b: Criar Availability Set e VMs
+
+Availability Sets distribuem VMs entre Fault Domains (racks fisicos) e Update Domains (reinicializacoes escalonadas). O parametro `-Sku Aligned` e obrigatorio para managed disks. VMs do LB devem ser criadas JA dentro do Availability Set — nao e possivel adicionar depois.
+
+> **Dica prova:** Fault Domains protegem contra falha de hardware (rack). Update Domains protegem contra manutencao planejada. Calculo: VMs por UD = ceil(total VMs / UDs). Com 2 VMs e 5 UDs, maximo 1 VM offline por manutencao.
 
 ```powershell
 # ============================================================
@@ -2500,6 +2668,8 @@ Write-Host "vm-lb-02 criada" -ForegroundColor Green
 
 ### Task 6.1c: Instalar IIS nas VMs
 
+`Invoke-AzVMRunCommand` executa scripts dentro da VM sem precisar de RDP/SSH. Instalamos IIS e criamos uma pagina customizada que exibe o hostname — isso permite verificar visualmente qual VM esta respondendo quando acessamos pelo Load Balancer.
+
 ```powershell
 # ============================================================
 # TASK 6.1c - Instalar IIS via Run Command
@@ -2525,6 +2695,8 @@ Write-Host "IIS instalado em vm-lb-02" -ForegroundColor Green
 ---
 
 ### Task 6.2: Criar Public Load Balancer
+
+O Load Balancer Standard e composto por 4 configuracoes independentes que sao montadas e passadas para `New-AzLoadBalancer`: (1) Frontend IP (Public IP), (2) Backend Pool (VMs), (3) Health Probe (verificacao de saude), (4) Rule (regra de balanceamento). Depois de criar o LB, as VMs sao adicionadas ao backend pool via `Set-AzNetworkInterface`.
 
 ```powershell
 # ============================================================
@@ -2605,6 +2777,8 @@ Write-Host "Teste: http://$($lbPip.IpAddress)" -ForegroundColor Cyan
 
 ### Task 6.3: Criar NSG e associar a snet-lb
 
+Este e o passo que falta para o LB funcionar: Standard LB bloqueia todo trafego por padrao. Sem um NSG com regra AllowHTTP na subnet, os clientes nao conseguem acessar as VMs mesmo com o LB configurado corretamente. Essa e a "pegadinha" mais cobrada na prova sobre Load Balancer.
+
 ```powershell
 # ============================================================
 # TASK 6.3 - NSG para snet-lb
@@ -2642,6 +2816,8 @@ Write-Host "Teste: http://$($lbPip.IpAddress) + hard refresh (Ctrl+Shift+R)" -Fo
 ---
 
 ### Task 6.3b: Testar Session Persistence
+
+Session Persistence (Load Distribution) controla como o LB distribui conexoes. O padrao `Default` (5-tuple hash) distribui melhor; `SourceIP` (2-tuple) fixa o cliente no mesmo servidor (sticky session). Alternamos entre os modos para observar o comportamento no navegador.
 
 ```powershell
 # ============================================================
@@ -2683,6 +2859,8 @@ Write-Host "Revertido para Default (5-tuple)" -ForegroundColor Green
 
 ### Task 6.4: Testar failover
 
+Paramos uma VM para simular falha. O LB detecta a falha via health probe e redistribui todo o trafego para a VM restante. Ao reiniciar, o probe re-detecta a VM como healthy (em ~30s) e retoma a distribuicao normal.
+
 ```powershell
 # ============================================================
 # TASK 6.4 - Testar failover do Load Balancer
@@ -2700,6 +2878,8 @@ Write-Host "vm-lb-01 reiniciada. Aguarde probe re-detectar (~30s)." -ForegroundC
 ---
 
 ### Task 6.5: Criar Internal Load Balancer
+
+Internal LB usa IP privado como frontend (em vez de Public IP). E ideal para comunicacao entre tiers internos (ex: frontend → backend). A diferenca principal no cmdlet e `New-AzLoadBalancerFrontendIpConfig` com `-PrivateIpAddress` e `-SubnetId` em vez de `-PublicIpAddressId`. VMs podem participar de AMBOS os backend pools (Public + Internal) simultaneamente.
 
 ```powershell
 # ============================================================
@@ -2758,6 +2938,10 @@ Write-Host "Internal LB criado com frontend IP 10.20.40.100" -ForegroundColor Gr
 
 ### Task 6.6: Troubleshoot health probe
 
+Demonstramos que health probes verificam a APLICACAO (IIS), nao apenas a VM. Parando o servico W3SVC (IIS), a VM continua running mas o probe marca como unhealthy e o LB remove da rotacao. Reiniciando o IIS, o probe re-detecta e a VM volta ao pool.
+
+> **Dica prova:** "VM running mas health probe unhealthy" = problema na aplicacao, nao na VM. Verifique se o servico esta rodando e respondendo na porta/path configurados no probe.
+
 ```powershell
 # ============================================================
 # TASK 6.6 - Troubleshoot: parar/reiniciar IIS
@@ -2783,6 +2967,10 @@ Write-Host "IIS reiniciado em vm-lb-01." -ForegroundColor Green
 ---
 
 ### Task 6.7: Implantar Azure Bastion
+
+Azure Bastion permite acesso RDP/SSH via portal sem IP publico na VM. Tres requisitos obrigatorios: (1) subnet com nome EXATO `AzureBastionSubnet`, (2) tamanho minimo /26, (3) Public IP Standard. O deploy leva 5-10 minutos.
+
+> **Dica prova:** O nome da subnet DEVE ser `AzureBastionSubnet` — qualquer outro nome causa erro no deploy. Tamanho minimo /26 (64 IPs). Basic SKU = portal apenas; Standard = + native client + IP-based connection.
 
 ```powershell
 # ============================================================
@@ -2891,9 +3079,18 @@ A) Enfileirado  B) Redistribuido para healthy  C) LB para  D) Descartado
 > **Nota:** Bloco majoritariamente portal/PowerShell. SSPR usa Microsoft.Graph,
 > Cost Management e Advisor usam cmdlets Az, Network Watcher usa cmdlets de diagnostico.
 
+> **Conceito: SSPR e Cost Management na prova**
+> SSPR (Self-Service Password Reset) e Cost Management sao temas recorrentes. Pontos-chave:
+> - SSPR requer que o usuario **registre metodos** antes de poder resetar
+> - Guest users NAO podem usar SSPR (resetam no tenant de origem)
+> - Budgets **alertam** mas NAO param recursos — enforcement requer Policy ou Automation
+> - Cost Management Contributor e o role necessario para gerenciar budgets (NAO Contributor generico)
+
 ---
 
 ### Task 7.1: Criar grupo SSPR-TestGroup e habilitar SSPR
+
+SSPR pode ser habilitado para "All", "Selected" (grupo especifico) ou "None". Usamos "Selected" com um grupo dedicado para controlar quais usuarios podem resetar senha. A criacao do grupo usa `New-MgGroup` (Microsoft.Graph) pois SSPR e funcionalidade do Entra ID, nao do ARM.
 
 ```powershell
 # ============================================================
@@ -2963,6 +3160,8 @@ Write-Host "3. https://aka.ms/sspr > username > captcha > nova senha"
 
 ### Task 7.4: Criar Budget e alertas
 
+Budgets no Cost Management enviam alertas quando o gasto atinge thresholds configurados (ex: 80%, 100%, 120%). Tipos de alerta: **Actual** (gasto real atingiu X%) e **Forecasted** (previsao de atingir X%). PowerShell nao tem cmdlet nativo para budgets — use portal ou Azure CLI.
+
 ```powershell
 # ============================================================
 # TASK 7.4 - Criar Budget no Cost Management
@@ -3024,6 +3223,8 @@ Write-Host '  az rest --method PUT --url "https://management.azure.com/subscript
 
 ### Task 7.5: Revisar Azure Advisor
 
+Azure Advisor fornece recomendacoes personalizadas em 5 categorias: Cost, Security, Reliability, Operational Excellence e Performance. `Get-AzAdvisorRecommendation` lista as recomendacoes programaticamente. Advisor e gratuito e atualizado periodicamente com base no uso real dos recursos.
+
 ```powershell
 # ============================================================
 # TASK 7.5 - Azure Advisor
@@ -3042,6 +3243,10 @@ Write-Host "Category: Cost, Impact: High, Name: contoso-advisor-cost-alert"
 ---
 
 ### Task 7.6: Network Watcher - Effective Security Rules e IP Flow Verify
+
+Network Watcher oferece ferramentas de diagnostico de rede. `Get-AzEffectiveNetworkSecurityGroup` mostra as regras combinadas (subnet + NIC) que realmente se aplicam a uma NIC. `Test-AzNetworkWatcherIPFlow` testa se um pacote especifico (IP/porta/protocolo) seria permitido ou bloqueado pelas regras NSG.
+
+> **Dica prova:** Effective Security Rules = regras COMBINADAS de subnet NSG + NIC NSG. IP Flow Verify = teste de pacote especifico. Connection Troubleshoot = teste de conectividade fim-a-fim. Next Hop = qual rota o pacote seguira.
 
 ```powershell
 # ============================================================
@@ -3094,6 +3299,10 @@ Test-AzNetworkWatcherIPFlow -NetworkWatcher $nw `
 ---
 
 ### Task 7.6b: Testar ordem de avaliacao NSG (subnet vs NIC)
+
+Este teste demonstra a ordem de avaliacao NSG: para trafego **Inbound**, o Azure avalia subnet NSG primeiro, depois NIC NSG — AMBOS devem permitir. Para **Outbound**, e o inverso: NIC NSG primeiro, depois subnet NSG. Criamos um NSG na NIC com DenyHTTP para provar que mesmo com a subnet permitindo, a NIC bloqueia.
+
+> **Dica prova:** Se a subnet permite e a NIC bloqueia = BLOQUEADO. Se a subnet bloqueia = BLOQUEADO (nem chega na NIC). Ambos precisam permitir para o trafego passar.
 
 ```powershell
 # ============================================================

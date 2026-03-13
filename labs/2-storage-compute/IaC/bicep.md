@@ -10,6 +10,9 @@
 > **Objetivo:** Reproduzir **todo** o lab de Storage & Compute (~35 recursos) usando templates Bicep + CLI.
 > Cada template e fortemente comentado para aprendizado.
 
+> **Conceito — Bicep vs ARM JSON:**
+> Bicep e uma **DSL (Domain Specific Language)** que compila para ARM JSON. A grande vantagem e a sintaxe simplificada: dependencias **implicitas** (sem `dependsOn` na maioria dos casos), interpolacao de string (`'${var}-name'` em vez de `concat()`), decorators (`@secure()`, `@allowed()`) e keyword `parent` para recursos filhos. Bicep nao e uma ferramenta separada do ARM — e apenas uma forma mais legivel de escrever a mesma coisa. Na prova AZ-104, questoes sobre Bicep focam em: decorators, `existing` keyword para referenciar recursos existentes, e `parent` para recursos filhos.
+
 ---
 
 ## Pre-requisitos: Cloud Shell e Conceitos Bicep
@@ -52,7 +55,9 @@ fi
 
 ### Conceitos Bicep Relevantes para este Lab
 
-Antes de comecar, revise estes conceitos que serao usados extensivamente:
+Antes de comecar, revise estes conceitos que serao usados extensivamente. Cada um deles aparece repetidamente nos templates abaixo e e testado na prova AZ-104:
+
+> **Dica prova:** Na AZ-104, a diferenca mais cobrada entre ARM e Bicep e: (1) Bicep tem dependencias **implicitas** (ARM exige `dependsOn`), (2) Bicep usa `parent` para recursos filhos (ARM usa nome composto), e (3) Bicep usa `@secure()` como decorator (ARM usa tipo `securestring`).
 
 ```bicep
 // === CONCEITOS USADOS NESTE LAB ===
@@ -147,29 +152,29 @@ CONTAINER_ENV_NAME="cae-contoso-prod"
 Bloco 1 (Storage)
   │
   ├─ Storage Account (stcontosoprod*) ────────────────────┐
-  │   ├─ Blob Container (contoso-data)               │
-  │   ├─ File Share (contoso-share)                   │
-  │   ├─ Lifecycle Policy (mover para Cool/Archive)   │
-  │   ├─ Private Endpoint                             │
-  │   └─ Private DNS Zone + Link                      │
-  │                                                   │
-  │                                                   ▼
+  │   ├─ Blob Container (contoso-data)                    │
+  │   ├─ File Share (contoso-share)                       │
+  │   ├─ Lifecycle Policy (mover para Cool/Archive)       │
+  │   ├─ Private Endpoint                                 │
+  │   └─ Private DNS Zone + Link                          │
+  │                                                       │
+  │                                                       ▼
 Bloco 2 (VMs) ──────────────────────────────────────────────────┐
+  │                                                             │
+  ├─ VNet + Subnet (para VMs + Private Endpoint)                │
+  ├─ Windows VM + NIC + Public IP                               │
+  ├─ Linux VM + NIC + SSH Key                                   │
+  ├─ Data Disk (attach to Windows VM)                           │
+  ├─ VMSS + Autoscale                                           │
+  └─ Custom Script Extension                                    │
+                                                                │
+                                                                ▼
+Bloco 3 (Web Apps)───────────────────────────────────────────────┐
   │                                                              │
-  ├─ VNet + Subnet (para VMs + Private Endpoint)                 │
-  ├─ Windows VM + NIC + Public IP                                │
-  ├─ Linux VM + NIC + SSH Key                                    │
-  ├─ Data Disk (attach to Windows VM)                            │
-  ├─ VMSS + Autoscale                                            │
-  └─ Custom Script Extension                                     │
-                                                                 │
-                                                                 ▼
-Bloco 3 (Web Apps)
-  │
-  ├─ App Service Plan (Standard S1)
-  ├─ Web App
-  ├─ Deployment Slot (staging)
-  └─ Autoscale
+  ├─ App Service Plan (Standard S1)                              │
+  ├─ Web App                                                     │
+  ├─ Deployment Slot (staging)                                   │ 
+  └─ Autoscale                                                   │
                                                                  ▼
 Bloco 4 (ACI)
   │
@@ -192,6 +197,11 @@ Bloco 5 (Container Apps)
 > **Conceito AZ-104:** Storage Accounts sao o servico fundamental de armazenamento no Azure.
 > Suportam Blobs, Files, Tables e Queues. O nome deve ser **globalmente unico** (3-24 chars, lowercase + numeros).
 
+Neste bloco, os templates Bicep demonstram a vantagem da keyword `parent` para recursos filhos. Em vez do nome composto verboso do ARM (`storageAccount/default/containerName`), Bicep usa `parent: storageAccount` e o nome simples do recurso — e a dependencia e criada automaticamente.
+
+> **Conceito — existing keyword:**
+> Para referenciar um recurso que ja existe no Azure (sem recria-lo), Bicep usa `existing`. Isso e essencial quando um template precisa referenciar recursos criados por outro template. Exemplo: `resource vnet 'Microsoft.Network/virtualNetworks@...' existing = { name: 'minha-vnet' }`.
+
 ---
 
 ### Task 1.1: Criar Resource Group
@@ -209,6 +219,8 @@ echo "Resource Group $RG6 criado em $LOCATION"
 ---
 
 ### Task 1.2: Criar VNet base (necessaria para Private Endpoint e VMs)
+
+A VNet e criada em template separado porque sera reutilizada nos Blocos 2-5. Note o uso de `output` para exportar IDs das subnets — esses valores podem ser passados como parametros para outros templates.
 
 Salve como **`bloco1-vnet.bicep`**:
 
@@ -278,6 +290,11 @@ echo "VNet vnet-contoso-hub criada com 3 subnets"
 ---
 
 ### Task 1.3: Criar Storage Account + Blob Container + File Share
+
+Este template demonstra o padrao Bicep de recursos filhos com `parent`. O Storage Account e o pai, o Blob Service e filho do Storage Account, e o Container e filho do Blob Service. Cada `parent:` cria uma dependencia implicita automatica — voce nao precisa de `dependsOn`.
+
+> **Conceito — Decorators de validacao:**
+> Bicep usa `@minLength(3)`, `@maxLength(24)` e `@allowed()` para validar parametros **antes** do deploy. Se o valor nao atende, o deploy falha imediatamente com erro claro. Isso evita falhas tardias (ex: nome invalido so descoberto apos minutos de deploy).
 
 Salve como **`bloco1-storage.bicep`**:
 
@@ -423,6 +440,8 @@ az storage account show -n "$STORAGE_ACCOUNT_NAME" -g "$RG6" \
 
 ### Task 1.4: Lifecycle Management Policy
 
+Este template demonstra a keyword `existing` — referencia o Storage Account e o Blob Service ja criados pela Task 1.3, sem recria-los. A policy usa `parent: storageAccount` para se vincular ao recurso existente. Note que cada storage account tem apenas uma management policy (nome `default`).
+
 Salve como **`bloco1-lifecycle.bicep`**:
 
 ```bicep
@@ -551,6 +570,8 @@ az storage account management-policy show \
 ---
 
 ### Task 1.5: Private Endpoint + Private DNS Zone
+
+Este template demonstra como Bicep simplifica cadeias complexas de dependencias. Sao 5 recursos (PE, DNS Zone, VNet Link, DNS Zone Group + referencia existente), mas nenhum `dependsOn` explicito e necessario — Bicep detecta as dependencias automaticamente pelas referencias entre recursos. Compare com o ARM equivalente que requer 4 blocos `dependsOn`.
 
 > **Cobranca:** Private Endpoints geram cobranca enquanto existirem.
 
@@ -896,6 +917,11 @@ Cada sub-recurso tem sua propria DNS zone: blob, file, table, queue, web, dfs.
 
 > **Nota:** VMs geram custo significativo. Faca cleanup assim que terminar.
 > Use `Standard_B2s` (burstable) para minimizar custos em lab.
+
+Neste bloco, os templates Bicep demonstram como `@secure()` protege senhas e `@allowed()` restringe tamanhos de VM validos. Tambem mostra o padrao `existing` para referenciar a VNet do Bloco 1. Note que as dependencias entre PIP -> NIC -> VM sao todas **implicitas** — Bicep detecta pela referencia `publicIp.id` e `nic.id`.
+
+> **Conceito — deleteOption em Bicep:**
+> O campo `deleteOption: 'Delete'` em NICs e discos e um padrao moderno que faz o cleanup automatico ao deletar a VM. Sem ele, NICs e discos ficam como recursos orfaos. Na prova, questoes sobre "disco permanece apos deletar VM" testam exatamente esse comportamento.
 
 ---
 
@@ -1845,6 +1871,10 @@ A metrica precisa estar acima do threshold durante toda a `timeWindow` (5 min). 
 **Tecnologia:** Bicep
 **Recursos criados:** 1 App Service Plan, 1 Web App, 1 Deployment Slot, 1 Autoscale
 
+App Service e PaaS — voce declara o runtime desejado e o Azure gerencia a infraestrutura. No Bicep, o App Service Plan (`Microsoft.Web/serverfarms`) e o Web App (`Microsoft.Web/sites`) sao recursos separados com dependencia implicita. O Deployment Slot usa `parent: webApp` para se vincular como recurso filho.
+
+> **Dica prova:** `reserved: true` no App Service Plan significa **Linux**. Sem esse campo (ou `false`), o plano e Windows. Deployment Slots requerem **Standard (S1) ou superior** — Free e Basic nao suportam slots.
+
 ---
 
 ### Task 3.1: Criar App Service Plan + Web App + Slot via Bicep
@@ -2180,6 +2210,10 @@ Apps no mesmo plan compartilham os mesmos workers. Autoscale atua no plan, nao e
 **Tecnologia:** Bicep
 **Recursos criados:** 1 Container Group com nginx
 
+ACI e serverless containers — sem gerenciar VMs ou clusters. No Bicep, o Container Group (`Microsoft.ContainerInstance/containerGroups`) define tudo em um unico recurso: containers, volumes, rede e variaveis de ambiente.
+
+> **Dica prova:** ACI suporta volumes **Azure Files** (nao Blob!). Containers no mesmo grupo compartilham IP, volumes e lifecycle. `restartPolicy` controla comportamento apos falha: `Always`, `OnFailure` ou `Never`.
+
 ---
 
 ### Task 4.1: Criar Container Group via Bicep
@@ -2362,6 +2396,11 @@ OnFailure reinicia apenas em exit code != 0. Always reinicia sempre. Never nunca
 
 **Tecnologia:** Bicep
 **Recursos criados:** 1 Log Analytics Workspace, 1 Container Apps Environment, 1 Container App com scaling rules
+
+Container Apps combina a simplicidade do ACI com features de Kubernetes (autoscaling, revisoes, traffic splitting). No Bicep, note o uso de `logAnalytics.listKeys().primarySharedKey` — uma chamada de funcao direta que em ARM seria `[listKeys(resourceId(...), 'api').primarySharedKey]`. Essa simplicidade e um dos principais argumentos para usar Bicep.
+
+> **Conceito — Scale-to-zero:**
+> Container Apps suporta `minReplicas: 0`, o que significa que o app "dorme" quando sem trafego e nao gera custo de compute. ACI nao tem esse recurso — sempre tem pelo menos 1 instancia ativa. Na prova, "qual servico suporta scale-to-zero?" = Container Apps.
 
 ---
 
@@ -2618,6 +2657,11 @@ Container Apps oferece autoscale baseado em regras, revisions, ingress, e scale 
 **Resource Groups:** `rg-contoso-storage` (existente), `rg-contoso-compute` (existente), `rg-contoso-storage` (novo)
 
 > **Pre-requisito:** Blocos 1 e 2 devem estar completos (Storage Account + VMs criadas).
+
+Neste bloco voce combina Bicep (para Key Vault e Storage Account) com CLI (para AzCopy, Object Replication e ADE). O template do Key Vault demonstra RBAC declarativo e criacao de chaves RSA como recursos filhos.
+
+> **Conceito — Purge Protection no Key Vault:**
+> `enablePurgeProtection: true` e **obrigatorio** para CMK (Customer-Managed Keys). Garante que chaves deletadas ficam retidas por 90 dias (nao podem ser removidas permanentemente). Na prova, se a questao menciona CMK, purge protection e a resposta para "qual configuracao e obrigatoria?".
 
 ---
 
@@ -3259,6 +3303,10 @@ As roles especificas para Azure Files via SMB sao: Reader (leitura), Contributor
 
 > **Pre-requisito:** Blocos 1 e 3 devem estar completos (Storage Account + App Service criados).
 
+Neste bloco voce cria um ACR via Bicep e deploya um ACI que puxa imagem privada. O template do ACI demonstra `imageRegistryCredentials` com `@secure()` para autenticacao no registry. Configuracoes de App Service (TLS, backup, VNet Integration) sao feitas via CLI.
+
+> **Dica prova:** ACR SKUs na prova: Basic (10 GiB), Standard (100 GiB + webhooks), Premium (500 GiB + geo-replication + private link + CMK). VNet Integration no App Service e para **outbound** (trafego saindo do app). Para **inbound** (acessar o app via IP privado), use Private Endpoint.
+
 ---
 
 ### Task 7.1: Criar Azure Container Registry via Bicep
@@ -3863,71 +3911,74 @@ fi
 
 # Key Takeaways Consolidados
 
+> **Conceito — Por que Bicep sobre ARM JSON na prova:**
+> Bicep e o futuro recomendado pela Microsoft para IaC no Azure. Na prova AZ-104, ambos podem aparecer, mas Bicep tende a ser mais legivel nas questoes. Saiba converter mentalmente: `parent:` = `dependsOn` + nome composto, `@secure()` = `securestring`, `existing` = referencia sem criar, `'${var}'` = `concat()`. Se a questao pedir "forma mais concisa de declarar infraestrutura", Bicep e a resposta.
+
 ## Bicep vs ARM JSON vs Portal
 
-| Aspecto | Bicep | ARM JSON | Portal |
-|---------|-------|----------|--------|
-| Sintaxe | Concisa, declarativa | Verbosa, JSON | Visual |
-| Dependencias | **Implicitas** (automaticas) | Explicitas (`dependsOn`) | N/A |
-| Type safety | Decorators (`@allowed`, `@minValue`, `@secure`) | Nenhum | Validacao visual |
-| Reutilizacao | Modules, loops (`for`), condicional (`if`) | Linked/nested templates | N/A |
-| Cross-RG | `existing` + `scope` | `resourceId('rg', 'type', 'name')` | Dropdown |
+| Aspecto      | Bicep                                           | ARM JSON                           | Portal           |
+| ------------ | ----------------------------------------------- | ---------------------------------- | ---------------- |
+| Sintaxe      | Concisa, declarativa                            | Verbosa, JSON                      | Visual           |
+| Dependencias | **Implicitas** (automaticas)                    | Explicitas (`dependsOn`)           | N/A              |
+| Type safety  | Decorators (`@allowed`, `@minValue`, `@secure`) | Nenhum                             | Validacao visual |
+| Reutilizacao | Modules, loops (`for`), condicional (`if`)      | Linked/nested templates            | N/A              |
+| Cross-RG     | `existing` + `scope`                            | `resourceId('rg', 'type', 'name')` | Dropdown         |
 
 ## Conceitos Bicep Demonstrados
 
-| Conceito | Onde no lab |
-|----------|-------------|
-| `@description`, `@minLength`, `@maxLength` | `bloco1-storage.bicep` (Storage Account) |
-| `@allowed` (string + int) | `bloco1-storage.bicep`, `bloco2-windows-vm.bicep` |
-| `@secure()` | `bloco2-windows-vm.bicep` (senha), `bloco2-linux-vm.bicep` (SSH key), `bloco7-aci-from-acr.bicep` (ACR creds) |
-| `@minValue`, `@maxValue` | `bloco2-data-disk.bicep` (tamanho disco) |
-| `parent:` | `bloco1-storage.bicep`, `bloco6-keyvault.bicep` (keys → vault), `bloco6-storage2.bicep` (container → blobService) |
-| `existing` keyword | `bloco1-lifecycle.bicep`, `bloco1-private-endpoint.bicep` |
-| Dependencias implicitas | `bloco2-vmss.bicep` (VMSS → LB → Public IP) |
-| `json()` function | `bloco5-container-apps.bicep` (CPU decimal) |
-| Loop `for` | Conceito explicado em `bloco1-storage.bicep` |
-| `scope:` em RBAC | `bloco6-keyvault.bicep` (roleAssignment scoped ao Key Vault) |
-| `enabledForDiskEncryption` | `bloco6-keyvault.bicep` (Key Vault para ADE) |
+| Conceito                                   | Onde no lab                                                                                                       |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `@description`, `@minLength`, `@maxLength` | `bloco1-storage.bicep` (Storage Account)                                                                          |
+| `@allowed` (string + int)                  | `bloco1-storage.bicep`, `bloco2-windows-vm.bicep`                                                                 |
+| `@secure()`                                | `bloco2-windows-vm.bicep` (senha), `bloco2-linux-vm.bicep` (SSH key), `bloco7-aci-from-acr.bicep` (ACR creds)     |
+| `@minValue`, `@maxValue`                   | `bloco2-data-disk.bicep` (tamanho disco)                                                                          |
+| `parent:`                                  | `bloco1-storage.bicep`, `bloco6-keyvault.bicep` (keys → vault), `bloco6-storage2.bicep` (container → blobService) |
+| `existing` keyword                         | `bloco1-lifecycle.bicep`, `bloco1-private-endpoint.bicep`                                                         |
+| Dependencias implicitas                    | `bloco2-vmss.bicep` (VMSS → LB → Public IP)                                                                       |
+| `json()` function                          | `bloco5-container-apps.bicep` (CPU decimal)                                                                       |
+| Loop `for`                                 | Conceito explicado em `bloco1-storage.bicep`                                                                      |
+| `scope:` em RBAC                           | `bloco6-keyvault.bicep` (roleAssignment scoped ao Key Vault)                                                      |
+| `enabledForDiskEncryption`                 | `bloco6-keyvault.bicep` (Key Vault para ADE)                                                                      |
 
 ## Comandos de Deploy
 
-| Recurso | Comando |
-|---------|---------|
-| Resource Group scope | `az deployment group create -g <rg> --template-file <file.bicep>` |
-| Com parametros | `--parameters param1=value1 param2=value2` |
-| Com arquivo de params | `--parameters @params.json` |
-| Com parametro seguro | `--parameters adminPassword="$VM_PASSWORD"` |
+| Recurso               | Comando                                                           |
+| --------------------- | ----------------------------------------------------------------- |
+| Resource Group scope  | `az deployment group create -g <rg> --template-file <file.bicep>` |
+| Com parametros        | `--parameters param1=value1 param2=value2`                        |
+| Com arquivo de params | `--parameters @params.json`                                       |
+| Com parametro seguro  | `--parameters adminPassword="$VM_PASSWORD"`                       |
 
 ## Templates Criados
 
-| Template | Recursos |
-|----------|----------|
-| `bloco1-vnet.bicep` | VNet + 3 subnets (VM, PE, VMSS) |
-| `bloco1-storage.bicep` | Storage Account + Blob Container + File Share |
-| `bloco1-lifecycle.bicep` | Lifecycle Policy (Cool 30d → Archive 90d → Delete 365d) |
-| `bloco1-private-endpoint.bicep` | Private Endpoint + DNS Zone + VNet Link |
-| `bloco2-windows-vm.bicep` | Windows VM + NIC + Public IP |
-| `bloco2-linux-vm.bicep` | Linux VM + NIC + SSH Key |
-| `bloco2-data-disk.bicep` | Data Disk (attach via CLI) |
-| `bloco2-vmss.bicep` | VMSS + Load Balancer + Autoscale |
-| `bloco3-webapp.bicep` | App Service Plan + Web App + Staging Slot |
-| `bloco3-webapp-autoscale.bicep` | Autoscale para App Service Plan |
-| `bloco4-aci.bicep` | Container Group (nginx) |
-| `bloco5-container-apps.bicep` | Container Apps Environment + App + Scaling |
-| `bloco6-storage2.bicep` | Storage Account (destino) + Container data-replica |
-| `bloco6-keyvault.bicep` | Key Vault + chaves RSA (storage-cmk, disk-encryption) + RBAC |
-| `bloco7-acr.bicep` | Azure Container Registry (Basic) |
-| `bloco7-aci-from-acr.bicep` | ACI from private ACR image |
+| Template                        | Recursos                                                     |
+| ------------------------------- | ------------------------------------------------------------ |
+| `bloco1-vnet.bicep`             | VNet + 3 subnets (VM, PE, VMSS)                              |
+| `bloco1-storage.bicep`          | Storage Account + Blob Container + File Share                |
+| `bloco1-lifecycle.bicep`        | Lifecycle Policy (Cool 30d → Archive 90d → Delete 365d)      |
+| `bloco1-private-endpoint.bicep` | Private Endpoint + DNS Zone + VNet Link                      |
+| `bloco2-windows-vm.bicep`       | Windows VM + NIC + Public IP                                 |
+| `bloco2-linux-vm.bicep`         | Linux VM + NIC + SSH Key                                     |
+| `bloco2-data-disk.bicep`        | Data Disk (attach via CLI)                                   |
+| `bloco2-vmss.bicep`             | VMSS + Load Balancer + Autoscale                             |
+| `bloco3-webapp.bicep`           | App Service Plan + Web App + Staging Slot                    |
+| `bloco3-webapp-autoscale.bicep` | Autoscale para App Service Plan                              |
+| `bloco4-aci.bicep`              | Container Group (nginx)                                      |
+| `bloco5-container-apps.bicep`   | Container Apps Environment + App + Scaling                   |
+| `bloco6-storage2.bicep`         | Storage Account (destino) + Container data-replica           |
+| `bloco6-keyvault.bicep`         | Key Vault + chaves RSA (storage-cmk, disk-encryption) + RBAC |
+| `bloco7-acr.bicep`              | Azure Container Registry (Basic)                             |
+| `bloco7-aci-from-acr.bicep`     | ACI from private ACR image                                   |
 
 ## Comparacao de Servicos de Compute
 
-| Servico | Tipo | Scaling | Custo Minimo | Melhor Para |
-|---------|------|---------|--------------|-------------|
-| **VM** | IaaS | Manual/VMSS | ~$15/mes (B1s) | Controle total, legacy apps |
-| **VMSS** | IaaS | Autoscale (1-1000) | ~$15/mes (1 inst) | Workloads identicos, escala horizontal |
-| **App Service** | PaaS | Autoscale | Free (F1) | Web apps, APIs |
-| **ACI** | CaaS | Manual | Per-second | Batch, dev/test, tarefas simples |
-| **Container Apps** | CaaS | Autoscale (0-N) | Scale to zero | Microservices, event-driven |
+| Servico            | Tipo | Scaling            | Custo Minimo      | Melhor Para                            |
+| ------------------ | ---- | ------------------ | ----------------- | -------------------------------------- |
+| **VM**             | IaaS | Manual/VMSS        | ~$15/mes (B1s)    | Controle total, legacy apps            |
+| **VMSS**           | IaaS | Autoscale (1-1000) | ~$15/mes (1 inst) | Workloads identicos, escala horizontal |
+| **App Service**    | PaaS | Autoscale          | Free (F1)         | Web apps, APIs                         |
+| **ACI**            | CaaS | Manual             | Per-second        | Batch, dev/test, tarefas simples       |
+| **Container Apps** | CaaS | Autoscale (0-N)    | Scale to zero     | Microservices, event-driven            |
 
 ## Hierarquia de Storage
 

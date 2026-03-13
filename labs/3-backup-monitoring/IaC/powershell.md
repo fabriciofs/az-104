@@ -22,6 +22,22 @@
 > **Dependencia:** Este lab assume que as VMs e Storage Account da **Semana 2** (storage-compute)
 > ainda existem. Caso contrario, recrie-os antes de iniciar.
 
+### PowerShell vs CLI vs ARM/Bicep
+
+PowerShell usa uma abordagem **imperativa** -- voce executa comandos sequenciais que modificam o estado dos recursos. Isso e diferente de ARM/Bicep (declarativo), onde voce descreve o estado desejado.
+
+> **Conceito: Quando usar cada ferramenta**
+>
+> | Ferramenta | Abordagem | Melhor para |
+> |-----------|-----------|-------------|
+> | **ARM/Bicep** | Declarativa | Provisionamento reproduzivel (IaC) |
+> | **PowerShell** | Imperativa | Operacoes de controle, automacao, scripts complexos |
+> | **Azure CLI** | Imperativa | Mesmo que PS, mas sintaxe Bash/Linux |
+>
+> Na prova, operacoes como backup on-demand, restore e failover sao sempre imperativas (CLI/PowerShell). Provisionamento de recursos pode ser declarativo (ARM/Bicep) ou imperativo.
+
+> **Dica prova:** PowerShell Az usa o padrao `Verbo-AzNomeRecurso` (ex: `New-AzRecoveryServicesVault`, `Get-AzVM`). Os verbos mais comuns sao: `New-` (criar), `Get-` (ler), `Set-` (atualizar), `Remove-` (deletar), `Enable-`/`Disable-` (habilitar/desabilitar).
+
 ```powershell
 # ============================================================
 # PRE-REQUISITOS - Verificar ambiente no Cloud Shell
@@ -159,6 +175,10 @@ Bloco 5 (Log Analytics & Insights) ←── Depende de Blocos 4
 
 ### Task 1.1: Criar Resource Group e Recovery Services Vault
 
+O Recovery Services Vault e o cofre central para backup e Site Recovery. Nesta task, usamos `New-AzRecoveryServicesVault` para cria-lo. Observe que o vault suporta tres tipos de redundancia (GRS, LRS, ZRS) -- a escolha afeta custo e disponibilidade dos backups.
+
+> **Dica prova:** A redundancia do vault so pode ser alterada ANTES do primeiro backup. Apos proteger qualquer item, a configuracao e permanente. Essa restricao e frequentemente cobrada.
+
 > **Cobranca:** O vault em si e gratuito, mas cada instancia protegida (VM, File Share) gera cobranca.
 
 ```powershell
@@ -197,6 +217,11 @@ Get-AzRecoveryServicesVault -Name $vaultName -ResourceGroupName $rg11 |
 
 ### Task 1.2: Configurar contexto do vault e redundancia
 
+Em PowerShell, o "contexto" do vault e um conceito importante: voce define qual vault sera usado nos comandos subsequentes com `Set-AzRecoveryServicesVaultContext`. Sem definir o contexto, os cmdlets nao sabem em qual vault operar.
+
+> **Conceito: Vault Context em PowerShell**
+> O contexto e como "entrar" no vault. Apos `Set-AzRecoveryServicesVaultContext`, todos os cmdlets de backup/recovery usam esse vault automaticamente. Em CLI, o equivalente e passar `--vault-name` em cada comando.
+
 ```powershell
 # ============================================================
 # TASK 1.2 - Configurar contexto e redundancia do vault
@@ -233,6 +258,11 @@ Write-Host "Storage Redundancy: $($backupProp.BackupStorageRedundancy)"
 ---
 
 ### Task 1.3: Criar custom backup policy
+
+Em PowerShell, a criacao de policies usa um padrao de "objetos de configuracao": primeiro voce cria os objetos de schedule e retention, configura suas propriedades, e depois passa-os ao cmdlet `New-AzRecoveryServicesBackupProtectionPolicy`. Esse padrao e tipico do PowerShell Az.
+
+> **Conceito: Padrao de objetos no PowerShell Az**
+> Muitos cmdlets Az usam "objetos base" que voce obtem com `Get-Az*Object`, configura suas propriedades, e passa para o cmdlet de criacao. Isso permite configuracao granular sem parametros excessivos no cmdlet final.
 
 ```powershell
 # ============================================================
@@ -306,6 +336,10 @@ Get-AzRecoveryServicesBackupProtectionPolicy -Name $policyName -VaultId $vault.I
 
 ### Task 1.4: Habilitar backup na VM
 
+Habilitar backup associa uma VM a uma policy dentro do vault. O cmdlet `Enable-AzRecoveryServicesBackupProtection` faz essa vinculacao. Observe que a VM deve estar na mesma regiao do vault.
+
+> **Dica prova:** O cmdlet usa `-ResourceGroupName` e `-Name` referindo-se a VM (nao ao vault). O vault ja esta definido pelo contexto (Task 1.2). Essa separacao e frequentemente testada.
+
 > **Cobranca:** Habilitar backup gera cobranca por instancia protegida e armazenamento de snapshots.
 
 ```powershell
@@ -358,6 +392,10 @@ Write-Host "Health: $($backupItem.HealthStatus)"
 
 ### Task 1.5: Executar backup on-demand
 
+O backup on-demand (ad-hoc) e disparado manualmente com `Backup-AzRecoveryServicesBackupItem`. Diferente do backup agendado pela policy, o recovery point on-demand tem sua propria data de expiracao definida por `-ExpiryDateTimeUTC`.
+
+> **Dica prova:** O primeiro backup de uma VM e sempre **completo** (full). Backups subsequentes sao **incrementais** (apenas blocos alterados). Backups on-demand sao uteis antes de operacoes de manutencao.
+
 ```powershell
 # ============================================================
 # TASK 1.5 - Executar backup on-demand (ad-hoc)
@@ -403,6 +441,16 @@ Write-Host "  Get-AzRecoveryServicesBackupJob -JobId '$($backupJob.JobId)' -Vaul
 ---
 
 ### Task 1.6: Listar recovery points e restaurar VM
+
+Esta task demonstra o fluxo completo de restore: listar recovery points disponiveis, selecionar o mais recente, e iniciar a restauracao. Em PowerShell, o restore requer uma storage account de staging para armazenar dados temporarios durante o processo.
+
+> **Conceito: Opcoes de restore de VM**
+>
+> | Opcao | Descricao | Quando usar |
+> |-------|-----------|-------------|
+> | **Create Virtual Machine** | Cria VM nova a partir do backup | Substituir VM ou criar copia |
+> | **Restore Disks** | Restaura discos em storage account | Customizar (size, rede) antes de recriar |
+> | **Replace Existing** | Substitui discos da VM atual | Reverter sem mudar configuracao de rede |
 
 ```powershell
 # ============================================================
@@ -485,6 +533,10 @@ if ($recoveryPoints.Count -gt 0) {
 ---
 
 ### Task 1.6b: Cross Region Restore (CRR)
+
+Cross Region Restore permite restaurar backups na regiao secundaria (pareada) do Azure. Para funcionar, o vault deve usar redundancia GRS e ter CRR habilitado. Essa configuracao e feita com `Set-AzRecoveryServicesBackupProperty`.
+
+> **Dica prova:** Na prova, "restaurar VM em outra regiao" = vault com GRS + CRR habilitado. Lembre-se: a redundancia so pode ser alterada ANTES do primeiro backup.
 
 ```powershell
 # ============================================================
@@ -598,6 +650,10 @@ D) Cross Region Restore
 
 ### Task 2.1: Backup de Azure File Share
 
+File Share backup usa o mesmo Recovery Services Vault das VMs, mas com `WorkloadType "AzureFiles"`. O processo tem um passo extra: registrar a storage account no vault com `Register-AzRecoveryServicesBackupContainer` antes de habilitar a protecao.
+
+> **Dica prova:** File Share backup usa snapshots (similar a VM backup). O vault precisa "conhecer" a storage account antes -- o registro e obrigatorio. Restauracao pode ser do share completo ou de arquivos individuais.
+
 ```powershell
 # ============================================================
 # TASK 2.1 - Habilitar backup de Azure File Share
@@ -693,6 +749,14 @@ if ($fileShares.Count -gt 0) {
 
 ### Task 2.2: Configurar Soft Delete para blobs
 
+Soft Delete e uma feature nativa da storage account (NAO do vault) que protege contra delecao acidental. Blobs deletados ficam em estado "soft deleted" pelo periodo configurado e podem ser recuperados.
+
+> **Conceito: Protecao nativa vs Backup**
+> Protecao de blobs usa features nativas da storage account, nao precisa de vault:
+> - **Soft Delete** = protege contra delecao (cmdlet: `Enable-AzStorageBlobDeleteRetentionPolicy`)
+> - **Versioning** = protege contra sobrescrita (cmdlet: `Update-AzStorageBlobServiceProperty`)
+> - **Point-in-Time Restore** = restaura para estado anterior (cmdlet: `Enable-AzStorageBlobRestorePolicy`)
+
 ```powershell
 # ============================================================
 # TASK 2.2 - Habilitar Soft Delete para blobs
@@ -732,6 +796,8 @@ Write-Host "Retention Days: $($blobServiceProps.DeleteRetentionPolicy.Days)"
 
 ### Task 2.3: Habilitar Container Soft Delete
 
+Container Soft Delete e separado do Blob Soft Delete -- cada um protege um nivel diferente. Container Soft Delete permite recuperar containers inteiros que foram deletados acidentalmente.
+
 ```powershell
 # ============================================================
 # TASK 2.3 - Habilitar Soft Delete para containers
@@ -752,6 +818,8 @@ Write-Host "Container Soft Delete habilitado: 7 dias de retencao"
 ---
 
 ### Task 2.4: Habilitar Blob Versioning
+
+Versioning mantém versoes anteriores automaticamente quando um blob e sobrescrito. E o complemento do Soft Delete: enquanto Soft Delete protege contra delecao, Versioning protege contra sobrescrita.
 
 ```powershell
 # ============================================================
@@ -787,6 +855,10 @@ Write-Host "Versioning Enabled: $($blobServiceProps.IsVersioningEnabled)"
 ---
 
 ### Task 2.5: Habilitar Point-in-Time Restore para blobs
+
+Point-in-Time Restore e o nivel mais alto de protecao de blobs. Permite restaurar todos os blobs de um container para um estado anterior. Requer que Soft Delete, Versioning e Change Feed estejam habilitados primeiro.
+
+> **Dica prova:** A janela de restore (`-RestoreDays`) DEVE ser menor que a retencao do Soft Delete. Se Soft Delete = 14 dias, RestoreDays deve ser < 14 (ex: 13). Essa relacao e cobrada na prova.
 
 ```powershell
 # ============================================================
@@ -839,6 +911,8 @@ Write-Host "Point-in-Time Restore: $($blobServiceProps.RestorePolicy.Enabled) ($
 ---
 
 ### Task 2.6: Restaurar container (simulacao)
+
+O cmdlet `Restore-AzStorageBlobRange` executa a restauracao point-in-time. Voce especifica um range de blobs (prefixo) e um datetime UTC anterior a delecao/corrupcao. A restauracao e assincrona.
 
 ```powershell
 # ============================================================
@@ -956,6 +1030,10 @@ Azure File Share backup e gerenciado pelo Recovery Services Vault usando snapsho
 
 ### Task 3.1: Criar vault na regiao DR
 
+O vault de Site Recovery fica na regiao de DESTINO (DR), nao na regiao de origem. Isso e o oposto do Backup, onde o vault fica na mesma regiao do recurso. O vault gerencia a replicacao para sua propria regiao.
+
+> **Dica prova:** Pergunta classica: "Em qual regiao criar o vault para ASR?" Resposta: na regiao DR (destino). Para Backup: mesma regiao do recurso.
+
 ```powershell
 # ============================================================
 # TASK 3.1 - Criar RG e Vault na regiao de DR
@@ -986,6 +1064,11 @@ Set-AzRecoveryServicesVaultContext -Vault $vaultDR
 ---
 
 ### Task 3.2: Criar ASR Fabrics (source e target)
+
+Fabrics sao a representacao logica de regioes no Site Recovery. Voce precisa de dois: source (onde a VM esta) e target (para onde replica). Cada fabric contem Protection Containers que agrupam os itens protegidos.
+
+> **Conceito: Hierarquia ASR no PowerShell**
+> A hierarquia completa e: **Vault** > **Fabric** (regiao) > **Protection Container** (agrupamento) > **Protected Item** (VM). Cada nivel deve ser criado sequencialmente, e operacoes ASR sao assincronas (retornam jobs que voce monitora com `Get-AzRecoveryServicesAsrJob`).
 
 ```powershell
 # ============================================================
@@ -1049,6 +1132,8 @@ Write-Host "Target: $($targetFabric.FriendlyName) ($($targetFabric.FabricSpecifi
 
 ### Task 3.3: Criar Protection Containers
 
+Protection Containers sao agrupamentos logicos dentro de cada fabric. O source container contem os itens originais e o target container contem as replicas. Cada container e associado a um fabric especifico.
+
 ```powershell
 # ============================================================
 # TASK 3.3 - Criar Protection Containers
@@ -1098,6 +1183,10 @@ Write-Host "Target Container: $($targetContainer.FriendlyName)"
 ---
 
 ### Task 3.4: Criar Replication Policy e Container Mapping
+
+A Replication Policy define parametros de replicacao: RPO, frequencia de snapshots app-consistent e retencao. O Container Mapping vincula source e target containers com a policy. Sem o mapping, o ASR nao sabe para onde replicar.
+
+> **Dica prova:** O `-ReplicationProvider "A2A"` significa Azure-to-Azure. Outros providers incluem `HyperVReplicaAzure` (Hyper-V para Azure) e `InMageAzureV2` (VMware para Azure). No AZ-104, o foco e A2A.
 
 ```powershell
 # ============================================================
@@ -1169,6 +1258,8 @@ Write-Host "Mapping: $($containerMapping.FriendlyName) - State: $($containerMapp
 
 ### Task 3.4b: Politica de replicacao customizada
 
+Policies customizadas permitem ajustar retencao e frequencia de snapshots para cenarios especificos. Uma retencao menor economiza storage mas oferece menos opcoes de recovery point.
+
 ```powershell
 # ============================================================
 # TASK 3.2b - Criar politica de replicacao customizada
@@ -1212,7 +1303,12 @@ Write-Host "App-consistent: $($createdPolicy.ReplicationProviderSettings.AppCons
 
 ### Task 3.5: Habilitar replicacao da VM
 
-> **Cobranca:** A replicacao ASR gera cobranca continua por VM replicada. Nao pode ser pausada — so desabilitada.
+Habilitar a replicacao e o passo mais complexo do ASR. Voce precisa: (1) criar uma cache storage account na regiao source, (2) configurar o mapeamento de cada disco, e (3) chamar `New-AzRecoveryServicesAsrReplicationProtectedItem`. A replicacao inicial sincroniza todos os dados; depois, apenas deltas sao replicados.
+
+> **Conceito: Cache Storage Account**
+> A cache storage account armazena dados temporarios durante a replicacao. Ela deve estar na mesma regiao da VM source (nao na regiao DR). Os dados passam por: VM source > cache storage > regiao DR.
+
+> **Cobranca:** A replicacao ASR gera cobranca continua por VM replicada. Nao pode ser pausada -- so desabilitada.
 
 ```powershell
 # ============================================================
@@ -1279,6 +1375,8 @@ Write-Host "  Get-AzRecoveryServicesAsrReplicationProtectedItem -ProtectionConta
 
 ### Task 3.6: Criar Recovery Plan
 
+O Recovery Plan define a ordem de failover das VMs. Em producao, voce agrupa VMs em groups sequenciais (ex: Group 1 = banco sobe primeiro, Group 2 = app server, Group 3 = web). O plano pode incluir scripts customizados entre groups.
+
 ```powershell
 # ============================================================
 # TASK 3.6 - Criar Recovery Plan
@@ -1317,6 +1415,10 @@ if ($replicatedItem -and $replicatedItem.ReplicationHealth -ne "None") {
 
 ### Task 3.7: Test Failover
 
+Test Failover cria uma copia da VM na regiao DR para validacao sem afetar a VM original nem interromper a replicacao. Em producao, use uma VNet isolada para o teste evitar conflitos de IP.
+
+> **Dica prova:** SEMPRE faca test failover antes de um failover real. O teste valida que a VM funciona na regiao DR. Apos o teste, o cleanup e obrigatorio (Task 3.8).
+
 ```powershell
 # ============================================================
 # TASK 3.7 - Executar Test Failover
@@ -1352,6 +1454,8 @@ if ($plan) {
 ---
 
 ### Task 3.8: Cleanup do Test Failover
+
+O cleanup remove os recursos temporarios criados pelo test failover. Sem executar o cleanup, o ASR bloqueia novos testes ou failovers reais. O cmdlet `Start-AzRecoveryServicesAsrTestFailoverCleanupJob` executa essa limpeza.
 
 ```powershell
 # ============================================================
@@ -1469,6 +1573,8 @@ O cleanup remove os recursos temporarios criados pelo teste. Sem executar o clea
 
 ### Task 4.1: Criar Resource Group para monitoramento
 
+O Resource Group de monitoramento centraliza Action Groups, Alert Rules, Log Analytics Workspace e Diagnostic Settings. Manter recursos de monitoramento separados dos recursos de aplicacao e uma boa pratica.
+
 ```powershell
 # ============================================================
 # TASK 4.1 - Criar Resource Group para recursos de monitoramento
@@ -1482,6 +1588,11 @@ Write-Host "Criado Resource Group: $rg13"
 ---
 
 ### Task 4.2: Criar Action Group
+
+Action Groups definem QUEM e notificado e COMO quando um alerta dispara. Sao reutilizaveis -- um unico Action Group pode ser referenciado por multiplos alertas. O Location de Action Groups e sempre "Global".
+
+> **Conceito: Separacao Alert Rule vs Action Group**
+> No Azure Monitor, a regra de alerta (condicao) e separada da acao (notificacao). Isso permite reutilizar o mesmo Action Group em multiplos alertas, e alterar destinatarios sem modificar regras.
 
 ```powershell
 # ============================================================
@@ -1529,6 +1640,10 @@ Get-AzActionGroup -ResourceGroupName $rg13 -Name $actionGroupName |
 ---
 
 ### Task 4.3: Criar Metric Alert (CPU > 80%)
+
+Metric Alerts avaliam metricas em tempo real e disparam quando a condicao e atingida. O processo tem dois passos: (1) criar o criterio com `New-AzMetricAlertRuleV2Criteria` e (2) criar a regra com `Add-AzMetricAlertRuleV2` referenciando o criterio e o Action Group.
+
+> **Dica prova:** Entenda a diferenca entre WindowSize e Frequency: WindowSize = periodo de dados avaliado (ex: 5 min = media dos ultimos 5 min). Frequency = intervalo entre avaliacoes (ex: 1 min = verifica a cada minuto). Frequency deve ser <= WindowSize.
 
 > **Cobranca:** Alert rules geram cobranca minima por sinal monitorado.
 
@@ -1596,6 +1711,8 @@ Get-AzMetricAlertRuleV2 -ResourceGroupName $rg13 -Name $alertRuleName |
 
 ### Task 4.3b: Alerta com Dynamic Threshold
 
+Dynamic Thresholds usam Machine Learning para aprender o padrao normal de uso e alertam quando detectam desvios (anomalias). Diferente do Static Threshold onde voce define um valor fixo (ex: 80%), aqui o Azure calcula o limite automaticamente.
+
 ```powershell
 # ============================================================
 # TASK 4.3b - Criar alerta com Dynamic Threshold
@@ -1648,6 +1765,16 @@ Write-Host "O ML precisa de ~3 dias de dados historicos para melhor resultado"
 ---
 
 ### Task 4.4: Configurar Diagnostic Settings na VM
+
+Diagnostic Settings sao a "ponte" que envia metricas e logs de um recurso para destinos de armazenamento. Esta task cria um Log Analytics Workspace e configura a VM para enviar metricas para ele via `Set-AzDiagnosticSetting`.
+
+> **Conceito: Tres destinos de Diagnostic Settings**
+>
+> | Destino | Uso principal | Cmdlet/Parametro |
+> |---------|---------------|------------------|
+> | **Log Analytics** | Consultas KQL, alertas | `-WorkspaceId` |
+> | **Storage Account** | Retencao longa, compliance | `-StorageAccountId` |
+> | **Event Hub** | Integracao externa (Splunk, Datadog) | `-EventHubAuthorizationRuleId` |
 
 > **Cobranca:** O workspace gera cobranca por GB de dados ingeridos.
 
@@ -1703,6 +1830,8 @@ Write-Host "Metricas: AllMetrics"
 
 ### Task 4.5: Visualizar metricas no console
 
+O cmdlet `Get-AzMetric` consulta metricas diretamente de um recurso. E util para verificar se os dados estao sendo coletados e para debugging rapido sem precisar do portal.
+
 ```powershell
 # ============================================================
 # TASK 4.5 - Consultar metricas da VM via PowerShell
@@ -1736,6 +1865,10 @@ Get-AzMetricDefinition -ResourceId $vm.Id |
 ---
 
 ### Task 4.6b: Service Health Alerts
+
+Service Health monitora incidentes, manutencao e advisories do Azure que podem afetar seus recursos. Diferente de Metric Alerts, Service Health usa **Activity Log Alerts** -- tipo diferente de alerta com cmdlets diferentes (`New-AzActivityLogAlert`).
+
+> **Dica prova:** "Ser notificado quando o Azure tiver problemas na minha regiao" = Service Health Alert. Service Health usa Activity Log Alerts, NAO Metric Alerts. Essa distincao e cobrada na prova.
 
 ```powershell
 # ============================================================
@@ -1896,6 +2029,10 @@ Os tres destinos de Diagnostic Settings sao: **Log Analytics Workspace** (analis
 
 ### Task 5.1: Instalar Azure Monitor Agent (AMA) na VM
 
+O AMA e o agente moderno que substitui o MMA (Microsoft Monitoring Agent). E instalado como uma VM Extension com `Set-AzVMExtension`. Para Windows use `AzureMonitorWindowsAgent`; para Linux use `AzureMonitorLinuxAgent`.
+
+> **Dica prova:** AMA + Data Collection Rules (DCR) e a resposta correta para cenarios de monitoramento modernos. MMA/OMS e a resposta errada (legado, sendo descontinuado). Se a prova mencionar "agente recomendado" ou "abordagem moderna", escolha AMA.
+
 ```powershell
 # ============================================================
 # TASK 5.1 - Instalar Azure Monitor Agent (AMA) na VM
@@ -1942,6 +2079,11 @@ Get-AzVMExtension -ResourceGroupName $vmRg -VMName $vmName |
 ---
 
 ### Task 5.2: Criar Data Collection Rule
+
+Data Collection Rules (DCR) definem QUAIS dados coletar e PARA ONDE enviar. Uma unica DCR pode ser associada a multiplas VMs, simplificando o gerenciamento em escala. O processo envolve criar objetos de data source, destination e data flow, e depois associar a DCR a VM.
+
+> **Conceito: DCR vs configuracao legada**
+> No metodo legado (MMA), a configuracao de coleta era feita diretamente no workspace. Com AMA + DCR, a configuracao e separada: a DCR define o que coletar e a associacao define quais VMs usam aquela regra. Isso permite gerenciar 50+ VMs com uma unica DCR.
 
 ```powershell
 # ============================================================
@@ -2023,6 +2165,10 @@ Write-Host "DCR associada a VM $vmName"
 ---
 
 ### Task 5.3: Executar queries KQL
+
+KQL (Kusto Query Language) e a linguagem de consulta do Azure Monitor. Em PowerShell, voce executa queries com `Invoke-AzOperationalInsightsQuery` passando o workspace ID (CustomerId) e a query KQL como string.
+
+> **Dica prova:** Na prova, KQL aparece em questoes de "qual query retorna X". Memorize os operadores basicos: `where` (filtrar), `summarize` (agregar), `project` (selecionar colunas), `bin()` (agrupar por tempo), `ago()` (tempo relativo).
 
 ```powershell
 # ============================================================
@@ -2115,6 +2261,8 @@ if ($result3.Results) {
 
 ### Task 5.4: Habilitar VM Insights
 
+VM Insights e uma solucao que fornece dashboards de performance detalhada e mapa de dependencias. Requer dois agentes: AMA (metricas e logs) e Dependency Agent (processos e conexoes TCP). O Dependency Agent e instalado com `Set-AzVMExtension` usando o publisher `Microsoft.Azure.Monitoring.DependencyAgent`.
+
 ```powershell
 # ============================================================
 # TASK 5.4 - Habilitar VM Insights
@@ -2180,6 +2328,18 @@ Get-AzVMExtension -ResourceGroupName $vmRg -VMName $vmName |
 ---
 
 ### Task 5.5: Network Watcher e Connection Monitor
+
+Network Watcher e o servico de diagnostico de rede do Azure. Connection Monitor monitora conectividade de forma continua entre endpoints, testando periodicamente. O setup requer: (1) Network Watcher Agent na VM, (2) definir source/destination endpoints, (3) configurar o teste.
+
+> **Conceito: Network Watcher -- ferramentas principais**
+>
+> | Ferramenta | Tipo | Uso |
+> |-----------|------|-----|
+> | **Connection Monitor** | Continuo | Monitorar conectividade entre endpoints |
+> | **IP Flow Verify** | Pontual | Testar se NSG permite/bloqueia trafego |
+> | **Next Hop** | Pontual | Ver proxima rota para um destino |
+> | **Packet Capture** | Pontual | Capturar pacotes na VM |
+> | **NSG Flow Logs** | Continuo | Registrar todo trafego no NSG |
 
 ```powershell
 # ============================================================
@@ -2279,6 +2439,10 @@ Write-Host "Dados enviados para: $workspaceName"
 
 ### Task 5.6: IP Flow Verify e Next Hop
 
+IP Flow Verify testa se uma combinacao especifica de IP/porta/protocolo e permitida ou bloqueada pelas regras do NSG. Retorna a regra exata responsavel. Next Hop mostra qual sera o proximo salto na rota para um destino (Internet, VNet gateway, NVA, etc.).
+
+> **Dica prova:** "VM nao consegue acessar recurso X" = use IP Flow Verify para NSG ou Next Hop para roteamento. Sao ferramentas de diagnostico pontual (on-demand), diferente do Connection Monitor (continuo).
+
 ```powershell
 # ============================================================
 # TASK 5.6 - IP Flow Verify e Next Hop
@@ -2335,6 +2499,8 @@ if ($nic) {
 ---
 
 ### Task 5.9b: NSG Flow Logs com Traffic Analytics
+
+NSG Flow Logs registram todo trafego que passa pelo NSG (permitido e negado). Traffic Analytics agrega esses dados no Log Analytics para visualizacao e analise. O cmdlet `New-AzNetworkWatcherFlowLog` configura ambos de uma vez.
 
 ```powershell
 # ============================================================
@@ -2505,6 +2671,10 @@ D) Diagnostic Settings
 
 ### Task 6.1: Mover VM para outro Resource Group (PowerShell)
 
+`Move-AzResource` move recursos entre Resource Groups ou subscriptions sem downtime. A VM continua running durante o move. Recursos dependentes (NIC, Disk, PIP) DEVEM ser movidos juntos -- passe todos os IDs no array `-ResourceId`.
+
+> **Dica prova:** Move entre RGs na mesma regiao = `Move-AzResource`, sem downtime. Move entre regioes = NAO e possivel com `Move-AzResource` para VMs -- use ASR ou Azure Resource Mover. Recursos com locks NAO podem ser movidos (remova o lock antes).
+
 ```powershell
 # ============================================================
 # TASK 6.1 - Mover VM entre Resource Groups
@@ -2558,6 +2728,8 @@ Get-AzVM -ResourceGroupName "rg-contoso-moved" -Name "vm-api-01" |
 
 ### Task 6.2: Entender limitacoes de move e mover VM de volta
 
+Esta task demonstra as limitacoes do move e como reverter. O move e reversivel -- basta chamar `Move-AzResource` novamente com o RG original como destino.
+
 ```powershell
 # ============================================================
 # TASK 6.2 - Limitacoes de Move e reverter
@@ -2603,6 +2775,11 @@ Write-Host "VM movida de volta para rg-contoso-compute com sucesso" -ForegroundC
 ---
 
 ### Task 6.3: Criar Azure Backup Vault via PowerShell
+
+O Backup Vault (`Az.DataProtection`) e diferente do Recovery Services Vault (`Az.RecoveryServices`). Cada um suporta workloads diferentes. O Backup Vault usa o padrao `Initialize-` + `New-` para criar backup instances, e `Get-AzDataProtectionPolicyTemplate` para obter templates de policy.
+
+> **Conceito: Padrao Initialize + New no Az.DataProtection**
+> Diferente do Az.RecoveryServices (que usa `Enable-`), o modulo Az.DataProtection separa a preparacao (`Initialize-AzDataProtectionBackupInstance`) da criacao (`New-AzDataProtectionBackupInstance`). Isso permite validar a configuracao antes de ativar a protecao.
 
 ```powershell
 # ============================================================
@@ -2731,6 +2908,10 @@ Get-AzDataProtectionBackupPolicy `
 ---
 
 ### Task 6.5: Configurar backup de disco no Backup Vault
+
+O Backup Vault usa Managed Identity (System Assigned) para acessar os discos. Voce precisa atribuir roles RBAC antes de criar a backup instance: **Disk Backup Reader** (para ler dados do disco) e **Disk Snapshot Contributor** (para criar snapshots).
+
+> **Dica prova:** O Backup Vault precisa de roles RBAC para funcionar. Sem `Disk Backup Reader` e `Disk Snapshot Contributor`, a backup instance falha. Essa atribuicao de roles e um passo obrigatorio que a prova pode cobrar.
 
 ```powershell
 # ============================================================
@@ -2919,7 +3100,7 @@ O padrao em Az.DataProtection e: `Initialize-` prepara o objeto de configuracao 
 
 ## Pausar entre Sessoes
 
-Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos para evitar cobrancas desnecessarias.
+Se voce nao vai completar todos os blocos em um unico dia, desaloque os recursos para evitar cobrancas desnecessarias. `Stop-AzVM -Force` desaloca a VM (libera compute); `Start-AzVM` retoma.
 
 ```powershell
 # Pausar
@@ -2940,6 +3121,8 @@ Start-AzVM -ResourceGroupName rg-contoso-compute -Name vm-api-01
 > **IMPORTANTE:** Remova todos os recursos para evitar custos.
 > Execute os comandos na ordem indicada: desabilitar backup ANTES de deletar o vault,
 > depois Resource Groups. O Backup Vault tambem requer remover backup instances antes da exclusao.
+>
+> **Dica prova:** Na prova, "como deletar um Recovery Services Vault?" = primeiro desabilitar e remover todos os itens protegidos, depois deletar o vault. Tentar deletar um vault com itens protegidos retorna erro.
 
 ```powershell
 # ============================================================

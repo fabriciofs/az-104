@@ -9,6 +9,9 @@
 > **Objetivo:** Reproduzir **todo** o lab unificado da Semana 2 (~45 recursos) usando exclusivamente PowerShell.
 > Cada comando e fortemente comentado para aprendizado.
 
+> **Conceito — PowerShell como abordagem Imperativa:**
+> Diferente de ARM/Bicep (declarativos), PowerShell e **imperativo** — voce diz exatamente o que fazer, passo a passo. Nao ha estado desejado nem idempotencia automatica: rodar `New-AzStorageAccount` duas vezes com o mesmo nome gera erro (o recurso ja existe). Na prova AZ-104, PowerShell aparece em questoes sobre cmdlets especificos (`New-Az*`, `Set-Az*`, `Get-Az*`), pipelines (`|`), e parametros como `-SkuName`, `-Kind`, `-AccessTier`. Saber a diferenca entre declarativo (ARM/Bicep) e imperativo (PowerShell/CLI) e fundamental.
+
 ---
 
 ## Pre-requisitos: Cloud Shell e Conexao
@@ -162,9 +165,16 @@ Bloco 5 (Container Apps) ◄──── Orquestracao serverless
 > **Conceito:** O Azure Storage oferece 4 servicos: Blobs, Files, Queues e Tables.
 > Neste bloco, focamos em Blobs (objetos) e Files (compartilhamento SMB/NFS).
 
+Neste bloco voce cria recursos de Storage passo a passo usando cmdlets PowerShell. Note o padrao imperativo: cada comando cria um recurso especifico, e voce armazena o resultado em variaveis (`$storageAccount`, `$ctx`) para usar em comandos seguintes. O "contexto" (`$ctx = $storageAccount.Context`) e essencial — contem as credenciais para operacoes de dados.
+
+> **Conceito — Contexto do Storage Account:**
+> Em PowerShell, o **Context** e um objeto que encapsula as credenciais de autenticacao para operacoes de dados (upload, download, list). Sem o contexto, cmdlets como `New-AzStorageContainer` e `Set-AzStorageBlobContent` nao sabem qual conta usar. O contexto pode ser criado via `$storageAccount.Context` (credencial da conta) ou `New-AzStorageContext` (com SAS token ou chave).
+
 ---
 
 ### Task 1.1: Criar Resource Group e Storage Account
+
+Aqui voce cria o Resource Group e o Storage Account em sequencia. Note que em PowerShell, todos os parametros do recurso sao passados diretamente no cmdlet (diferente de ARM/Bicep onde ficam em secoes separadas). O cmdlet `New-AzStorageAccount` cria o recurso E retorna o objeto — por isso salvamos em `$storageAccount` para reutilizar.
 
 ```powershell
 # ============================================================
@@ -350,6 +360,8 @@ Write-Host "=============================" -ForegroundColor Yellow
 
 ### Task 1.4: Gerar SAS Token
 
+SAS Tokens concedem acesso temporario e restrito ao Storage Account sem compartilhar as chaves da conta. Em PowerShell, `New-AzStorageAccountSASToken` gera um token com permissoes especificas (`-Permission "rl"` = Read + List) e validade limitada. Note como cada permissao e uma letra: `r`=Read, `w`=Write, `d`=Delete, `l`=List, `a`=Add, `c`=Create.
+
 ```powershell
 # ============================================================
 # TASK 1.4 - Gerar Shared Access Signature (SAS) Token
@@ -500,6 +512,8 @@ Get-AzStorageAccountManagementPolicy `
 
 ### Task 1.6: Configurar Service Endpoint
 
+Em PowerShell, configurar Service Endpoint envolve dois passos: (1) criar a subnet com `-ServiceEndpoint "Microsoft.Storage"`, e (2) aplicar Network Rules no Storage Account com `Update-AzStorageAccountNetworkRuleSet`. Note que `-DefaultAction Deny` bloqueia TUDO por padrao — apenas subnets e IPs explicitamente listados terao acesso.
+
 ```powershell
 # ============================================================
 # TASK 1.6 - Configurar Service Endpoint para Storage
@@ -606,6 +620,8 @@ Write-Host "Policy associada a subnet 'default'"
 ---
 
 ### Task 1.7: Configurar Private Endpoint
+
+Criar Private Endpoint em PowerShell envolve varios cmdlets encadeados: `New-AzPrivateLinkServiceConnection` (vinculo com o recurso), `New-AzPrivateEndpoint` (a NIC privada), `New-AzPrivateDnsZone` (zona DNS), `New-AzPrivateDnsVirtualNetworkLink` (link VNet -> DNS) e `New-AzPrivateDnsZoneGroup` (registro automatico do IP). Cada cmdlet armazena o resultado em variavel para o proximo usar.
 
 > **Cobranca:** Private Endpoints geram cobranca enquanto existirem.
 
@@ -852,6 +868,11 @@ O bypass "AzureServices" (ou "trusted Microsoft services" no portal) permite que
 
 > **Conceito:** Azure VMs sao o servico IaaS fundamental. Voce controla o SO, middleware e aplicacoes.
 > VMs podem ser Windows ou Linux, e existem centenas de tamanhos (series B, D, E, F, etc.).
+
+Criar VMs em PowerShell e um processo em multiplos passos: primeiro voce cria o objeto de configuracao (`New-AzVMConfig`), depois adiciona SO (`Set-AzVMOperatingSystem`), imagem (`Set-AzVMSourceImage`), disco (`Set-AzVMOSDisk`) e NIC (`Add-AzVMNetworkInterface`). Somente no final `New-AzVM` envia tudo para o Azure. Este padrao "builder" e tipico do PowerShell.
+
+> **Conceito — Padrao Builder no PowerShell:**
+> Em PowerShell, VMs sao criadas usando o padrao "builder": voce constroi o objeto `$vmConfig` localmente (em memoria), adicionando configuracoes uma a uma, e so cria no Azure com `New-AzVM`. Isso e diferente de ARM/Bicep onde tudo e declarado de uma vez. Na prova, questoes sobre PowerShell testam a ordem dos cmdlets e parametros como `-Zone`, `-VMSize`, `-ProvisionVMAgent`.
 
 ---
 
@@ -1680,6 +1701,10 @@ Custom Script Extension executa scripts (PowerShell no Windows, Bash no Linux) a
 > **Conceito:** Azure App Service e PaaS — voce faz deploy do codigo e o Azure gerencia
 > a infraestrutura (SO, patches, scaling). Alternativa ao IaaS (VMs) para aplicacoes web.
 
+Em PowerShell, o App Service Plan e o Web App sao criados com cmdlets separados (`New-AzAppServicePlan`, `New-AzWebApp`). Slots sao criados com `New-AzWebAppSlot` e o swap com `Switch-AzWebAppSlot`. Note que em PowerShell voce define App Settings como hashtables (`@{ "key" = "value" }`) e Slot Settings exigem um cmdlet separado (`Set-AzWebAppSlotConfigName`).
+
+> **Dica prova:** Na AZ-104, questoes sobre App Service testam: (1) Slots requerem Standard+, (2) Slot Settings ("sticky") NAO acompanham o swap, (3) `AlwaysOn` evita que a app "durma" apos 20min idle, e (4) `HTTPS Only` forca redirect 301 de HTTP para HTTPS.
+
 ---
 
 ### Task 3.1: Criar Resource Group e App Service Plan
@@ -2058,6 +2083,10 @@ Standard (S1) e o tier minimo para deployment slots (5 slots) e autoscale. Free 
 > **Conceito:** ACI e a forma mais rapida de rodar containers no Azure. Sem orquestracao,
 > sem cluster. Ideal para tarefas batch, build agents, e testes rapidos.
 
+Em PowerShell, ACI e criado com `New-AzContainerGroup`. Para montar Azure Files como volume, voce precisa de 3 cmdlets encadeados: `New-AzContainerInstanceVolumeMountObject`, `New-AzContainerGroupVolumeObject` e `New-AzContainerInstanceObject`. Note que variaveis de ambiente seguras usam `-SecureValue` (convertido com `ConvertTo-SecureString`).
+
+> **Dica prova:** ACI suporta volumes Azure Files (nao Blob!). Containers no mesmo grupo compartilham IP e lifecycle. `RestartPolicy: Never` significa que o container nao reinicia apos falha — util para tarefas batch.
+
 ---
 
 ### Task 4.1: Criar Resource Group e Container Group simples
@@ -2336,6 +2365,11 @@ Variaveis com `secureValue` sao criptografadas e nao aparecem em logs, portal ou
 > **NOTA IMPORTANTE:** Azure Container Apps **nao possui cmdlets PowerShell nativos** no modulo Az.
 > Usamos `az containerapp` (CLI) diretamente no Cloud Shell PowerShell.
 > Isso e comum no Azure — alguns servicos mais novos so tem suporte CLI inicialmente.
+
+Este bloco demonstra um cenario real: nem todos os servicos Azure tem cmdlets PowerShell. Container Apps e mais recente e so tem suporte via `az containerapp` (CLI). No Cloud Shell PowerShell, voce pode misturar cmdlets PowerShell com comandos `az` sem problemas.
+
+> **Conceito — Misturando PowerShell e CLI:**
+> No Cloud Shell, PowerShell e Azure CLI coexistem. Voce pode usar `New-AzResourceGroup` (PowerShell) e `az containerapp create` (CLI) na mesma sessao. Na prova, saiba que Container Apps usa `az containerapp` e nao tem equivalente PowerShell nativo. Isso e testado em questoes sobre "qual ferramenta usar para gerenciar Container Apps".
 
 ---
 
@@ -2664,6 +2698,11 @@ ACI = container simples, sem orquestracao, sem auto-scaling (voce gerencia manua
 **Resource Groups:** `rg-contoso-storage` (existente), `rg-contoso-compute` (existente), `rg-contoso-storage` (novo)
 
 > **Pre-requisito:** Blocos 1 e 2 devem estar completos (Storage Account + VMs criadas).
+
+Neste bloco voce pratica operacoes avancadas de Storage e criptografia. O AzCopy faz transferencias server-to-server (sem passar pelo seu computador). Object Replication copia blobs entre contas. CMK substitui a chave da Microsoft por uma sua no Key Vault. ADE criptografa discos no nivel do SO.
+
+> **Conceito — ADE vs SSE:**
+> **SSE** (Storage Service Encryption) e automatico e criptografa dados no storage layer. **ADE** (Azure Disk Encryption) usa BitLocker (Windows) ou DM-Crypt (Linux) para criptografar no nivel do SO. Sao complementares e podem ser usados juntos. Na prova, se a questao menciona "criptografia de disco no nivel do OS", a resposta e ADE.
 
 ---
 
@@ -3097,6 +3136,10 @@ Roles SMB: Reader (leitura), Contributor (leitura + escrita + exclusao), Elevate
 
 > **Pre-requisito:** Blocos 1 e 3 devem estar completos (Storage Account + App Service criados).
 
+Neste bloco voce cria um ACR e deploya um ACI que puxa imagem privada. Tambem configura App Service com TLS, backup agendado e VNet Integration. Em PowerShell, ACR usa `New-AzContainerRegistry` e o build usa `az acr build` (CLI).
+
+> **Dica prova:** `az acr build` faz build no cloud sem Docker local. ACR SKUs: Basic (10 GiB), Standard (100 GiB + webhooks), Premium (500 GiB + geo-replication + private link). Para App Service, backup requer Standard+ e um container no Storage Account com SAS token.
+
 ---
 
 ### Task 7.1: Criar Azure Container Registry
@@ -3517,6 +3560,9 @@ Write-Host "  - $rg10 (Container Apps Environment, Container App)"
 ---
 
 # Key Takeaways Consolidados
+
+> **Conceito — PowerShell vs ARM/Bicep na prova:**
+> Na AZ-104, saiba quando usar cada abordagem: **PowerShell/CLI** para operacoes pontuais (resize VM, swap slot, gerar SAS) e automacao com scripts. **ARM/Bicep** para provisionamento repetivel e versionado (infraestrutura como codigo). Se a questao pede "provisionar infraestrutura de forma declarativa e repetivel", use ARM/Bicep. Se pede "executar uma operacao ad-hoc", use PowerShell/CLI.
 
 ## Bloco 1 - Storage (Az module)
 - `New-AzStorageAccount` cria conta com `-SkuName` para redundancia e `-AccessTier` para custo

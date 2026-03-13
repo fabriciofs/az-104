@@ -10,6 +10,9 @@
 > **Objetivo:** Reproduzir **todo** o lab unificado v2 (~49 recursos) usando ARM Templates JSON + CLI.
 > Cada template inclui boilerplate completo e e fortemente comentado.
 
+> **Conceito: O que e ARM Template?**
+> ARM Templates sao arquivos JSON **declarativos** que descrevem a infraestrutura desejada. Voce diz "quero uma VNet com essas propriedades" e o Azure Resource Manager se encarrega de criar, atualizar ou manter o recurso. A grande vantagem e a **idempotencia**: executar o mesmo template duas vezes produz o mesmo resultado, sem duplicar recursos. Na prova AZ-104, ARM Templates aparecem em questoes sobre IaC, parametrizacao e scopes de deploy.
+
 ---
 
 ## Pre-requisitos: Cloud Shell e Conceitos ARM Template
@@ -20,7 +23,7 @@
 > O Cloud Shell ja possui Azure CLI pre-instalado e a autenticacao e automatica.
 > Para criar os arquivos `.json`, use o editor integrado: `code nome-do-arquivo.json`
 
-Antes de comecar, entenda a estrutura de um ARM template:
+Antes de comecar, entenda a estrutura de um ARM template. Todo ARM template JSON segue a mesma estrutura com 6 secoes. O `$schema` define o scope de deploy e o `resources` contem os recursos a provisionar. As demais secoes sao opcionais mas essenciais para templates reutilizaveis.
 
 ```json
 {
@@ -75,6 +78,8 @@ Antes de comecar, entenda a estrutura de um ARM template:
 
 ### Funcoes ARM Essenciais
 
+ARM Templates usam funcoes entre colchetes `[...]` para gerar valores dinamicamente durante o deploy. Diferente do Bicep (que usa sintaxe nativa), em ARM voce precisa envolver toda expressao em `"[...]"`. Memorize as funcoes abaixo — a prova cobra pelo menos `resourceId()` e `concat()`.
+
 | Funcao | Uso | Exemplo |
 |--------|-----|---------|
 | `[parameters('x')]` | Ler parametro | `[parameters('location')]` |
@@ -88,6 +93,8 @@ Antes de comecar, entenda a estrutura de um ARM template:
 ---
 
 ## Verificacao e Variaveis
+
+Antes de iniciar qualquer deploy, confirme que esta na subscription correta e defina as variaveis globais. Essas variaveis serao reutilizadas em todos os blocos, evitando hardcoding de valores nos templates.
 
 ```bash
 # ============================================================
@@ -121,6 +128,8 @@ MG_NAME="mg-contoso-prod"
 ---
 
 ## Mapa de Dependencias
+
+O lab segue uma ordem sequencial onde cada bloco depende dos anteriores. Identity cria os usuarios/grupos usados em Governance, que cria as policies testadas em IaC, e assim por diante. Essa cadeia valida que todos os componentes funcionam integrados.
 
 ```
 Bloco 1 (Identity) → CLI fallback (Entra ID ≠ ARM)
@@ -156,6 +165,8 @@ Bloco 5 (Connectivity) → ARM templates + CLI
 
 ### Task 1.1: Criar usuario contoso-user1
 
+Criamos um usuario interno no Entra ID com propriedades que serao usadas em dynamic groups (department=IT) e em testes de RBAC nos blocos seguintes. O `UsageLocation` e obrigatorio para atribuicao de licencas.
+
 ```bash
 # ============================================================
 # TASK 1.1 - Criar usuario (CLI — nao e recurso ARM)
@@ -183,6 +194,8 @@ az rest --method PATCH \
 ---
 
 ### Task 1.2: Convidar usuario externo (Guest/B2B)
+
+O convite B2B cria um usuario do tipo **Guest** no seu tenant. Esse usuario usa as credenciais do proprio dominio (ex: Gmail, Microsoft pessoal) para acessar recursos. Na prova, lembre que Guest NAO pode fazer self-service password reset (SSPR) e que o role **Guest Inviter** permite enviar convites sem ser Global Admin.
 
 ```bash
 # ============================================================
@@ -212,6 +225,8 @@ echo ">>> ACEITE O CONVITE NO EMAIL ANTES DE CONTINUAR <<<"
 ---
 
 ### Task 1.3: Criar grupo IT Lab Administrators
+
+Grupos de seguranca sao o principal mecanismo para gerenciar acesso em escala. Em vez de atribuir RBAC a usuarios individuais, atribuimos ao grupo — qualquer membro herda automaticamente. Este grupo tera VM Contributor no Bloco 2.
 
 ```bash
 # ============================================================
@@ -332,6 +347,10 @@ A) Department  B) Job title  C) Usage location  D) Manager
 
 ### Task 2.1: Criar Management Group e mover subscription
 
+Management Groups organizam subscriptions numa hierarquia. RBAC e policies aplicados no MG sao **herdados** por todas as subscriptions filhas. Isso e essencial para governanca em escala — em vez de configurar cada subscription, voce configura o MG uma vez.
+
+> **Dica prova:** Management Groups NAO sao comumente deployados via ARM Templates em cenarios de prova. Sao operacoes de controle gerenciadas via CLI ou portal.
+
 ```bash
 # ============================================================
 # TASK 2.1 - Management Group (CLI - operacao de controle)
@@ -349,6 +368,10 @@ az account management-group show --name "$MG_NAME" --expand --recurse
 
 ### Task 2.2: Atribuir VM Contributor (CLI)
 
+RBAC (Role-Based Access Control) funciona com tres elementos: **quem** (principal), **o que** (role), e **onde** (scope). Aqui atribuimos VM Contributor ao grupo IT Lab Administrators no escopo do Management Group, o que significa que membros podem gerenciar VMs em qualquer subscription dentro deste MG.
+
+> **Dica prova:** VM Contributor permite gerenciar VMs mas **NAO** inclui acesso ao SO (RDP/SSH), rede ou storage. Para acesso remoto, use **Virtual Machine Administrator Login** ou **Virtual Machine User Login**.
+
 ```bash
 # ============================================================
 # TASK 2.2 - RBAC no MG (CLI)
@@ -362,6 +385,11 @@ az role assignment create \
 ---
 
 ### Task 2.3: Criar custom RBAC role via ARM
+
+Custom roles permitem definir permissoes granulares quando os built-in roles nao atendem. O ARM template abaixo cria um role no scope de Management Group, usando o schema `managementGroupDeploymentTemplate`. Note o uso de `guid()` para gerar um nome unico e deterministico — ARM exige que role definitions tenham um GUID como nome.
+
+> **Conceito: Actions vs NotActions**
+> `Actions` define o que o role PODE fazer. `NotActions` remove permissoes do conjunto de Actions. No exemplo: `*/read` + `Microsoft.Support/*` menos `Microsoft.Support/register/action`. O resultado e: pode ler tudo e fazer tudo em Support, EXCETO registrar o provider.
 
 Salve como **`bloco2-custom-role.json`**:
 
@@ -453,6 +481,10 @@ az monitor activity-log list \
 
 ### Task 2.5: Criar Resource Groups com tags via ARM
 
+Resource Groups sao containers logicos para recursos Azure. Criar RGs via ARM template requer o schema `subscriptionDeploymentTemplate` porque RGs sao recursos de **subscription** (nao vivem dentro de outros RGs). Tags como `Cost Center` sao metadados usados para billing, organizacao e automacao via policies.
+
+> **Dica prova:** O comando de deploy muda conforme o scope: `az deployment group create` (RG), `az deployment sub create` (subscription), `az deployment mg create` (MG), `az deployment tenant create` (tenant).
+
 Salve como **`bloco2-rgs.json`**:
 
 ```json
@@ -509,6 +541,18 @@ az deployment sub create \
 
 ### Task 2.6-2.7: Testar Deny policy e substituir por Modify
 
+Azure Policy permite governanca automatizada. O efeito **Deny** bloqueia criacao de recursos que nao atendem as condicoes — neste caso, recursos sem a tag `Cost Center = 000`. Depois de testar o bloqueio, substituimos por **Modify** que e menos restritivo: em vez de bloquear, corrige automaticamente adicionando a tag.
+
+> **Conceito: Efeitos de Policy na prova**
+>
+> | Efeito | Comportamento | Requer MI? |
+> | --- | --- | --- |
+> | **Deny** | Bloqueia criacao | Nao |
+> | **Audit** | Permite, marca non-compliant | Nao |
+> | **Modify** | Altera recurso automaticamente | Sim |
+> | **DeployIfNotExists** | Cria recurso complementar se faltar | Sim |
+> | **Append** | Adiciona campos (deprecated em favor de Modify) | Nao |
+
 ```bash
 # ============================================================
 # TASK 2.6 - Aplicar Deny, testar, remover (CLI)
@@ -539,6 +583,10 @@ az policy assignment delete \
 ---
 
 ### Task 2.7-2.8: Policies Modify via ARM (rg2)
+
+O template abaixo faz duas coisas: (1) cria a policy assignment com efeito Modify e Managed Identity, e (2) atribui o role **Tag Contributor** a essa Managed Identity. O Modify precisa de identidade porque ele **altera** recursos — sem permissao, a policy detecta non-compliance mas nao consegue corrigir.
+
+> **Dica prova:** Quando a questao perguntar "qual efeito de policy requer Managed Identity?" a resposta e **Modify** (e DeployIfNotExists). Deny e Audit NAO precisam.
 
 Salve como **`bloco2-policies-rg2.json`**:
 
@@ -732,6 +780,8 @@ echo ">>> Aguarde 5-15 min para as policies entrarem em vigor <<<"
 ---
 
 ### Task 2.11: Resource Lock via ARM
+
+Resource Locks protegem contra exclusao (CanNotDelete) ou modificacao (ReadOnly) acidental. A caracteristica mais importante para a prova: locks sobrescrevem **QUALQUER** permissao, incluindo Owner. Ate um Global Admin precisa remover o lock antes de deletar o recurso.
 
 Salve como **`bloco2-lock.json`**:
 
@@ -1023,6 +1073,15 @@ A) Criar e modificar  B) Apenas visualizar  C) Gerenciar VMs  D) Nada para guest
 
 ### Task 3.1-3.5: Template parametrizado para discos
 
+Este template demonstra um conceito fundamental de IaC: **reutilizacao via parametros**. O mesmo template cria 5 discos diferentes passando valores distintos no deploy. Note os validadores (`minValue`, `maxValue`, `allowedValues`) que impedem erros antes do deploy chegar ao Azure.
+
+> **Conceito: Parametros vs Variaveis em ARM**
+> - **Parameters**: valores fornecidos pelo usuario no momento do deploy (ex: nome do disco, SKU). Podem ter `defaultValue`, `allowedValues`, `minValue`, `maxValue`.
+> - **Variables**: valores calculados internamente, nao expostos ao usuario. Usam funcoes como `concat()`, `guid()`.
+> - **Regra pratica**: se o valor muda entre deploys → parameter. Se e fixo ou calculado → variable.
+
+> **Dica prova:** ARM JSON usa `--parameters` com `@` para arquivo (`@params.json`) ou inline (`diskName=value`). A questao pode perguntar a sintaxe correta.
+
 Salve como **`bloco3-disk.json`** (template):
 
 ```json
@@ -1254,6 +1313,13 @@ ARM JSON usa `copy` para loops. Bicep usa `for` — sintaticamente mais simples.
 
 ### Task 4.1-4.4: VNets + ASG + NSG
 
+Este template cria a infraestrutura de rede completa em um unico deploy: duas VNets com subnets, um ASG (Application Security Group) para agrupar VMs logicamente, e um NSG (Network Security Group) com regras de inbound e outbound. O ponto critico aqui sao os `dependsOn` — o NSG depende do ASG (referencia na regra), e a VNet depende do NSG (associacao na subnet).
+
+> **Conceito: NSG e processamento de regras**
+> Regras sao avaliadas por **priority** (menor numero = maior prioridade). Na primeira regra que faz match, o processamento para. Por isso, AllowASG (100) e avaliada antes de DenyInternetOutbound (4096). Se ambas fossem 100, daria erro — priorities devem ser unicas por direction.
+
+> **Dica prova:** `destinationAddressPrefix: "Internet"` e uma **Service Tag** — um alias mantido pelo Azure que representa todos os IPs publicos da internet. Outras tags comuns: `VirtualNetwork`, `AzureLoadBalancer`, `Storage`.
+
 Salve como **`bloco4-networking.json`**:
 
 ```json
@@ -1395,6 +1461,13 @@ az deployment group create \
 ---
 
 ### Task 4.5-4.6: DNS zones
+
+DNS zones no Azure hospedam registros de resolucao de nomes. O template cria uma zona publica (resolvivel pela internet) e uma zona privada (resolvivel apenas dentro de VNets linkadas). Note que DNS zones usam `location: "global"` — sao recursos globais, nao regionais.
+
+> **Conceito: DNS Publica vs Privada**
+> - **Publica**: qualquer pessoa na internet pode resolver. Precisa de NS delegation no registrador do dominio para funcionar "de verdade".
+> - **Privada**: so VMs em VNets com **Virtual Network Link** resolvem. Auto registration cria registros A automaticamente para VMs.
+> - **Na prova**: "peering compartilha DNS?" → **NAO**. Cada VNet precisa de seu proprio link.
 
 Salve como **`bloco4-dns.json`**:
 
@@ -1544,6 +1617,8 @@ A) Sim  B) Falha sem link  C) DNS publico  D) Com peering
 
 ### Task 5.1: Adicionar subnets (CLI)
 
+Adicionamos subnets nas VNets existentes para hospedar as VMs. Usamos CLI aqui porque adicionar subnets via ARM template exigiria re-declarar toda a VNet (ARM nao suporta updates parciais de subnets inline facilmente).
+
 ```bash
 az network vnet subnet create \
     --resource-group "$RG4" --vnet-name "vnet-contoso-hub" \
@@ -1559,6 +1634,11 @@ az network vnet subnet create \
 ### Task 5.2-5.3: Criar VMs via ARM
 
 > **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab.
+
+Este template demonstra **cross-RG reference**: as VMs ficam em `rg-contoso-compute` mas usam VNets de `rg-contoso-network`. Em ARM, isso e feito passando o nome do RG como primeiro parametro de `resourceId()`. O template tambem usa `securestring` para a senha — esse tipo impede que o valor apareca em logs ou outputs do deploy.
+
+> **Conceito: Anatomia de uma VM no ARM**
+> Uma VM no Azure e composta por multiplos recursos: NIC (interface de rede), OS Disk (disco do sistema), e opcionalmente Public IP e Data Disks. O `dependsOn` da VM aponta para a NIC, garantindo que a rede esteja pronta antes da VM ser provisionada.
 
 Salve como **`bloco5-vms.json`**:
 
@@ -1793,6 +1873,14 @@ az network watcher test-connectivity \
 
 ### Task 5.5: VNet Peering via ARM
 
+VNet Peering conecta duas VNets para que seus recursos se comuniquem via rede privada da Microsoft (sem passar pela internet). O peering precisa ser configurado em **ambas** as direcoes. Em ARM, cada peering e um recurso filho da VNet (`virtualNetworks/virtualNetworkPeerings`).
+
+> **Conceito: Propriedades do Peering**
+> - `allowVirtualNetworkAccess`: permite comunicacao entre VNets (quase sempre `true`)
+> - `allowForwardedTraffic`: permite trafego encaminhado por NVA (necessario para hub-spoke)
+> - `allowGatewayTransit`: VNet compartilha seu VPN Gateway com a peer
+> - `useRemoteGateways`: VNet usa o VPN Gateway da peer (mutuamente exclusivo com `allowGatewayTransit`)
+
 Salve como **`bloco5-peering.json`**:
 
 ```json
@@ -1890,6 +1978,8 @@ az vm run-command invoke \
 
 ### Task 5.7: DNS update via ARM
 
+Agora adicionamos um segundo Virtual Network Link (para vnet-contoso-hub) e um registro A com o IP **real** da vm-web-01. Isso permite que VMs em ambas as VNets resolvam `corevm.contoso.internal` pelo nome, sem precisar decorar IPs.
+
 Salve como **`bloco5-dns-update.json`**:
 
 ```json
@@ -1955,6 +2045,10 @@ az vm run-command invoke \
 ---
 
 ### Task 5.8: Route Table via ARM
+
+Route Tables contem User Defined Routes (UDRs) que sobrescrevem as rotas automaticas do Azure. Aqui criamos uma rota que direciona trafego para `10.20.0.0/16` via um NVA (Virtual Appliance) no IP `10.20.1.7`. O `disableBgpRoutePropagation: true` impede que rotas aprendidas via BGP (de VPN Gateway) sejam adicionadas a esta tabela.
+
+> **Dica prova:** Se o NVA no next hop nao existir ou nao tiver IP forwarding habilitado, o trafego e **descartado** (dropped). A UDR direciona, mas nao garante entrega.
 
 Salve como **`bloco5-route.json`**:
 
@@ -2108,6 +2202,9 @@ A) Sim  B) Falha sem link  C) Forwarded traffic  D) DNS forwarder
 
 > **Nota:** Este bloco cria VMs, Public IPs e Bastion que geram custo. Faca cleanup assim que terminar.
 
+> **Conceito: Load Balancer Standard vs Basic**
+> O Standard LB **bloqueia** trafego por padrao (NSG obrigatorio nas VMs/subnets do backend). O Basic LB permite trafego sem NSG. Na prova, se a questao mencionar "Standard LB e trafego nao chega", verifique se ha NSG com regra Allow. Standard LB tambem e zone-aware e requer Standard SKU Public IP.
+
 ---
 
 ### Task 6.1: Criar subnet snet-lb (CLI) e Resource Group
@@ -2132,6 +2229,10 @@ echo "RG rg-contoso-network e subnet snet-lb criados"
 ---
 
 ### Task 6.1b: Criar Availability Set e VMs com IIS
+
+O Availability Set distribui VMs entre **Fault Domains** (racks fisicos diferentes) e **Update Domains** (grupos de reinicializacao escalonada). O SKU `Aligned` e obrigatorio para VMs com managed disks. Na prova, a formula de Update Domains utilizaveis depende da regiao e do numero de VMs.
+
+> **Dica prova:** Availability Set e Availability Zone sao mutuamente exclusivos — uma VM nao pode estar em ambos. Availability Zone oferece maior resiliencia (datacenters separados) enquanto Availability Set opera dentro de um unico datacenter.
 
 Salve como **`bloco6-lb-infra.json`**:
 
@@ -2582,6 +2683,10 @@ echo "vm-lb-01 reiniciada. Aguarde probe detectar como healthy."
 
 ### Task 6.5: Criar Internal Load Balancer
 
+O Internal LB (ILB) usa um IP **privado** como frontend em vez de um IP publico. E usado para balancear trafego entre tiers internos (ex: web → app, app → database). Note que o frontend usa `privateIPAddress: "10.20.40.100"` com alocacao `Static`, garantindo que o IP nao mude.
+
+> **Dica prova:** Public LB e Internal LB podem coexistir na mesma VM/NIC. Uma VM pode estar no backend pool de ambos simultaneamente.
+
 Salve como **`bloco6-internal-lb.json`**:
 
 ```json
@@ -2723,6 +2828,10 @@ echo "IIS reiniciado."
 ---
 
 ### Task 6.7: Implantar Azure Bastion
+
+Azure Bastion permite acesso RDP/SSH a VMs **sem** IP publico na VM — a conexao passa pelo servico Bastion no browser. Requisitos obrigatorios: subnet chamada **exatamente** `AzureBastionSubnet` com pelo menos /26, e um Public IP Standard.
+
+> **Dica prova:** O nome da subnet DEVE ser `AzureBastionSubnet` — qualquer outro nome causa erro. O tamanho minimo e /26 (64 IPs). Bastion Basic nao suporta peering cross-VNet; para isso, use Bastion Standard.
 
 Salve como **`bloco6-bastion.json`**:
 

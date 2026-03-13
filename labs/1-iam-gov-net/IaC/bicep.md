@@ -10,6 +10,9 @@
 > **Objetivo:** Reproduzir **todo** o lab unificado v2 (~49 recursos) usando templates Bicep + CLI.
 > Cada template e fortemente comentado para aprendizado.
 
+> **Conceito: O que e Bicep?**
+> Bicep e uma linguagem **declarativa** criada pela Microsoft como alternativa ao ARM JSON. Internamente, Bicep compila para ARM JSON — entao tudo que Bicep faz, ARM JSON tambem faz. As vantagens do Bicep sao: sintaxe mais limpa, dependencias **implicitas** (sem `dependsOn` na maioria dos casos), decorators para validacao, e loops nativos com `for`. Na prova AZ-104, voce precisa entender ambas as sintaxes.
+
 ---
 
 ## Pre-requisitos: Cloud Shell e Conceitos Bicep
@@ -40,7 +43,7 @@ az account show --query "{name:name, id:id}" -o table
 
 ### Conceitos Basicos de Bicep
 
-Antes de comecar, entenda estes conceitos fundamentais:
+Antes de comecar, entenda estes conceitos fundamentais. O Bicep usa uma sintaxe mais concisa que ARM JSON: `param` em vez de `"parameters"`, `var` em vez de `"variables"`, e referencia direta por nome simbolico em vez de `"[resourceId(...)]"`. A maior vantagem e que dependencias entre recursos sao detectadas **automaticamente** quando voce referencia um recurso dentro de outro.
 
 ```bicep
 // === CONCEITOS FUNDAMENTAIS ===
@@ -169,6 +172,8 @@ Bloco 5 (Connectivity)
 ---
 
 ### Task 1.1: Criar usuario contoso-user1
+
+Criamos um usuario interno no Entra ID. Note que mesmo usando Bicep como tecnologia principal, Entra ID exige CLI/Graph API porque NAO e um recurso ARM. O `az rest` faz chamadas REST diretas a qualquer API Microsoft — util quando nao existe cmdlet dedicado.
 
 ```bash
 # ============================================================
@@ -431,6 +436,8 @@ D) Manager
 
 ### Task 2.1: Criar Management Group e mover subscription
 
+Management Groups criam uma hierarquia acima das subscriptions para aplicar RBAC e policies em escala. A heranca e automatica — tudo aplicado no MG vale para todas as subscriptions filhas.
+
 ```bash
 # ============================================================
 # TASK 2.1 - Criar Management Group (CLI)
@@ -485,6 +492,11 @@ az role assignment list \
 ---
 
 ### Task 2.3: Criar custom RBAC role via Bicep
+
+Custom roles permitem permissoes granulares nao cobertas pelos built-in roles. Note como o Bicep e mais legivel que ARM JSON: `targetScope = 'managementGroup'` substitui todo o schema URL, e `guid()` e chamado diretamente sem colchetes.
+
+> **Conceito: Idempotencia**
+> Se voce rodar este deploy duas vezes com os mesmos parametros, o resultado e identico — a role nao e duplicada. Isso e **idempotencia**, a propriedade fundamental de IaC declarativa. O Azure compara o estado desejado (template) com o estado atual e aplica apenas as diferencas.
 
 Salve como **`bloco2-custom-role.bicep`**:
 
@@ -572,6 +584,14 @@ az monitor activity-log list \
 ---
 
 ### Task 2.5: Criar Resource Groups com tags via Bicep
+
+RGs sao recursos de subscription, por isso o template usa `targetScope = 'subscription'`. Note como o Bicep e conciso comparado ao ARM JSON equivalente — sem `$schema`, sem `contentVersion`, sem array `resources`. Tags como `Cost Center` serao herdadas por recursos filhos via policy Modify no proximo passo.
+
+> **Dica prova:** Cada `targetScope` exige um comando de deploy diferente:
+> - `resourceGroup` (padrao) → `az deployment group create`
+> - `subscription` → `az deployment sub create`
+> - `managementGroup` → `az deployment mg create`
+> - `tenant` → `az deployment tenant create`
 
 Salve como **`bloco2-rgs.bicep`**:
 
@@ -669,6 +689,10 @@ echo "Policy Deny removida"
 ---
 
 ### Task 2.7-2.8: Aplicar Modify policy (Inherit tag) via Bicep
+
+O efeito **Modify** altera propriedades de recursos automaticamente durante a criacao. A policy precisa de uma Managed Identity (SystemAssigned) com permissao para fazer as alteracoes — neste caso, **Tag Contributor** para modificar tags. Note como a dependencia entre a policy assignment e o role assignment e **implicita** no Bicep: ao referenciar `policyAssignment.identity.principalId`, o Bicep sabe que deve criar a policy primeiro.
+
+> **Dica prova:** Policies com efeito **Modify** e **DeployIfNotExists** requerem Managed Identity. **Deny** e **Audit** nao precisam.
 
 Salve como **`bloco2-policies-rg2.bicep`**:
 
@@ -1129,6 +1153,16 @@ D) Nada — guests nao recebem roles
 
 ### Task 3.1-3.5: Deploy de 5 discos via template parametrizado
 
+Este template demonstra **reutilizacao** via parametros e **validacao** via decorators (`@minValue`, `@maxValue`, `@allowed`). O mesmo template cria 5 discos passando valores diferentes no deploy. Note os decorators do Bicep — em ARM JSON, essas validacoes ficam dentro do objeto do parametro, menos legiveis.
+
+> **Conceito: Decorators do Bicep**
+> Decorators (`@`) adicionam metadados e validacao aos parametros:
+> - `@description('...')` → documenta o parametro
+> - `@allowed([...])` → restringe valores aceitos (equivale a `allowedValues` no ARM)
+> - `@minValue(n)` / `@maxValue(n)` → limites numericos
+> - `@secure()` → esconde valor em logs/outputs (equivale a `securestring` no ARM)
+> - `@minLength(n)` / `@maxLength(n)` → limites de string
+
 Salve como **`bloco3-disk.bicep`**:
 
 ```bicep
@@ -1369,6 +1403,11 @@ Bicep detecta dependencias automaticamente quando um recurso referencia outro. A
 
 ### Task 4.1-4.2: Criar ambas as VNets
 
+Este template cria toda a infraestrutura de rede em um deploy: 2 VNets, 4 subnets, 1 ASG e 1 NSG. O destaque do Bicep aqui e a cadeia de **dependencias implicitas**: `asg.id` dentro do NSG cria NSG→ASG, e `nsg.id` dentro da subnet cria VNet→NSG. Em ARM JSON, voce precisaria de `dependsOn` explicito para cada uma dessas relacoes.
+
+> **Conceito: NSG - regras e Service Tags**
+> Regras NSG sao processadas por priority (menor = primeiro). A `destinationAddressPrefix: 'Internet'` e uma **Service Tag** — um alias mantido pelo Azure. Tags comuns na prova: `Internet`, `VirtualNetwork`, `AzureLoadBalancer`, `Storage`, `AzureCloud`.
+
 Salve como **`bloco4-networking.bicep`**:
 
 ```bicep
@@ -1507,6 +1546,11 @@ echo "VNets, ASG e NSG criados"
 ---
 
 ### Task 4.5-4.6: Criar DNS zones
+
+DNS zones no Azure hospedam registros de resolucao de nomes. Note o uso de `parent:` no Bicep para definir recursos filhos (ex: registro A dentro da zona) — isso e mais claro que a notacao `"name": "zona/registro"` do ARM JSON e cria dependencia implicita automaticamente.
+
+> **Conceito: keyword `existing`**
+> A keyword `existing` referencia um recurso que ja foi criado (por outro template ou manualmente). NAO cria o recurso — apenas obtem seu ID. Se o recurso nao existir, o deploy falha. Use `scope:` para referenciar recursos em outro RG.
 
 Salve como **`bloco4-dns.bicep`**:
 
@@ -1686,6 +1730,11 @@ echo "Subnets Core e Manufacturing adicionadas"
 ### Task 5.2-5.3: Criar VMs via Bicep
 
 > **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab.
+
+Este template demonstra **cross-RG reference** no Bicep usando `existing` + `scope: resourceGroup(...)`. As VMs ficam em `rg-contoso-compute` mas usam subnets de `rg-contoso-network`. Note o decorator `@secure()` no parametro `adminPassword` — ele impede que a senha apareca em logs do deploy ou outputs.
+
+> **Conceito: Anatomia de uma VM no Bicep**
+> Uma VM requer: NIC (que aponta para subnet), OS Disk (criado automaticamente via `imageReference`), e o recurso VM em si. As dependencias sao implicitas: `coreNic.id` dentro de `networkInterfaces` faz o Bicep esperar a NIC ser criada antes da VM.
 
 Salve como **`bloco5-vms.bicep`**:
 
@@ -1897,6 +1946,13 @@ echo "✓ VNets diferentes NAO se comunicam sem peering"
 
 ### Task 5.5: Configurar VNet Peering via Bicep
 
+VNet Peering conecta duas VNets pela rede privada da Microsoft. Precisa ser criado em **ambas** as direcoes. Note como o Bicep usa `parent:` para indicar que o peering e um recurso filho da VNet — mais claro que o `"name": "vnet/peering"` do ARM JSON.
+
+> **Conceito: Propriedades do Peering na prova**
+> - `allowForwardedTraffic: true` e necessario para cenarios hub-spoke com NVA
+> - `allowGatewayTransit` e `useRemoteGateways` sao para compartilhar VPN Gateway entre VNets
+> - Peering e **NAO transitivo**: A↔B + B↔C NAO implica A↔C
+
 Salve como **`bloco5-peering.bicep`**:
 
 ```bicep
@@ -2081,6 +2137,10 @@ az vm run-command invoke \
 
 ### Task 5.8: Route Table + custom route via Bicep
 
+Route Tables contem UDRs (User Defined Routes) que sobrescrevem as rotas automaticas do Azure. O `nextHopType: 'VirtualAppliance'` direciona trafego para um NVA (firewall/proxy). Se o NVA nao existir no IP configurado, o trafego e **descartado**.
+
+> **Dica prova:** `disableBgpRoutePropagation: true` impede que rotas aprendidas via VPN Gateway (BGP) sejam adicionadas a tabela. Use `true` quando quer controle total sobre as rotas.
+
 Salve como **`bloco5-route.bicep`**:
 
 ```bicep
@@ -2247,6 +2307,9 @@ A) Sim  B) Falha — sem link  C) Com forwarded traffic  D) Com DNS forwarder
 **Resource Group:** `rg-contoso-network` (VMs e LBs) + `rg-contoso-network` (VNet existente)
 
 > **Nota:** Este bloco cria VMs, Public IPs e Bastion que geram custo. Faca cleanup assim que terminar.
+
+> **Conceito: Load Balancer Standard vs Basic**
+> Standard LB **bloqueia** todo trafego por padrao — NSG e obrigatorio nas VMs/subnets do backend. Basic LB permite trafego sem NSG. Na prova, se "Standard LB e trafego nao chega", verifique NSG. Standard requer Standard SKU PIP e e zone-aware.
 
 ---
 
@@ -3524,60 +3587,60 @@ echo "=== CLEANUP COMPLETO ==="
 
 ## Bicep vs ARM JSON vs Portal
 
-| Aspecto | Bicep | ARM JSON | Portal |
-|---------|-------|----------|--------|
-| Sintaxe | Concisa, declarativa | Verbosa, JSON | Visual |
-| Dependencias | **Implicitas** (automaticas) | Explicitas (`dependsOn`) | N/A |
-| Type safety | Decorators (`@allowed`, `@minValue`) | Nenhum | Validacao visual |
-| Reutilizacao | Modules, loops (`for`) | Linked/nested templates | N/A |
-| Cross-RG | `existing` + `scope` | `resourceId('rg', 'type', 'name')` | Dropdown |
-| Scopes | `targetScope` keyword | Schema URL diferente | Navegacao |
+| Aspecto      | Bicep                                | ARM JSON                           | Portal           |
+| ------------ | ------------------------------------ | ---------------------------------- | ---------------- |
+| Sintaxe      | Concisa, declarativa                 | Verbosa, JSON                      | Visual           |
+| Dependencias | **Implicitas** (automaticas)         | Explicitas (`dependsOn`)           | N/A              |
+| Type safety  | Decorators (`@allowed`, `@minValue`) | Nenhum                             | Validacao visual |
+| Reutilizacao | Modules, loops (`for`)               | Linked/nested templates            | N/A              |
+| Cross-RG     | `existing` + `scope`                 | `resourceId('rg', 'type', 'name')` | Dropdown         |
+| Scopes       | `targetScope` keyword                | Schema URL diferente               | Navegacao        |
 
 ## Conceitos Bicep Demonstrados
 
-| Conceito | Onde no lab |
-|----------|-------------|
-| `targetScope = 'subscription'` | `bloco2-rgs.bicep` (criar RGs) |
-| `targetScope = 'managementGroup'` | `bloco2-custom-role.bicep` |
-| `@description`, `@allowed`, `@minValue` | `bloco3-disk.bicep` |
-| `@secure()` | `bloco5-vms.bicep` (senha da VM) |
-| `existing` keyword | `bloco4-dns.bicep`, `bloco5-vms.bicep` |
-| `existing` + `scope: resourceGroup()` | `bloco5-vms.bicep`, `bloco6-lb-infra.bicep` (cross-RG) |
-| `parent:` | DNS records, subnets, `bloco6-bastion.bicep` |
-| Dependencias implicitas | `bloco4-networking.bicep` (NSG → ASG), `bloco6-public-lb.bicep` |
-| Loop `for` | `bloco3-disks-loop.bicep` (alternativa) |
-| `guid()` para nomes unicos | `bloco2-custom-role.bicep` |
-| `identity: { type: 'SystemAssigned' }` | `bloco2-policies-rg2.bicep` |
-| `sku` object (Aligned, Standard) | `bloco6-lb-infra.bicep`, `bloco6-public-lb.bicep` |
-| `resourceId()` para self-reference | `bloco6-public-lb.bicep` (LB sub-resources) |
-| `zones` para zone-redundancy | `bloco6-public-lb.bicep` (PIP) |
+| Conceito                                | Onde no lab                                                     |
+| --------------------------------------- | --------------------------------------------------------------- |
+| `targetScope = 'subscription'`          | `bloco2-rgs.bicep` (criar RGs)                                  |
+| `targetScope = 'managementGroup'`       | `bloco2-custom-role.bicep`                                      |
+| `@description`, `@allowed`, `@minValue` | `bloco3-disk.bicep`                                             |
+| `@secure()`                             | `bloco5-vms.bicep` (senha da VM)                                |
+| `existing` keyword                      | `bloco4-dns.bicep`, `bloco5-vms.bicep`                          |
+| `existing` + `scope: resourceGroup()`   | `bloco5-vms.bicep`, `bloco6-lb-infra.bicep` (cross-RG)          |
+| `parent:`                               | DNS records, subnets, `bloco6-bastion.bicep`                    |
+| Dependencias implicitas                 | `bloco4-networking.bicep` (NSG → ASG), `bloco6-public-lb.bicep` |
+| Loop `for`                              | `bloco3-disks-loop.bicep` (alternativa)                         |
+| `guid()` para nomes unicos              | `bloco2-custom-role.bicep`                                      |
+| `identity: { type: 'SystemAssigned' }`  | `bloco2-policies-rg2.bicep`                                     |
+| `sku` object (Aligned, Standard)        | `bloco6-lb-infra.bicep`, `bloco6-public-lb.bicep`               |
+| `resourceId()` para self-reference      | `bloco6-public-lb.bicep` (LB sub-resources)                     |
+| `zones` para zone-redundancy            | `bloco6-public-lb.bicep` (PIP)                                  |
 
 ## Comandos de Deploy por Scope
 
-| Scope | Comando | targetScope |
-|-------|---------|-------------|
-| Resource Group | `az deployment group create -g <rg>` | (padrao) |
-| Subscription | `az deployment sub create --location <loc>` | `subscription` |
+| Scope            | Comando                                              | targetScope       |
+| ---------------- | ---------------------------------------------------- | ----------------- |
+| Resource Group   | `az deployment group create -g <rg>`                 | (padrao)          |
+| Subscription     | `az deployment sub create --location <loc>`          | `subscription`    |
 | Management Group | `az deployment mg create --management-group-id <mg>` | `managementGroup` |
-| Tenant | `az deployment tenant create --location <loc>` | `tenant` |
+| Tenant           | `az deployment tenant create --location <loc>`       | `tenant`          |
 
 ## Templates Criados
 
-| Template | Scope | Recursos |
-|----------|-------|----------|
-| `bloco2-custom-role.bicep` | managementGroup | Custom RBAC role |
-| `bloco2-rgs.bicep` | subscription | 2 RGs com tags |
-| `bloco2-policies-rg2.bicep` | resourceGroup | Modify policy + Tag Contributor |
-| `bloco2-policies-rg3.bicep` | resourceGroup | Modify + Allowed Locations + Reader |
-| `bloco2-lock.bicep` | resourceGroup | Delete lock |
-| `bloco3-disk.bicep` | resourceGroup | Disco parametrizado (reusavel x5) |
-| `bloco4-networking.bicep` | resourceGroup | 2 VNets + subnets + ASG + NSG |
-| `bloco4-dns.bicep` | resourceGroup | DNS public + private + links |
-| `bloco5-vms.bicep` | resourceGroup | 2 VMs + NICs (cross-RG) |
-| `bloco5-peering.bicep` | resourceGroup | Peering bidirecional |
-| `bloco5-dns-update.bicep` | resourceGroup | Link + A record real |
-| `bloco5-route.bicep` | resourceGroup | Route table + UDR |
-| `bloco6-lb-infra.bicep` | resourceGroup | Availability Set + 2 VMs + NICs (cross-RG) |
-| `bloco6-public-lb.bicep` | resourceGroup | Public LB + PIP + Backend Pool + NSG |
-| `bloco6-internal-lb.bicep` | resourceGroup | Internal LB com IP estatico |
-| `bloco6-bastion.bicep` | resourceGroup | AzureBastionSubnet + Bastion + PIP |
+| Template                    | Scope           | Recursos                                   |
+| --------------------------- | --------------- | ------------------------------------------ |
+| `bloco2-custom-role.bicep`  | managementGroup | Custom RBAC role                           |
+| `bloco2-rgs.bicep`          | subscription    | 2 RGs com tags                             |
+| `bloco2-policies-rg2.bicep` | resourceGroup   | Modify policy + Tag Contributor            |
+| `bloco2-policies-rg3.bicep` | resourceGroup   | Modify + Allowed Locations + Reader        |
+| `bloco2-lock.bicep`         | resourceGroup   | Delete lock                                |
+| `bloco3-disk.bicep`         | resourceGroup   | Disco parametrizado (reusavel x5)          |
+| `bloco4-networking.bicep`   | resourceGroup   | 2 VNets + subnets + ASG + NSG              |
+| `bloco4-dns.bicep`          | resourceGroup   | DNS public + private + links               |
+| `bloco5-vms.bicep`          | resourceGroup   | 2 VMs + NICs (cross-RG)                    |
+| `bloco5-peering.bicep`      | resourceGroup   | Peering bidirecional                       |
+| `bloco5-dns-update.bicep`   | resourceGroup   | Link + A record real                       |
+| `bloco5-route.bicep`        | resourceGroup   | Route table + UDR                          |
+| `bloco6-lb-infra.bicep`     | resourceGroup   | Availability Set + 2 VMs + NICs (cross-RG) |
+| `bloco6-public-lb.bicep`    | resourceGroup   | Public LB + PIP + Backend Pool + NSG       |
+| `bloco6-internal-lb.bicep`  | resourceGroup   | Internal LB com IP estatico                |
+| `bloco6-bastion.bicep`      | resourceGroup   | AzureBastionSubnet + Bastion + PIP         |

@@ -51,6 +51,24 @@ fi
 # az account set --subscription "<sua-subscription-id>"
 ```
 
+### O que e Bicep e por que usar em vez de ARM JSON
+
+Bicep e a linguagem **declarativa** da Microsoft para deploy de recursos Azure. Ele e compilado para ARM JSON antes do deploy -- ou seja, tudo que Bicep faz, ARM JSON tambem faz, mas Bicep e mais legivel e menos verboso.
+
+> **Conceito: Bicep vs ARM JSON**
+>
+> | Aspecto | ARM JSON | Bicep |
+> |---------|----------|-------|
+> | **Dependencias** | `dependsOn` explicito | Implicitas via referencias |
+> | **Recursos filhos** | Nome composto + `concat` | `parent:` keyword |
+> | **Sintaxe** | JSON verboso (~100 linhas) | Conciso (~30 linhas) |
+> | **Deploy** | `az deployment group create` | Mesmo comando |
+> | **Compilacao** | Direto | Compila para ARM JSON |
+>
+> Bicep NAO e uma linguagem separada do ARM -- e um **syntactic sugar** que gera ARM JSON. Na prova, questoes podem usar qualquer um dos dois.
+
+> **Dica prova:** Na AZ-104, o conceito mais cobrado sobre Bicep e a diferenca entre `param` (input do usuario), `var` (calculado internamente) e `existing` (referencia a recurso existente sem cria-lo).
+
 ### Conceitos Basicos de Bicep
 
 Antes de comecar, entenda estes conceitos fundamentais:
@@ -179,6 +197,8 @@ Bloco 5 (Log Analytics)
 ---
 
 ### Task 1.1: Criar Resource Group e VM de teste
+
+A VM e criada via CLI (imperativo) porque e um recurso de suporte -- o foco deste lab e backup/monitoramento. Em cenarios reais, VMs seriam provisionadas via Bicep com `@secure()` para senhas e dependencias implicitas para a stack de rede.
 
 ```bash
 # ============================================================
@@ -516,6 +536,18 @@ D) `existing`
 
 ### Task 2.1: Criar Storage Account com protecao nativa via Bicep
 
+Este template demonstra a hierarquia de recursos do Storage usando `parent:` -- cada recurso filho referencia seu pai diretamente, eliminando a necessidade de nomes compostos e `dependsOn`. O Storage Account inclui protecoes nativas (soft delete, versioning, change feed) que NAO requerem Recovery Services Vault.
+
+> **Conceito: Protecao nativa vs Backup gerenciado**
+>
+> | Feature | Requer Vault? | O que protege |
+> |---------|--------------|---------------|
+> | Soft Delete (blob/container/share) | Nao | Delecao acidental |
+> | Versioning | Nao | Sobrescrita |
+> | Change Feed | Nao | Auditoria de alteracoes |
+> | File Share Backup | Sim (RSV) | Snapshots gerenciados com retention |
+> | Blob Backup | Sim (Backup Vault) | Vaulted backup com retention |
+
 Salve como **`bloco2-storage.bicep`**:
 
 ```bicep
@@ -638,6 +670,8 @@ echo "Salve o nome: STORAGE_NAME=$STORAGE_NAME"
 ---
 
 ### Task 2.2: Proteger File Share com backup via Bicep
+
+Este template demonstra o uso de `existing` para referenciar recursos ja criados (vault e storage account) sem recria-los. Tambem mostra um caso raro em Bicep onde `dependsOn` EXPLICITO e necessario -- quando o recurso usa nomes concatenados (strings) em vez de referencias simbolicas, o Bicep nao detecta a dependencia automaticamente.
 
 Salve como **`bloco2-fileshare-backup.bicep`**:
 
@@ -920,6 +954,17 @@ Com versioning habilitado, cada escrita cria uma nova versao. Versoes anteriores
 
 ### Task 3.1: Criar infraestrutura DR via Bicep
 
+Este template usa `targetScope = 'subscription'` porque cria um Resource Group -- recurso que pertence ao nivel de subscription, nao de resource group. O deploy usa `az deployment sub create` em vez de `az deployment group create`.
+
+> **Conceito: targetScope em Bicep**
+>
+> | Scope | Deploy command | O que pode criar |
+> |-------|---------------|------------------|
+> | `resourceGroup` (padrao) | `az deployment group create` | Recursos dentro de um RG |
+> | `subscription` | `az deployment sub create` | RGs, policies, role assignments |
+> | `managementGroup` | `az deployment mg create` | Policies em escala |
+> | `tenant` | `az deployment tenant create` | Management groups |
+
 Salve como **`bloco3-asr-infra.bicep`**:
 
 ```bicep
@@ -962,6 +1007,10 @@ echo "RG de DR '$RG12' criado em $LOCATION_DR"
 ---
 
 ### Task 3.2: Criar RSV + ASR Policy na regiao DR via Bicep
+
+Este template cria toda a infraestrutura ASR em um unico arquivo, demonstrando a forca do `parent:` em Bicep. Cada recurso filho (Fabric → Container → Mapping) usa `parent:` para referenciar o nivel acima, criando dependencias implicitas em cadeia. Em ARM JSON, seria necessario ~8 blocos de `dependsOn`.
+
+> **Dica prova:** O vault de ASR fica na regiao de DESTINO (DR), nao na regiao de origem. Isso e o oposto do vault de Backup. Na prova: "vault de backup = mesma regiao; vault de ASR = regiao DR".
 
 Salve como **`bloco3-asr-vault.bicep`**:
 
@@ -1314,6 +1363,11 @@ echo "RG '$RG13' criado para recursos de monitoramento"
 ---
 
 ### Task 4.2: Criar Action Group + Metric Alert via Bicep
+
+Este template cria tres recursos em um unico arquivo: Action Group, Metric Alert (CPU) e Activity Log Alert (VM desalocada). Observe como as dependencias implicitas funcionam -- o `cpuAlert` referencia `actionGroup.id`, e o Bicep automaticamente garante que o Action Group e criado primeiro.
+
+> **Conceito: Metric Alert vs Activity Log Alert**
+> Metric Alerts monitoram dados **continuos** (CPU, memoria) com `evaluationFrequency` e `windowSize`. Activity Log Alerts reagem a **eventos discretos** (VM criada, deletada) sem janela de avaliacao. Na prova, "ser notificado quando VM for desligada" = Activity Log Alert.
 
 > **Cobranca:** Alert rules geram cobranca minima por sinal monitorado.
 
@@ -1752,6 +1806,11 @@ Metric Alerts e Action Groups sao recursos globais — independem de regiao.
 
 ### Task 5.1: Criar Log Analytics Workspace via Bicep
 
+O Log Analytics Workspace e o destino central para todos os logs do Azure Monitor. Este template usa decorators (`@minValue`, `@maxValue`) para validar parametros em tempo de deploy -- recurso exclusivo do Bicep que nao existe com a mesma elegancia em ARM JSON.
+
+> **Conceito: Decorators em Bicep**
+> Decorators (`@description`, `@allowed`, `@minValue`, `@maxValue`, `@secure`) adicionam validacao e documentacao aos parametros. Em ARM JSON, o equivalente sao propriedades dentro do bloco `"metadata"`, `"allowedValues"`, `"minValue"`.
+
 > **Cobranca:** O workspace gera cobranca por GB de dados ingeridos.
 
 Salve como **`bloco5-loganalytics.bicep`**:
@@ -1828,6 +1887,8 @@ echo "Log Analytics Workspace '$WORKSPACE_NAME' criado"
 
 ### Task 5.2: Instalar Azure Monitor Agent (AMA) na VM via Bicep
 
+VM Extensions sao recursos filhos da VM. Em Bicep, `parent: vm` com `existing` cria a extensao na VM existente sem recria-la. O `enableAutomaticUpgrade: true` garante que o agente se mantenha atualizado automaticamente.
+
 Salve como **`bloco5-vm-agent.bicep`**:
 
 ```bicep
@@ -1892,6 +1953,11 @@ echo "Azure Monitor Agent instalado na VM"
 ---
 
 ### Task 5.3: Criar Data Collection Rule + Diagnostic Settings via Bicep
+
+A DCR define QUAIS dados coletar da VM (syslog, performance counters) e PARA ONDE enviar (Log Analytics). A associacao DCR → VM e feita via CLI porque a VM pode estar em outro RG, e Bicep exige o `scope` correto para recursos cross-RG.
+
+> **Conceito: DCR vs Diagnostic Settings**
+> DCR coleta dados de **VMs** (via AMA agent). Diagnostic Settings coleta dados de **recursos PaaS** (vaults, storage, NSG) diretamente. Sao mecanismos diferentes para o mesmo destino (Log Analytics).
 
 Salve como **`bloco5-diagnostics.bicep`**:
 
@@ -2051,6 +2117,10 @@ echo "DCR associada a VM vm-web-01"
 ---
 
 ### Task 5.4: Diagnostic Settings para o Recovery Services Vault via Bicep
+
+Diagnostic Settings sao **extension resources** -- recursos que se "acoplam" a outro recurso existente. Em Bicep, usamos `scope: vault` (diferente de `parent:` que e para recursos filhos). Isso envia logs do vault para o Log Analytics Workspace, permitindo consultar operacoes de backup via KQL.
+
+> **Dica prova:** `scope:` e `parent:` sao conceitos diferentes em Bicep. `parent:` cria recurso FILHO (gera nome composto). `scope:` aplica um extension resource a um recurso existente (como Diagnostic Settings, locks, role assignments).
 
 Salve como **`bloco5-vault-diagnostics.bicep`**:
 

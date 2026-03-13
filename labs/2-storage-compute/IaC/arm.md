@@ -10,6 +10,9 @@
 > **Objetivo:** Reproduzir **todo** o lab de Storage & Compute (~30+ recursos) usando ARM Templates JSON + CLI.
 > Cada template inclui boilerplate completo e e fortemente comentado.
 
+> **Conceito — ARM Templates e IaC:**
+> ARM (Azure Resource Manager) Templates sao arquivos JSON que descrevem a infraestrutura de forma **declarativa** — voce define O QUE quer, nao COMO criar. O Azure cuida da ordem de criacao, dependencias e estado. Templates sao **idempotentes**: se voce deployar o mesmo template duas vezes, o resultado e o mesmo (nao duplica recursos). Na prova AZ-104, ARM Templates aparecem em questoes sobre parametros (`--parameters`), funcoes (`concat`, `resourceId`, `reference`) e diferenca entre `parameters` e `variables`.
+
 ---
 
 ## Pre-requisitos: Cloud Shell e Conceitos ARM Template
@@ -20,7 +23,9 @@
 > O Cloud Shell ja possui Azure CLI pre-instalado e a autenticacao e automatica.
 > Para criar os arquivos `.json`, use o editor integrado: `code nome-do-arquivo.json`
 
-Antes de comecar, relembre a estrutura de um ARM template:
+Antes de comecar, relembre a estrutura de um ARM template. Um ARM template tem 6 secoes principais — na pratica, voce usa `parameters`, `variables`, `resources` e `outputs` em quase todo template:
+
+> **Dica prova:** Na AZ-104, questoes sobre ARM Templates frequentemente testam: (1) qual secao usar para valores fornecidos pelo usuario (`parameters`) vs valores calculados internamente (`variables`), (2) quando `dependsOn` e obrigatorio, e (3) qual funcao usar para referenciar recursos (`resourceId`, `reference`).
 
 ```json
 {
@@ -73,15 +78,15 @@ Antes de comecar, relembre a estrutura de um ARM template:
 
 ### Funcoes ARM Essenciais (Revisao)
 
-| Funcao | Uso | Exemplo |
-|--------|-----|---------|
-| `[parameters('x')]` | Ler parametro | `[parameters('location')]` |
-| `[variables('x')]` | Ler variavel | `[variables('storageName')]` |
-| `[resourceId(...)]` | ID de recurso | `[resourceId('Microsoft.Storage/storageAccounts', 'mysa')]` |
-| `[concat(...)]` | Concatenar strings | `[concat('prefix-', parameters('name'))]` |
-| `[resourceGroup().location]` | Regiao do RG | Usado como default em location |
-| `[reference(...)]` | Propriedade de recurso | `[reference(resourceId(...)).primaryEndpoints]` |
-| `[uniqueString(...)]` | Hash deterministico | `[uniqueString(resourceGroup().id)]` |
+| Funcao                       | Uso                    | Exemplo                                                     |
+| ---------------------------- | ---------------------- | ----------------------------------------------------------- |
+| `[parameters('x')]`          | Ler parametro          | `[parameters('location')]`                                  |
+| `[variables('x')]`           | Ler variavel           | `[variables('storageName')]`                                |
+| `[resourceId(...)]`          | ID de recurso          | `[resourceId('Microsoft.Storage/storageAccounts', 'mysa')]` |
+| `[concat(...)]`              | Concatenar strings     | `[concat('prefix-', parameters('name'))]`                   |
+| `[resourceGroup().location]` | Regiao do RG           | Usado como default em location                              |
+| `[reference(...)]`           | Propriedade de recurso | `[reference(resourceId(...)).primaryEndpoints]`             |
+| `[uniqueString(...)]`        | Hash deterministico    | `[uniqueString(resourceGroup().id)]`                        |
 
 ---
 
@@ -171,20 +176,34 @@ Bloco 5 (Container Apps) → ARM templates
 **Tecnologia:** ARM Templates JSON + CLI
 **Recursos criados:** Storage Account, Blob Container, File Share, Lifecycle Policy, Network Rules, Private Endpoint + DNS
 
+Neste bloco voce vai criar recursos de Storage usando ARM Templates. Cada template demonstra um padrao diferente de ARM JSON — recursos filhos (nome composto com `/default/`), `dependsOn` explicito, e funcoes como `concat()` e `reference()`. O objetivo e aprender a estrutura ARM enquanto cria recursos reais.
+
+> **Conceito — Declarativo vs Imperativo:**
+> ARM Templates sao **declarativos**: voce descreve o estado final desejado. O Azure compara com o estado atual e faz apenas as mudancas necessarias. Isso e diferente de comandos CLI imperativos (`az storage account create`), onde voce diz exatamente O QUE executar passo a passo.
+
 ---
 
 ### Task 1.1: Criar Resource Group para Storage
+
+O Resource Group e o container logico que agrupa todos os recursos relacionados. Criamos via CLI (imperativo) porque o RG precisa existir antes de deployar qualquer ARM template nele.
 
 ```bash
 # ============================================================
 # TASK 1.1 - Criar RG para recursos de Storage
 # ============================================================
+# Nota: az group create e um comando IMPERATIVO.
+# ARM templates deployam DENTRO de um RG, entao o RG precisa existir antes.
 az group create --name "$RG6" --location "$LOCATION"
 ```
 
 ---
 
 ### Task 1.2: Storage Account + Blob Container + File Share via ARM
+
+Este template demonstra tres padroes fundamentais de ARM JSON: (1) recursos filhos com nome composto (`storageAccount/default/containerName`), (2) `dependsOn` explicito para garantir ordem de criacao, e (3) uso de `parameters` para valores que mudam entre deploys vs `variables` para valores calculados internamente.
+
+> **Conceito — Parameters vs Variables:**
+> `parameters` sao valores fornecidos pelo usuario no momento do deploy (ex: nome do storage account). `variables` sao valores calculados dentro do template, derivados de parameters ou funcoes. Use parameters para o que muda entre ambientes; variables para logica interna. Na prova, se a questao menciona "valor que o administrador deve fornecer no deploy", a resposta e `parameters`.
 
 Salve como **`bloco1-storage.json`**:
 
@@ -394,6 +413,8 @@ az storage share-rm list --storage-account "$STORAGE_ACCOUNT_NAME" -g "$RG6" \
 
 ### Task 1.3: Lifecycle Management Policy via ARM
 
+Lifecycle policies automatizam a movimentacao de blobs entre tiers de armazenamento. Este template demonstra como cada storage account tem **apenas uma** management policy (nome sempre `default`), e como as regras usam filtros (`prefixMatch`, `blobTypes`) para selecionar quais blobs sao afetados.
+
 Salve como **`bloco1-lifecycle.json`**:
 
 ```json
@@ -489,6 +510,10 @@ az storage account management-policy show \
 ---
 
 ### Task 1.4: Network Rules (Service Endpoint + Firewall) via ARM
+
+Este template demonstra como restringir acesso a uma Storage Account usando firewall (network ACLs). O padrao "zero trust" (`defaultAction: Deny`) bloqueia tudo por padrao e so permite acesso via regras explicitas de IP ou VNet. Note que este template re-cria o Storage Account com as network rules — em ARM, voce pode atualizar um recurso existente redeplorando o template com novas propriedades (idempotencia).
+
+> **Dica prova:** Na AZ-104, a diferenca entre Service Endpoint e Private Endpoint e cobrada frequentemente. Service Endpoint = rota otimizada via backbone, IP publico permanece. Private Endpoint = IP privado na VNet, acesso totalmente privado.
 
 Salve como **`bloco1-network-rules.json`**:
 
@@ -733,6 +758,8 @@ az network vnet subnet show -g "$RG6" --vnet-name "storage-vnet" -n "default" \
 
 ### Task 1.5: Private Endpoint + Private DNS Zone via ARM
 
+Este e o template mais complexo do Bloco 1 — ele cria 5 recursos interdependentes (subnet, PE, DNS zone, VNet link, DNS zone group). Note a cadeia de `dependsOn` que garante a ordem correta de criacao. Sem todos os 5 componentes configurados corretamente, o DNS continua resolvendo para o IP publico e o PE nao funciona.
+
 > **Cobranca:** Private Endpoints geram cobranca enquanto existirem.
 
 Salve como **`bloco1-private-endpoint.json`**:
@@ -950,6 +977,11 @@ A) `privatelink.storage.azure.com`  B) `privatelink.blob.core.windows.net`  C) `
 **Tecnologia:** ARM Templates JSON
 **Recursos criados:** Windows VM, Linux VM, Data Disk, VMSS com Autoscale, Custom Script Extension
 
+Neste bloco voce vai criar VMs usando ARM Templates. Uma VM no Azure e composta por **multiplos recursos** — Public IP, NIC, disco, a VM em si — cada um declarado separadamente no template. A cadeia de `dependsOn` (PIP -> NIC -> VM) e essencial aqui. O template tambem demonstra `securestring` para proteger senhas.
+
+> **Conceito — Idempotencia em VMs:**
+> Redeploy de um template ARM de VM e seguro: se a VM ja existe com as mesmas configuracoes, nada muda. Mas se voce alterar o `vmSize`, o Azure vai redimensionar a VM (causando reinicio). Entenda que idempotencia nao significa "sem impacto" — significa "mesmo input, mesmo output".
+
 ---
 
 ### Task 2.1: Criar Resource Group e VNet base para VMs
@@ -1014,6 +1046,10 @@ az deployment group create \
 ---
 
 ### Task 2.2: Windows VM via ARM
+
+Este template cria uma VM Windows completa com todos os componentes de rede. Note o padrao: `securestring` para a senha do admin (nao aparece em logs nem no historico de deployment), e a cadeia explicita de `dependsOn` que o ARM exige para cada recurso dependente.
+
+> **Dica prova:** O campo `provisionVMAgent: true` e obrigatorio para qualquer VM Extension funcionar. Sem o VM Agent, extensoes como Custom Script, Azure Monitor Agent e DSC falham silenciosamente.
 
 > **Cobranca:** Este recurso gera cobranca enquanto estiver alocado. Desaloque ao pausar o lab.
 
@@ -1385,6 +1421,11 @@ az vm show -g "$RG7" -n "$VM_LINUX_NAME" -d \
 
 ### Task 2.4: Data Disk via ARM
 
+Este template cria um Managed Disk separado da VM. Note que o attach do disco a VM e feito via CLI (`az vm disk attach`) — uma operacao **imperativa**. Isso demonstra um padrao comum: criar recursos via ARM (declarativo) e fazer operacoes pontuais via CLI (imperativo).
+
+> **Conceito — Declarativo + Imperativo juntos:**
+> Nem tudo e facilmente feito via ARM Template. Attach de disco a VM existente, swap de slots, e operacoes de dados (upload de blobs) sao tipicamente feitos via CLI/PowerShell. Na prova, saiba quando usar cada abordagem.
+
 Salve como **`bloco2-datadisk.json`**:
 
 ```json
@@ -1463,6 +1504,10 @@ az vm show -g "$RG7" -n "$VM_WIN_NAME" \
 ---
 
 ### Task 2.5: VMSS com Autoscale via ARM
+
+Este e o template mais complexo do Bloco 2 — cria 4 recursos (PIP, Load Balancer, VMSS, Autoscale). O VMSS usa `virtualMachineProfile` que define o "modelo" de cada instancia, enquanto `autoscaleSettings` define as regras de escalabilidade. Note os campos de autoscale: `timeGrain` (granularidade da coleta), `timeWindow` (janela de avaliacao) e `cooldown` (periodo de espera entre acoes).
+
+> **Dica prova:** Na AZ-104, questoes sobre autoscale testam: (1) diferenca entre Scale OUT (adicionar) e Scale IN (remover), (2) cooldown evita oscilacao (flapping), e (3) `capacity.minimum` garante disponibilidade minima mesmo com scale in.
 
 > **Cobranca:** Cada instancia do VMSS gera cobranca. Escale para 0 ao pausar o lab.
 
@@ -1796,6 +1841,8 @@ az network public-ip show -g "$RG7" -n "${VMSS_NAME}-lb-pip" --query ipAddress -
 
 ### Task 2.6: Custom Script Extension via ARM (VM existente)
 
+Custom Script Extension e uma extensao que executa scripts dentro da VM apos o provisionamento. No ARM, ela e declarada como recurso **filho** da VM (tipo `Microsoft.Compute/virtualMachines/extensions`). Este template pode ser deployado sobre uma VM existente sem recria-la.
+
 Salve como **`bloco2-extension.json`**:
 
 ```json
@@ -2044,6 +2091,11 @@ A) Sim, imediatamente  B) Nao, precisa upgrade manual  C) Apenas novas instancia
 
 **Tecnologia:** ARM Templates JSON
 **Recursos criados:** App Service Plan, Web App, Deployment Slot, Autoscale, App Settings
+
+App Service e PaaS — voce nao gerencia VMs, apenas configura o runtime e deploya o codigo. No ARM template, o App Service Plan (`Microsoft.Web/serverfarms`) define o compute, e o Web App (`Microsoft.Web/sites`) e o recurso que roda a aplicacao. Slots sao recursos filhos do Web App.
+
+> **Conceito — IaC para PaaS:**
+> ARM Templates para PaaS como App Service demonstram que IaC nao e apenas para infraestrutura "bruta" (VMs, redes). Voce pode declarar App Settings, slots, autoscale e configuracoes de TLS no template, garantindo que todos os ambientes sejam identicos.
 
 ---
 
@@ -2389,6 +2441,10 @@ A) App nunca dorme  B) App escala automaticamente  C) App reinicia a cada hora  
 **Tecnologia:** ARM Template JSON
 **Recursos criados:** Container Group com nginx, volumes, environment variables
 
+ACI e a forma mais simples de rodar containers no Azure — sem gerenciar VMs ou clusters. No ARM template, o recurso principal e `Microsoft.ContainerInstance/containerGroups`, que define containers, volumes e rede em um unico bloco. Note o uso de `secureValue` para variaveis de ambiente sensiveis (analogo a `securestring` em parameters).
+
+> **Dica prova:** ACI suporta **Azure Files** como volume persistente (nao Blob Storage!). Containers no mesmo grupo compartilham IP, volumes e lifecycle. Esse e um erro comum nos simulados.
+
 ---
 
 ### Task 4.1: Criar Resource Group
@@ -2620,6 +2676,11 @@ A) emptyDir  B) Azure Files  C) gitRepo  D) secret
 
 **Tecnologia:** ARM Templates JSON
 **Recursos criados:** Container Apps Environment, Container App, Scaling Rules, Ingress, Traffic Splitting
+
+Container Apps e uma evolucao do ACI com recursos de Kubernetes (autoscaling, revisoes, traffic splitting) sem gerenciar clusters. No ARM template, voce cria primeiro o Environment (`Microsoft.App/managedEnvironments`) que e a infraestrutura compartilhada, depois o Container App (`Microsoft.App/containerApps`) com suas regras de scaling e ingress.
+
+> **Conceito — ARM: listKeys() e reference():**
+> Neste bloco, o template usa `listKeys()` para obter a shared key do Log Analytics e `reference()` para obter o customerId. Essas funcoes sao avaliadas em **runtime** (durante o deploy), nao em tempo de compilacao. Na prova, saiba que `reference()` so funciona na secao `resources` e `outputs`, nunca em `variables`.
 
 ---
 
@@ -3030,6 +3091,11 @@ A) Deletar v1  B) Alterar weights para 0/100  C) Criar nova revisao  D) Swap com
 **Resource Groups:** `rg-contoso-storage` (existente), `rg-contoso-compute` (existente), `rg-contoso-storage` (novo)
 
 > **Pre-requisito:** Blocos 1 e 2 devem estar completos (Storage Account + VMs criadas).
+
+Neste bloco voce combina ARM Templates (para criar Key Vault e Storage Account) com CLI (para operacoes como AzCopy, Object Replication e ADE). Isso demonstra que em cenarios reais, IaC e CLI se complementam — ARM para provisionamento declarativo e CLI para configuracoes operacionais.
+
+> **Conceito — RBAC no ARM Template:**
+> O template do Key Vault inclui `Microsoft.Authorization/roleAssignments`, demonstrando que RBAC pode ser configurado declarativamente. O nome do role assignment usa `guid()` para gerar um nome deterministico — isso garante idempotencia (mesmo deploy = mesmo GUID = nao duplica).
 
 ---
 
@@ -3509,6 +3575,10 @@ A) Storage Account Contributor  B) Storage Blob Data Contributor  C) Storage Fil
 
 > **Pre-requisito:** Blocos 1 e 3 devem estar completos (Storage Account + App Service criados).
 
+Neste bloco voce cria um ACR (Container Registry) via ARM e deploya um ACI que puxa imagem privada do ACR. O template do ACI usa `imageRegistryCredentials` com `securestring` para autenticar no registry. Tambem configura App Service com TLS, backup e VNet Integration via CLI.
+
+> **Dica prova:** Na AZ-104, questoes sobre ACR testam os SKUs: Basic (10 GiB), Standard (100 GiB + webhooks), Premium (500 GiB + geo-replication + private link + CMK). `az acr build` faz build no cloud sem Docker local.
+
 ---
 
 ### Task 7.1: Criar Azure Container Registry via ARM
@@ -3961,17 +4031,20 @@ echo "Use 'az group list --query \"[?starts_with(name, 'rg-contoso')]\" -o table
 
 # Key Takeaways Consolidados
 
+> **Conceito — Quando usar ARM Templates na prova:**
+> Na AZ-104, ARM Templates aparecem em questoes sobre: (1) deploy com `az deployment group create --parameters`, (2) diferenca entre `parameters` e `variables`, (3) `dependsOn` explicito vs implicito (Bicep), (4) `securestring` para proteger senhas, e (5) scopes de deploy (resource group, subscription, management group, tenant). Se a questao pede "forma declarativa de provisionar recursos", ARM Template ou Bicep sao as respostas corretas.
+
 ## ARM JSON: Padroes Recorrentes Neste Lab
 
-| Padrao | Exemplo | Quando Usar |
-|--------|---------|-------------|
-| Recurso filho (nome composto) | `"name": "storageAccount/default/container"` | Blob, File Share, Slot, Extension, Keys |
-| `dependsOn` explicito | `"dependsOn": ["[resourceId(...)]"]` | Sempre que recurso B precisa de A |
-| `securestring` | `"type": "securestring"` | Senhas, chaves, secrets, ACR credentials |
-| Cross-resource reference | `[reference(resourceId(...))]` | Obter IP, FQDN, keys de outro recurso |
-| `listKeys()` | `[listKeys(resourceId(...), 'api').key]` | Obter chaves de Storage, Log Analytics |
-| `concat()` | `[concat(params('a'), '/default/', params('b'))]` | Nomes compostos de recursos filhos |
-| `metadata._comment` | `"_comment": "explicacao"` | Documentacao inline em ARM JSON |
+| Padrao                        | Exemplo                                           | Quando Usar                              |
+| ----------------------------- | ------------------------------------------------- | ---------------------------------------- |
+| Recurso filho (nome composto) | `"name": "storageAccount/default/container"`      | Blob, File Share, Slot, Extension, Keys  |
+| `dependsOn` explicito         | `"dependsOn": ["[resourceId(...)]"]`              | Sempre que recurso B precisa de A        |
+| `securestring`                | `"type": "securestring"`                          | Senhas, chaves, secrets, ACR credentials |
+| Cross-resource reference      | `[reference(resourceId(...))]`                    | Obter IP, FQDN, keys de outro recurso    |
+| `listKeys()`                  | `[listKeys(resourceId(...), 'api').key]`          | Obter chaves de Storage, Log Analytics   |
+| `concat()`                    | `[concat(params('a'), '/default/', params('b'))]` | Nomes compostos de recursos filhos       |
+| `metadata._comment`           | `"_comment": "explicacao"`                        | Documentacao inline em ARM JSON          |
 
 ## ARM vs Bicep: Comparacao Direta (Semana 2)
 
@@ -4012,46 +4085,46 @@ logAnalytics.listKeys().primarySharedKey
 
 ## Templates Criados
 
-| Template | Scope | Recursos | Linhas |
-|----------|-------|----------|--------|
-| `bloco1-storage.json` | resourceGroup | Storage Account + Container + File Share | ~120 |
-| `bloco1-lifecycle.json` | resourceGroup | Lifecycle Management Policy | ~55 |
-| `bloco1-network-rules.json` | resourceGroup | VNet + Service Endpoint + Firewall | ~75 |
-| `bloco1-private-endpoint.json` | resourceGroup | PE + DNS Zone + Link + DNS Group | ~100 |
-| `bloco2-vnet.json` | resourceGroup | VNet com 2 subnets | ~25 |
-| `bloco2-vm-windows.json` | resourceGroup | Windows VM + PIP + NIC | ~110 |
-| `bloco2-vm-linux.json` | resourceGroup | Linux VM + PIP + NIC | ~85 |
-| `bloco2-datadisk.json` | resourceGroup | Managed Disk | ~30 |
-| `bloco2-vmss.json` | resourceGroup | VMSS + LB + Autoscale | ~180 |
-| `bloco2-extension.json` | resourceGroup | Custom Script Extension | ~25 |
-| `bloco3-webapp.json` | resourceGroup | ASP + Web App + Staging Slot | ~95 |
-| `bloco3-autoscale.json` | resourceGroup | Autoscale Settings | ~60 |
-| `bloco4-aci.json` | resourceGroup | Container Group + Volume + Env | ~80 |
-| `bloco5-container-env.json` | resourceGroup | CAE + Log Analytics | ~45 |
-| `bloco5-container-app.json` | resourceGroup | Container App + Scale + Ingress | ~70 |
-| `bloco5-traffic-split.json` | resourceGroup | Traffic Splitting (Canary) | ~65 |
-| `bloco6-storage2.json` | resourceGroup | Storage Account (destino) + Container | ~65 |
-| `bloco6-keyvault.json` | resourceGroup | Key Vault + 2 RSA Keys + RBAC | ~95 |
-| `bloco7-acr.json` | resourceGroup | ACR Basic + Admin User | ~40 |
-| `bloco7-aci-from-acr.json` | resourceGroup | ACI from private ACR | ~55 |
+| Template                       | Scope         | Recursos                                 | Linhas |
+| ------------------------------ | ------------- | ---------------------------------------- | ------ |
+| `bloco1-storage.json`          | resourceGroup | Storage Account + Container + File Share | ~120   |
+| `bloco1-lifecycle.json`        | resourceGroup | Lifecycle Management Policy              | ~55    |
+| `bloco1-network-rules.json`    | resourceGroup | VNet + Service Endpoint + Firewall       | ~75    |
+| `bloco1-private-endpoint.json` | resourceGroup | PE + DNS Zone + Link + DNS Group         | ~100   |
+| `bloco2-vnet.json`             | resourceGroup | VNet com 2 subnets                       | ~25    |
+| `bloco2-vm-windows.json`       | resourceGroup | Windows VM + PIP + NIC                   | ~110   |
+| `bloco2-vm-linux.json`         | resourceGroup | Linux VM + PIP + NIC                     | ~85    |
+| `bloco2-datadisk.json`         | resourceGroup | Managed Disk                             | ~30    |
+| `bloco2-vmss.json`             | resourceGroup | VMSS + LB + Autoscale                    | ~180   |
+| `bloco2-extension.json`        | resourceGroup | Custom Script Extension                  | ~25    |
+| `bloco3-webapp.json`           | resourceGroup | ASP + Web App + Staging Slot             | ~95    |
+| `bloco3-autoscale.json`        | resourceGroup | Autoscale Settings                       | ~60    |
+| `bloco4-aci.json`              | resourceGroup | Container Group + Volume + Env           | ~80    |
+| `bloco5-container-env.json`    | resourceGroup | CAE + Log Analytics                      | ~45    |
+| `bloco5-container-app.json`    | resourceGroup | Container App + Scale + Ingress          | ~70    |
+| `bloco5-traffic-split.json`    | resourceGroup | Traffic Splitting (Canary)               | ~65    |
+| `bloco6-storage2.json`         | resourceGroup | Storage Account (destino) + Container    | ~65    |
+| `bloco6-keyvault.json`         | resourceGroup | Key Vault + 2 RSA Keys + RBAC            | ~95    |
+| `bloco7-acr.json`              | resourceGroup | ACR Basic + Admin User                   | ~40    |
+| `bloco7-aci-from-acr.json`     | resourceGroup | ACI from private ACR                     | ~55    |
 
 ## Funcoes ARM Mais Usadas no Lab
 
-| Funcao | Exemplo | Equivalente Bicep |
-|--------|---------|-------------------|
-| `[parameters('x')]` | `[parameters('storageAccountName')]` | `storageAccountName` (direto) |
-| `[variables('x')]` | `[variables('nicName')]` | `nicName` (direto) |
-| `[resourceId(...)]` | `[resourceId('type', 'name')]` | `resource.id` |
-| `[concat(...)]` | `[concat('sa', '/default/', 'container')]` | `'sa/default/${container}'` |
-| `[reference(...)]` | `[reference(resourceId(...)).prop]` | `resource.properties.prop` |
-| `[listKeys(...)]` | `[listKeys(resourceId(...), 'api').key]` | `resource.listKeys().key` |
-| `[uniqueString(...)]` | `[uniqueString(resourceGroup().id)]` | `uniqueString(resourceGroup().id)` |
+| Funcao                | Exemplo                                    | Equivalente Bicep                  |
+| --------------------- | ------------------------------------------ | ---------------------------------- |
+| `[parameters('x')]`   | `[parameters('storageAccountName')]`       | `storageAccountName` (direto)      |
+| `[variables('x')]`    | `[variables('nicName')]`                   | `nicName` (direto)                 |
+| `[resourceId(...)]`   | `[resourceId('type', 'name')]`             | `resource.id`                      |
+| `[concat(...)]`       | `[concat('sa', '/default/', 'container')]` | `'sa/default/${container}'`        |
+| `[reference(...)]`    | `[reference(resourceId(...)).prop]`        | `resource.properties.prop`         |
+| `[listKeys(...)]`     | `[listKeys(resourceId(...), 'api').key]`   | `resource.listKeys().key`          |
+| `[uniqueString(...)]` | `[uniqueString(resourceGroup().id)]`       | `uniqueString(resourceGroup().id)` |
 
 ## Schemas por Scope (Revisao)
 
-| Scope | Schema URL | Comando deploy |
-|-------|-----------|----------------|
-| Resource Group | `schemas/2019-04-01/deploymentTemplate.json#` | `az deployment group create` |
-| Subscription | `schemas/2018-05-01/subscriptionDeploymentTemplate.json#` | `az deployment sub create` |
-| Management Group | `schemas/2019-08-01/managementGroupDeploymentTemplate.json#` | `az deployment mg create` |
-| Tenant | `schemas/2019-08-01/tenantDeploymentTemplate.json#` | `az deployment tenant create` |
+| Scope            | Schema URL                                                   | Comando deploy                |
+| ---------------- | ------------------------------------------------------------ | ----------------------------- |
+| Resource Group   | `schemas/2019-04-01/deploymentTemplate.json#`                | `az deployment group create`  |
+| Subscription     | `schemas/2018-05-01/subscriptionDeploymentTemplate.json#`    | `az deployment sub create`    |
+| Management Group | `schemas/2019-08-01/managementGroupDeploymentTemplate.json#` | `az deployment mg create`     |
+| Tenant           | `schemas/2019-08-01/tenantDeploymentTemplate.json#`          | `az deployment tenant create` |
