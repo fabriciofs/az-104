@@ -1,0 +1,37 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "eastus"
+    }
+  },
+  "variables": {
+    "tags": {
+      "Projeto": "ContosoHealth",
+      "Ambiente": "Lab",
+      "CostCenter": "CC-INFRA"
+    },
+    "resourceGroups": [
+      "rg-ch-identity",
+      "rg-ch-network",
+      "rg-ch-storage",
+      "rg-ch-compute",
+      "rg-ch-monitor"
+    ]
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2024-03-01",
+      "name": "[variables('resourceGroups')[copyIndex()]]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]",
+      "copy": {
+        "name": "rgCopy",
+        "count": "[length(variables('resourceGroups'))]"
+      }
+    }
+  ]
+}
