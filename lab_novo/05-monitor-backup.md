@@ -1,29 +1,29 @@
-# Lab 05 — Monitoramento e Backup (10-15% do exame)
+# Lab 05 — Monitorar e Manter Recursos do Azure (10-15% do exame)
 
-> **Pré-requisito:** Labs 01-04 concluídos (identidade, rede, storage e compute rodando).
-> **Contexto:** A Contoso Healthcare precisa monitorar todos os recursos para performance e segurança, configurar alertas para incidentes, fazer backup das VMs e file shares para compliance LGPD (retenção 7 anos), e preparar disaster recovery com Site Recovery para a região West US.
+> **Pré-requisito:** Labs 01-04 concluídos, com identidade, rede, armazenamento e computação já implantados.
+> **Contexto:** Este lab trata do monitoramento e da manutenção de recursos do Azure, abrangendo métricas, logs, alertas, insights, backup, recuperação e continuidade operacional no ambiente da Contoso Healthcare.
 
 ```mermaid
 graph TB
     subgraph "Azure Monitor"
-        LAW[law-ch-prod<br/>Log Analytics Workspace]
-        METRICS[Métricas<br/>VM, Storage, Network]
+        LAW[law-ch-prod<br/>Workspace do Log Analytics]
+        METRICS[Métricas<br/>máquinas virtuais, Storage e rede]
         ALERTS[Alertas<br/>CPU, Storage, Backup]
-        AG[ag-ch-oncall<br/>Action Group<br/>Email + SMS]
+        AG[ag-ch-oncall<br/>Grupo de ação<br/>Email + SMS]
         DCR[Data Collection Rules]
     end
 
     subgraph "Fontes de Dados"
-        VM_W[vm-ch-web01/02<br/>AMA Agent]
-        VM_DB[vm-ch-db01<br/>AMA Agent]
-        SA_P[sachprontuarios<br/>Diagnostic Settings]
-        NSG_W[nsg-ch-web<br/>Flow Logs]
-        APP_S[app-ch-portal<br/>App Insights]
+        VM_W[vm-ch-web01/02<br/>Azure Monitor Agent]
+        VM_DB[vm-ch-db01<br/>Azure Monitor Agent]
+        SA_P[sachprontuarios<br/>Configurações de diagnóstico]
+        NSG_W[nsg-ch-web<br/>Logs de fluxo]
+        APP_S[app-ch-portal<br/>Application Insights]
     end
 
-    VM_W & VM_DB -->|AMA + DCR| LAW
-    SA_P -->|Diagnostic Settings| LAW
-    NSG_W -->|Flow Logs| LAW
+    VM_W & VM_DB -->|Azure Monitor Agent + DCR| LAW
+    SA_P -->|Configurações de diagnóstico| LAW
+    NSG_W -->|Logs de fluxo| LAW
     METRICS --> ALERTS --> AG
 
     subgraph "Backup & DR"
@@ -32,9 +32,9 @@ graph TB
         ASR[Site Recovery<br/>East US → West US]
     end
 
-    RSV -->|VM Backup| VM_W & VM_DB
-    RSV -->|File Backup| SA_P
-    BV -->|Blob Backup| SA_P
+    RSV -->|Backup de máquinas virtuais| VM_W & VM_DB
+    RSV -->|Backup de Azure Files| SA_P
+    BV -->|Backup de blobs| SA_P
     ASR -->|Replicação| VM_W
 ```
 
@@ -111,7 +111,7 @@ Portal > Monitor > Log Analytics workspaces > + Create
 > Review + Create
 ```
 
-### Tarefa 2.2 — LAW via CLI + Diagnostic Settings (exercício 2/3)
+### Tarefa 2.2 — Workspace do Log Analytics via CLI + Diagnostic Settings (exercício 2/3)
 
 ```bash
 # Criar LAW
@@ -261,17 +261,34 @@ Get-AzMetricAlertRuleV2 -ResourceGroupName $RgMonitor |
 > **Dica de Prova:**
 > - Alert states: **New** → **Acknowledged** → **Closed** (manual)
 > - Monitor condition: **Fired** vs **Resolved** (automático)
-> - **Stateful alerts** (métrica): resolvem automaticamente quando condição normaliza
-> - **Stateless alerts** (Activity Log): cada ocorrência = novo alerta
-> - Alert Processing Rules podem **suprimir** (manutenção) ou **adicionar action groups**
+> - **Stateful alerts** de métrica se resolvem automaticamente quando a condição normaliza
+> - **Stateless alerts** de Activity Log geram um novo alerta a cada ocorrência
+> - Alert Processing Rules podem **suprimir** alertas em manutenção ou **adicionar grupos de ação**
+
+> **Pegadinha frequente — Alert Rule vs Alert Processing Rule:**
+> - **Alert Rule** define **quando** alertar, combinando condição e grupo de ação
+> - **Alert Processing Rule** define **o que fazer** com alertas já disparados, como suprimir, adicionar grupo de ação ou filtrar
+> - Se a questão pedir "configurar notificação quando CPU > 80%" → **Alert Rule**
+> - Se a questão pedir "suprimir alertas durante janela de manutenção" → **Alert Processing Rule**
+>
+> **Ponto de atenção — "Notificar admin quando uma máquina virtual se conectar à rede virtual":**
+> - Precisa de **2 coisas**: **Action Group** para definir o destinatário e **Alert Rule** para detectar o evento
+> - ❌ Alert Processing Rule = pós-processamento de alertas já disparados
+> - ❌ Microsoft 365 Group = grupo de colaboração, não monitora eventos
+> - **Regra:** "detectar evento + notificar" = sempre **Alert Rule + Action Group**
+
+> **Dashboard pinned data retention:**
+> - Dashboard **privado**: dados fixados por **14 dias**
+> - Dashboard **compartilhado**: dados fixados por **30 dias**
+> - Para mais tempo: use **Azure Monitor Workbooks**
 
 ---
 
-## Parte 4 — VM Insights e AMA
+## Parte 4 — VM Insights e Azure Monitor Agent (AMA)
 
 ### Tarefa 4.1 — Instalar Azure Monitor Agent (exercício 1/2)
 
-> **Conceito:** AMA (Azure Monitor Agent) substitui o antigo MMA (Log Analytics Agent). Usa **Data Collection Rules (DCR)** para definir o que coletar e para onde enviar. Suporta Linux e Windows.
+> **Conceito:** Azure Monitor Agent (**AMA**) substitui o antigo MMA. Ele usa **Data Collection Rules (DCRs)** para definir o que coletar e para onde enviar. Suporta Linux e Windows.
 
 ```bash
 # Instalar AMA na VM web01
@@ -318,11 +335,56 @@ for VM in $VM_WEB01 $VM_DB01; do
 done
 ```
 
+### Tarefa 4.3 — Application Insights e Workbooks (exercício extra)
+
+> **Conceito:** **Application Insights** monitora a aplicação em si: requests, falhas, dependências, tempo de resposta e disponibilidade. **Log Analytics** é o repositório e mecanismo de consulta. **Workbooks** organizam visualizações interativas usando métricas e logs. Na prova:
+> - **VM Insights** = foco em desempenho de máquina virtual e sistema operacional convidado
+> - **Application Insights** = foco em App Service e código da aplicação
+> - **Workbooks** = painéis analíticos e troubleshooting
+
+```
+Portal > Application Insights > + Create
+
+- Resource group: rg-ch-monitor
+- Name: appi-ch-portal
+- Region: East US
+- Workspace-based: usar law-ch-prod
+
+Depois:
+Portal > App Service > app-ch-portal > Application Insights
+- Turn on Application Insights
+- Selecionar appi-ch-portal
+
+Validacoes:
+- Live Metrics
+- Failures
+- Performance
+- Application Map
+```
+
+```
+Portal > Monitor > Workbooks > + New
+
+Adicionar visualizacoes:
+- CPU media de vm-ch-web01/vm-ch-db01
+- Transactions da sachprontuarios
+- Failed requests do app-ch-portal
+- Heartbeat das VMs
+Salvar como: wb-ch-ops-overview
+```
+
+> **Dica de Prova:**
+> - **Application Insights** = telemetria da aplicação
+> - **Log Analytics** = consultas KQL centralizadas
+> - **Workbooks** = visualização e correlação de dados
+> - **Insights hubs** de VM, Storage, Network e App dependem de métricas, logs e diagnostic settings bem configurados
+> - Se a questão pedir "analisar latência, exceptions, dependencies e request rate" → **Application Insights**
+
 ---
 
 ## Parte 5 — Network Watcher
 
-### Tarefa 5.1 — NSG Flow Logs (exercício 1/2)
+### Tarefa 5.1 — Logs de fluxo de NSG (exercício 1/2)
 
 ```bash
 # Criar storage para flow logs
@@ -375,7 +437,7 @@ Após criar > Properties > Backup Configuration:
 - Cross Region Restore: Enable
 ```
 
-### Tarefa 6.2 — RSV e Backup Policy via CLI (exercício 2/3)
+### Tarefa 6.2 — Recovery Services Vault e política de backup via CLI (exercício 2/3)
 
 ```bash
 # Criar RSV
@@ -437,7 +499,7 @@ New-AzDataProtectionBackupVault `
 # Recovery Services Vault: para VMs, Azure Files, SQL em VM
 ```
 
-> **RSV vs Backup Vault (para a prova):**
+> **Recovery Services Vault vs Backup Vault (para a prova):**
 > | | Recovery Services Vault | Backup Vault |
 > |---|---|---|
 > | VMs Azure | ✅ | ❌ |
@@ -449,7 +511,7 @@ New-AzDataProtectionBackupVault `
 
 ---
 
-### Tarefa 7.1 — Backup de VMs (exercício 1/3)
+### Tarefa 7.1 — Backup de máquinas virtuais (exercício 1/3)
 
 ```bash
 # Habilitar backup para vm-ch-web01
@@ -526,20 +588,28 @@ echo "Restore de VM: 4 opções — Create new, Replace existing, Restore disks,
 ```
 
 > **Dica de Prova — Backup:**
-> - Backup de VM: **snapshot** primeiro (instant restore 1-5d) → **vault tier** depois
+> - Backup de máquina virtual: **snapshot** primeiro (instant restore de 1 a 5 dias) → **vault tier** depois
 > - Snapshots são **incrementais** (apenas delta)
 > - Azure Files backup usa **snapshots** (recuperação instantânea)
-> - **Cross-region restore**: requer vault com **GRS**, permite restaurar na região secundária
+> - **Cross-region restore** requer vault com **GRS** e permite restaurar na região secundária
 > - **Soft delete** para backups: mantém dados **14 dias extra** após deletar o backup item
 > - Vault **não pode ser deletado** se tiver itens de backup (deve desabilitar proteção primeiro)
+>
+> **Ponto de atenção — Mover máquinas virtuais entre vaults:**
+> - Para migrar máquinas virtuais de Vault1 para Vault2, com a mesma policy, há **2 passos em ordem**
+>   1. **Desabilitar soft delete** no vault E **excluir todos os dados** de backup (status exclusão reversível)
+>   2. **Remover permanentemente** todos os itens em estado de exclusão temporária
+> - Só depois o vault fica "vazio" e você pode reconfigurar no novo vault
+> - ❌ Backup de VM1 e VM2 direto em Vault2 = não pode, já estão protegidas em Vault1
+> - ❌ Modificar configurações de segurança = não permite mover backups
 
 ---
 
 ## Parte 7 — Azure Site Recovery
 
-### Tarefa 8.1 — Configurar DR para VMs (exercício 1/2)
+### Tarefa 8.1 — Configurar recuperação de desastre para máquinas virtuais (exercício 1/2)
 
-> **Conceito:** ASR replica VMs continuamente de uma região para outra. Failover pode ser planejado (sem perda) ou não-planejado (perda mínima). O vault pode estar na região primária ou secundária. RPO mínimo: 30 segundos.
+> **Conceito:** Azure Site Recovery (**ASR**) replica máquinas virtuais continuamente de uma região para outra. O failover pode ser planejado, sem perda, ou não planejado, com perda mínima. O vault pode ficar na região primária ou secundária. O RPO mínimo é de 30 segundos.
 
 ```mermaid
 graph LR
@@ -601,6 +671,11 @@ echo "6. Failback: volta para a região primária"
 > - Failover **interrompe** replicação — precisa Re-protect depois
 > - Recovery Plans: sequência de failover com scripts e ações manuais
 
+> **Ponto de atenção — Estados de Failover:**
+> - Após executar failover e validar: status = **Failover confirmado (Committed)**
+> - "Concluir failover" / "Complete failover" NÃO é um estado válido
+> - Sequência: Pending → In Progress → **Committed** (após Commit)
+
 ---
 
 ## Parte 8 — Relatórios de Backup
@@ -639,44 +714,78 @@ echo "Backup Reports: RSV > Backup Reports (requer LAW com dados - leva 24h)"
 
 ---
 
+## Parte 9 — Azure Advisor
+
+### Tarefa 10.1 — Revisar recomendacoes do Advisor (exercicio extra)
+
+> **Conceito:** O **Azure Advisor** reune recomendacoes acionaveis para melhorar **custo**, **alta disponibilidade**, **performance** e **seguranca**. Na prova, ele aparece como o servico que aponta otimizacoes e riscos operacionais sem alterar recursos automaticamente.
+
+```bash
+# Listar recomendacoes do Advisor
+az advisor recommendation list -o table
+
+# Filtrar por alta disponibilidade
+az advisor recommendation list \
+  --category HighAvailability \
+  --query "[].{Recurso:resourceMetadata.resourceId, Impacto:impact, Problema:shortDescription.problem}" -o table
+
+# Filtrar por seguranca
+az advisor recommendation list \
+  --category Security \
+  --query "[].{Recurso:resourceMetadata.resourceId, Problema:shortDescription.problem, Solucao:shortDescription.solution}" -o table
+
+# Atualizar recomendacoes antes de revisar
+az advisor recommendation list --refresh -o table
+```
+
+> **Dica de Prova:**
+> - **Advisor recomenda**; ele nao corrige automaticamente
+> - **Cost** = rightsizing, recursos ociosos, savings
+> - **HighAvailability** = resiliencia, redundancia, backup
+> - **Performance** = gargalos e sizing
+> - **Security** = postura de seguranca e hardening
+> - Se o enunciado pedir "qual servico sugere melhorias operacionais no ambiente?" → **Azure Advisor**
+
+---
+
 ## Resumo da Infraestrutura Completa da Contoso Healthcare
 
 ```mermaid
 graph TB
-    subgraph "Identidade (Lab 01)"
+    subgraph "Gerenciar Identidades e Governança (Lab 01)"
         ENTRA[8 Usuários<br/>4 Grupos<br/>1 Guest]
-        RBAC_S[RBAC em 4 scopes]
+        RBAC_S[Controle de acesso<br/>em 4 escopos]
         POLICY_S[3 Azure Policies]
-        LOCKS_S[2 Resource Locks]
+        LOCKS_S[2 bloqueios de recurso]
     end
 
-    subgraph "Rede (Lab 02)"
-        VNETS[3 VNets Hub-Spoke<br/>Peering bidirecional]
-        NSGS[3 NSGs + 3 ASGs]
+    subgraph "Configurar e Gerenciar Redes Virtuais (Lab 02)"
+        VNETS[3 redes virtuais hub-spoke<br/>peering bidirecional]
+        NSGS[3 grupos de segurança de rede<br/>+ 3 grupos de segurança de aplicativo]
         BAST[Bastion no Hub]
         DNS_S[DNS Público + Privado]
-        LBS[LB Público + Interno]
-        UDRS[2 Route Tables]
+        LBS[Balanceador público<br/>+ balanceador interno]
+        UDRS[2 tabelas de rotas]
     end
 
-    subgraph "Storage (Lab 03)"
-        SAS[3 Storage Accounts<br/>GRS + LRS]
+    subgraph "Implementar e Gerenciar Armazenamento (Lab 03)"
+        SAS[3 contas de armazenamento<br/>GRS + LRS]
         BLOBS[Containers + Lifecycle]
-        FILES[3 File Shares]
+        FILES[3 compartilhamentos de arquivos]
         REPL[Object Replication<br/>East→West]
-        PES[Private Endpoint<br/>+ DNS Zone]
+        PES[Endpoint privado<br/>+ zona DNS]
     end
 
-    subgraph "Compute (Lab 04)"
-        VMS[3 VMs em Zones<br/>+ VMSS (2-5)]
-        CONT[ACR + ACI + Container App]
+    subgraph "Implantar e Gerenciar Computação (Lab 04)"
+        VMS[3 máquinas virtuais em zonas<br/>+ conjunto de dimensionamento (2-5)]
+        CONT[Registro de contêineres, ACI<br/>e Container App]
         APPS[App Service S1<br/>+ Staging Slot]
         TEMP[ARM + Bicep Templates]
     end
 
-    subgraph "Monitor & Backup (Lab 05)"
-        MON[Log Analytics + AMA<br/>+ DCR + Alerts]
-        BACK[RSV + Backup Vault<br/>VM + Files Backup]
+    subgraph "Monitorar e Manter Recursos (Lab 05)"
+        MON[Log Analytics + agente AMA<br/>+ DCR + alertas]
+        BACK[Recovery Services Vault + Backup Vault<br/>backup de máquinas virtuais e Azure Files]
         DR[Site Recovery<br/>East→West]
     end
 
@@ -685,37 +794,39 @@ graph TB
 
 ---
 
-## Checklist — Lab 05
+## Checklist de Verificação — Lab 05
 
 - [ ] Métricas consultadas (VM CPU, Storage Transactions) via CLI e PowerShell
-- [ ] Log Analytics Workspace criado (Portal + CLI)
-- [ ] Diagnostic Settings configurados (Storage, NSG, RSV)
-- [ ] Queries KQL executadas (Heartbeat, Perf, StorageBlobLogs)
-- [ ] Action Group criado
+- [ ] Workspace do Log Analytics criado: Portal + CLI
+- [ ] Configurações de diagnóstico (Diagnostic Settings) configuradas para Storage, grupo de segurança de rede e Recovery Services Vault
+- [ ] Consultas KQL executadas: Heartbeat, Perf e StorageBlobLogs
+- [ ] Grupo de ação (Action Group) criado
 - [ ] 2 alertas de métrica criados (CPU, Storage Transactions)
 - [ ] Alert Processing Rules entendido (conceitual)
-- [ ] AMA instalado em 2+ VMs
-- [ ] Data Collection Rule criada e associada às VMs
-- [ ] NSG Flow Logs habilitados com Traffic Analytics
+- [ ] Azure Monitor Agent (AMA) instalado em 2 ou mais máquinas virtuais
+- [ ] Data Collection Rule criada e associada às máquinas virtuais
+- [ ] Application Insights e Workbook entendidos
+- [ ] Logs de fluxo de NSG habilitados com Traffic Analytics
 - [ ] Connection Monitor entendido
-- [ ] Recovery Services Vault criado com GRS
+- [ ] Recovery Services Vault criado com redundância GRS
 - [ ] Backup Vault criado
 - [ ] Backup Policy customizada (diário + semanal)
-- [ ] VM backup habilitado e executado (2 VMs)
+- [ ] Backup de máquinas virtuais habilitado e executado: 2 máquinas virtuais
 - [ ] Azure Files backup configurado
 - [ ] Conceitos de restore entendidos (4 opções)
 - [ ] Site Recovery configurado (conceitual ou Portal)
 - [ ] Fluxo de failover/failback entendido
 - [ ] Diagnostic Settings do vault configurados
 - [ ] Backup Reports entendido
+- [ ] Azure Advisor revisado por categoria
 
 ---
 
 ## Parabéns! Infraestrutura Completa
 
-Você construiu toda a infraestrutura Azure da Contoso Healthcare, cobrindo **100% dos skills do AZ-104**:
-- **Identity & Governance** (20-25%): Usuários, Grupos, RBAC, Policy, Locks, Tags
-- **Storage** (15-20%): Accounts, Blobs, Files, SAS, Replication, Lifecycle
-- **Compute** (20-25%): ARM/Bicep, VMs, VMSS, ACI, Container Apps, App Service
-- **Networking** (15-20%): VNets, Peering, NSG, Bastion, UDR, DNS, LB
-- **Monitor & Backup** (10-15%): Metrics, Logs, Alerts, Backup, Site Recovery
+Você construiu uma infraestrutura Azure completa para a Contoso Healthcare, cobrindo as **skills medidas do AZ-104** e incluindo tópicos complementares que costumam cair fora do fluxo principal dos labs:
+- **Gerenciar identidades e governança do Azure** (20-25%): usuários, grupos, controle de acesso baseado em função, Azure Policy, bloqueios e tags
+- **Implementar e gerenciar armazenamento** (15-20%): contas, blobs, Azure Files, assinaturas de acesso compartilhado, replicação, lifecycle e Storage Explorer
+- **Implantar e gerenciar recursos de computação do Azure** (20-25%): ARM/Bicep, máquinas virtuais, conjunto de dimensionamento, Azure Container Instances, Container Apps, App Service e SSL
+- **Configurar e gerenciar redes virtuais** (15-20%): redes virtuais, peering, grupos de segurança de rede, Bastion, tabelas de rotas, DNS e balanceadores
+- **Monitorar e manter recursos do Azure** (10-15%): métricas, logs, alertas, insights, Azure Advisor, backup e Site Recovery

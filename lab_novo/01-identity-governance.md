@@ -1,7 +1,7 @@
-# Lab 01 — Identidade e Governança (20-25% do exame)
+# Lab 01 — Gerenciar Identidades e Governança do Azure (20-25% do exame)
 
-> **Pré-requisito:** Lab 00 concluído (RGs criados, variáveis carregadas).
-> **Contexto:** A Contoso Healthcare precisa criar a estrutura de identidade: usuários para cada departamento, grupos para simplificar permissões, RBAC para controle de acesso, e políticas de governança para compliance LGPD.
+> **Pré-requisito:** Lab 00 concluído, com grupos de recursos criados e variáveis carregadas.
+> **Contexto:** Este lab trata da criação e da governança de identidades no Azure, incluindo usuários, grupos, controle de acesso baseado em função (RBAC), políticas e controles administrativos voltados ao cenário da Contoso Healthcare.
 
 ```mermaid
 graph TB
@@ -187,12 +187,20 @@ Get-AzADUser | Where-Object { $_.Department -ne $null } |
 > - Guests NÃO podem usar SSPR no tenant host
 > - O role **Guest Inviter** permite convidar guests sem ser admin
 > - UPN de guest: `email_dominio#EXT#@tenant`
+>
+> **Pegadinha frequente — Guest Inviter:**
+> "Permitir que User1 convide usuários externos com privilégio mínimo" → **Guest Inviter** (Convidador de Convidados)
+> - ❌ Security Administrator = gerencia segurança, NÃO convida guests
+> - ❌ Global Administrator = viola privilégio mínimo
+> - ❌ Groups Administrator = gerencia grupos, NÃO convida
+> - ✅ **Guest Inviter** = faz EXATAMENTE isso e nada mais
+> **Regra:** "privilégio mínimo" na prova = role MAIS ESPECÍFICA possível
 
 ---
 
 ## Parte 2 — Criar e Gerenciar Grupos
 
-> **Conceito:** Grupos simplificam atribuição de permissões e licenças. Tipos: **Security** (para RBAC/licenças) e **Microsoft 365** (para colaboração). Membership: **Assigned** (manual), **Dynamic User** (regra automática — requer P1), **Dynamic Device** (regra para dispositivos).
+> **Conceito:** Grupos simplificam a atribuição de permissões e licenças. Tipos: **Security** (para RBAC e licenças) e **Microsoft 365** (para colaboração). Membership: **Assigned** (manual), **Dynamic User** (regra automática, requer P1) e **Dynamic Device** (regra para dispositivos).
 
 ### Tarefa 2.1 — Criar Grupos Assigned via Portal (exercício 1/3)
 
@@ -311,6 +319,12 @@ Add-AzADGroupMember -TargetGroupObjectId $GrpFin.Id -MemberObjectId $Fernando.Id
 > - Dynamic groups NÃO permitem adicionar/remover membros manualmente
 > - Um grupo pode ser owner de outro grupo
 > - Para minimizar administração ao atribuir licenças → **group-based licensing**
+>
+> **Ponto de atenção — Licenças em grupo:**
+> - Licenças são consumidas por **MEMBROS** do grupo, NÃO por proprietários (owners)
+> - Guests **também** consomem licença se forem membros
+> - Owner que NÃO é membro **NÃO** consome licença
+> - Exemplo: Group1 com membros User1, User2, User3 (guest) e owner User4 → **3 licenças** (não 4!)
 
 ---
 
@@ -400,9 +414,9 @@ SEM writeback: usuários híbridos (sync'd) NÃO podem usar SSPR
 
 ---
 
-## Parte 5 — RBAC (Role-Based Access Control)
+## Parte 5 — Controle de Acesso Baseado em Função (RBAC)
 
-> **Conceito:** RBAC controla o que cada pessoa pode fazer. Três elementos: **Who** (security principal — user, group, SP, MI), **What** (role definition — ações permitidas/negadas), **Where** (scope — MG > Sub > RG > Resource). Roles atribuídos em um scope superior são **herdados** por scopes inferiores.
+> **Conceito:** O controle de acesso baseado em função (**RBAC**) define o que cada identidade pode fazer. Três elementos aparecem o tempo todo na prova: **Who** (security principal, como user, group, service principal ou managed identity), **What** (role definition, com ações permitidas e negadas) e **Where** (scope, como Management Group, subscription, grupo de recursos ou recurso individual). Roles atribuídos em um escopo superior são **herdados** por escopos inferiores.
 
 ```mermaid
 graph TD
@@ -521,7 +535,14 @@ Get-AzRoleDefinition -Name "Storage Blob Data Contributor" |
 > | **Cost Management Contributor** | Gerenciar custos/budgets | Criar recursos |
 > | **Backup Contributor** | Gerenciar backups | Criar vault |
 >
-> **ATENÇÃO:** `Contributor` no RG **NÃO** dá acesso ao data plane do Storage. Para ler blobs, precisa de `Storage Blob Data *`.
+> **ATENÇÃO:** `Contributor` no grupo de recursos (**RG**) **não** dá acesso ao data plane do Storage. Para ler blobs, é preciso uma role `Storage Blob Data *`.
+>
+> **Ponto de atenção — RBAC no Management Group:**
+> - "Usuário precisa ver TODOS os recursos em TODAS as subscriptions" → atribuir **Reader no Management Group**
+> - RBAC no Management Group é **herdado** por todas as subscriptions dentro dele
+> - É a forma mais simples: 1 atribuição no Management Group em vez de N atribuições em cada subscription
+> - **Billing Reader** só vê dados de faturamento, NÃO vê recursos
+> - **Reader no Management Group** é melhor do que Reader em cada subscription quando a meta é reduzir esforço administrativo
 
 ---
 
@@ -611,12 +632,29 @@ Get-AzPolicyState -SubscriptionId $SubId |
 > - Policy com **Modify** precisa de **Managed Identity** na atribuição
 > - **Initiative** = grupo de policies (ex: "LGPD Compliance" com 10 rules)
 > - **Exclusion** permite excluir RGs/recursos específicos de uma policy assignment
+>
+> **Pegadinha frequente — Onde fica o RemediationDescription?**
+> A descrição personalizada de remediação fica na seção **`metadata`** da policy definition, **NÃO** na `policyRule`. Estrutura de uma policy definition:
+> ```json
+> {
+>   "properties": {
+>     "displayName": "...",
+>     "policyType": "Custom",
+>     "metadata": {
+>       "category": "Storage",
+>       "remediationDescription": "Habilite TLS 1.2 na storage account..."
+>     },
+>     "policyRule": { ... }
+>   }
+> }
+> ```
+> **Regra:** `metadata` = informações sobre a policy (categoria, remediação). `policyRule` = lógica (if/then/effect).
 
 ---
 
 ## Parte 7 — Resource Locks
 
-> **Conceito:** Locks impedem exclusão ou modificação acidental. **CanNotDelete** (pode modificar, não pode deletar) e **ReadOnly** (nenhuma modificação). Locks afetam **todos os usuários**, inclusive Owners. Para o cenário: proteger rg-ch-monitor (backups são críticos).
+> **Conceito:** Locks impedem exclusão ou modificação acidental. **CanNotDelete** permite modificar, mas não excluir; **ReadOnly** impede qualquer modificação. Locks afetam **todos os usuários**, inclusive Owners. No cenário deste lab, o foco é proteger `rg-ch-monitor`, porque os recursos de backup são críticos.
 
 ### Tarefa 7.1 — Locks via Portal e CLI (exercício 1/2)
 
@@ -681,9 +719,15 @@ Remove-AzResourceLock -LockId $Lock.LockId -Force
 
 > **Dica de Prova:**
 > - Lock **ReadOnly** em Storage Account impede `listKeys` (pois é operação de escrita!)
-> - Lock no **RG** impede deletar qualquer recurso dentro E o próprio RG
+> - Lock no **grupo de recursos (RG)** impede excluir qualquer recurso dentro dele e também o próprio grupo
 > - Locks se aplicam a **todos os roles**, inclusive Owner
 > - Para gerenciar locks: precisa de `Microsoft.Authorization/locks/*` (Owner ou User Access Admin)
+>
+> **Scope dos Locks (DECORAR):**
+> - ✅ Subscription → pode ter locks
+> - ✅ Resource Group → pode ter locks
+> - ✅ Recurso individual, como máquina virtual ou conta de armazenamento, pode ter lock
+> - ❌ **Management Groups → NÃO suportam locks**
 
 ---
 
@@ -744,7 +788,7 @@ az account management-group delete --name "mg-contoso"
 
 ---
 
-## Checklist — Lab 01
+## Checklist de Verificação — Lab 01
 
 - [ ] 7 usuários criados (Portal + CLI + PowerShell)
 - [ ] 1 guest convidado
@@ -752,7 +796,7 @@ az account management-group delete --name "mg-contoso"
 - [ ] Dynamic group entendido (conceitual)
 - [ ] usageLocation definido para todos
 - [ ] SSPR configurado para grp-ch-ti
-- [ ] RBAC atribuído: TI=Contributor, Clínico=BlobReader, Fin=CostReader, RH=Reader
+- [ ] Controle de acesso baseado em função (RBAC) atribuído: TI=Contributor, Clínico=BlobReader, Fin=CostReader, RH=Reader
 - [ ] Elena com Backup Contributor no rg-ch-monitor
 - [ ] 3 Azure Policies atribuídas (Locations, Tag, TLS)
 - [ ] Resource Locks criados e testados (CanNotDelete + ReadOnly)
@@ -760,4 +804,4 @@ az account management-group delete --name "mg-contoso"
 - [ ] Budget criado
 - [ ] Management Group exercitado
 
-**Próximo:** Lab 02 — Networking (criar a infraestrutura de rede onde todos os recursos viverão)
+**Próximo:** Lab 02 — Configurar e Gerenciar Redes Virtuais (criar a infraestrutura de rede onde todos os recursos viverão)

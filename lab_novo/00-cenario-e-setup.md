@@ -4,11 +4,11 @@
 
 Você foi contratado como **Administrador Azure** da **Contoso Healthcare**, uma rede de clínicas médicas em expansão no Brasil. A empresa decidiu migrar toda a infraestrutura para o Azure e você é responsável por:
 
-1. **Identidade & Governança** — Criar a estrutura de usuários, grupos, permissões e políticas
-2. **Rede** — Projetar e implementar a topologia hub-spoke com segurança
-3. **Armazenamento** — Configurar storage para prontuários, imagens médicas e documentos
-4. **Computação** — Implantar o portal do paciente (App Service), a API interna (containers), e VMs para sistemas legados
-5. **Monitoramento & Backup** — Garantir compliance LGPD, backup de dados críticos e disaster recovery
+1. **Gerenciar identidades e governança do Azure** — Criar a estrutura de usuários, grupos, permissões e políticas
+2. **Configurar e gerenciar redes virtuais** — Projetar e implementar a topologia hub-spoke com segurança
+3. **Implementar e gerenciar armazenamento** — Configurar storage para prontuários, imagens médicas e documentos
+4. **Implantar e gerenciar recursos de computação do Azure** — Implantar o portal do paciente (App Service), a API interna (contêineres), e máquinas virtuais para sistemas legados
+5. **Monitorar e manter recursos do Azure** — Garantir compliance LGPD, backup de dados críticos e disaster recovery
 
 ### Arquitetura Alvo
 
@@ -17,8 +17,8 @@ graph TB
     subgraph "Management Group: mg-contoso"
         subgraph "Subscription: sub-contoso-prod"
             subgraph "rg-ch-identity"
-                USERS[Entra ID<br/>Users & Groups]
-                RBAC[RBAC Roles]
+                USERS[Entra ID<br/>Usuários e grupos]
+                RBAC[Controle de acesso<br/>baseado em função]
                 POLICY[Azure Policy]
             end
             subgraph "rg-ch-network"
@@ -37,8 +37,8 @@ graph TB
                 end
                 DNS_PUB[DNS: contoso-health.com.br]
                 DNS_PRIV[DNS: contoso.internal]
-                LB_PUB[LB Público<br/>Portal Paciente]
-                LB_INT[LB Interno<br/>API Interna]
+                LB_PUB[Balanceador público<br/>Portal Paciente]
+                LB_INT[Balanceador interno<br/>API Interna]
             end
             subgraph "rg-ch-storage"
                 SA_PRONT[sachprontuarios<br/>Blob + Files]
@@ -48,15 +48,15 @@ graph TB
             subgraph "rg-ch-compute"
                 VM_WEB[vm-ch-web01/02<br/>Portal Paciente]
                 VM_DB[vm-ch-db01<br/>SQL Server]
-                VMSS[vmss-ch-api<br/>Scale Set API]
-                ACR[acr-ch<br/>Container Registry]
-                ACI[aci-ch-reports<br/>Relatórios batch]
+                VMSS[vmss-ch-api<br/>Conjunto de dimensionamento]
+                ACR[acr-ch<br/>Azure Container Registry]
+                ACI[aci-ch-reports<br/>Contêineres batch]
                 ACA[ca-ch-api<br/>Container App API]
                 APP[app-ch-portal<br/>App Service]
             end
             subgraph "rg-ch-monitor"
-                LAW[Log Analytics<br/>law-ch-prod]
-                RSV[Recovery Services<br/>rsv-ch-prod]
+                LAW[Workspace do Log Analytics<br/>law-ch-prod]
+                RSV[Recovery Services Vault<br/>rsv-ch-prod]
                 BV[Backup Vault<br/>bv-ch-prod]
                 ASR[Site Recovery<br/>DR → West US]
             end
@@ -93,22 +93,22 @@ Todos os labs seguem esta convenção **fixa** (sem sufixos aleatórios):
 
 | Tipo | Padrão | Exemplo |
 |------|--------|---------|
-| Resource Group | `rg-ch-{função}` | `rg-ch-network` |
-| VNet | `vnet-ch-{topologia}` | `vnet-ch-hub` |
+| Grupo de recursos | `rg-ch-{função}` | `rg-ch-network` |
+| Rede virtual (VNet) | `vnet-ch-{topologia}` | `vnet-ch-hub` |
 | Subnet | `snet-{função}` | `snet-web` |
-| NSG | `nsg-ch-{função}` | `nsg-ch-web` |
-| Public IP | `pip-ch-{recurso}` | `pip-ch-bastion` |
-| Load Balancer | `lb-ch-{tipo}` | `lb-ch-web-pub` |
-| Storage Account | `sach{função}` | `sachprontuarios` |
-| VM | `vm-ch-{role}{nn}` | `vm-ch-web01` |
-| Scale Set | `vmss-ch-{role}` | `vmss-ch-api` |
-| Container Registry | `acrch{suffix}` | `acrchprod` |
-| Container Instance | `aci-ch-{função}` | `aci-ch-reports` |
+| Grupo de segurança de rede (NSG) | `nsg-ch-{função}` | `nsg-ch-web` |
+| IP público | `pip-ch-{recurso}` | `pip-ch-bastion` |
+| Balanceador de carga | `lb-ch-{tipo}` | `lb-ch-web-pub` |
+| Conta de armazenamento | `sach{função}` | `sachprontuarios` |
+| Máquina virtual (VM) | `vm-ch-{role}{nn}` | `vm-ch-web01` |
+| Conjunto de dimensionamento | `vmss-ch-{role}` | `vmss-ch-api` |
+| Azure Container Registry | `acrch{suffix}` | `acrchprod` |
+| Azure Container Instance | `aci-ch-{função}` | `aci-ch-reports` |
 | Container App | `ca-ch-{função}` | `ca-ch-api` |
 | App Service | `app-ch-{função}` | `app-ch-portal` |
 | Key Vault | `kv-ch-{função}` | `kv-ch-encryption` |
-| Log Analytics | `law-ch-{env}` | `law-ch-prod` |
-| Recovery Vault | `rsv-ch-{env}` | `rsv-ch-prod` |
+| Workspace do Log Analytics | `law-ch-{env}` | `law-ch-prod` |
+| Recovery Services Vault | `rsv-ch-{env}` | `rsv-ch-prod` |
 | Backup Vault | `bv-ch-{env}` | `bv-ch-prod` |
 
 > **Importante:** Na prova e no mundo real, storage account names devem ser globalmente únicos. Se `sachprontuarios` estiver em uso, adicione um sufixo numérico: `sachprontuarios01`.
@@ -249,13 +249,13 @@ Get-AzContext | Select-Object Name, Subscription, Tenant
 # "|" (pipe) = passa a saída de um cmdlet como entrada do próximo
 ```
 
-> **Conceito:** CLI e PowerShell são ferramentas **independentes** com tokens separados. Fazer `az login` NÃO autentica o PowerShell e vice-versa. Na prova, preste atenção se a questão pede CLI ou PowerShell — os comandos são completamente diferentes.
+> **Conceito:** Azure CLI e PowerShell são ferramentas **independentes** e mantêm tokens separados. Fazer `az login` **não** autentica o PowerShell, e o inverso também não acontece. Na prova, preste atenção ao método pedido no enunciado: os comandos mudam completamente entre CLI e PowerShell.
 
 ---
 
-## Tarefa 0.2 — Criar Resource Groups
+## Tarefa 0.2 — Criar grupos de recursos
 
-> **Conceito:** Resource Group é um contêiner lógico que agrupa recursos Azure relacionados. Não tem custo. Cada recurso deve pertencer a exatamente 1 RG. A região do RG é apenas metadados — recursos dentro dele podem estar em qualquer região. Deletar um RG deleta **todos** os recursos dentro.
+> **Conceito:** Resource Group, ou **grupo de recursos**, é um contêiner lógico que agrupa recursos relacionados no Azure. Não tem custo próprio. Cada recurso deve pertencer a exatamente um grupo de recursos. A região do grupo de recursos serve apenas para metadados; os recursos dentro dele podem estar em outras regiões. Excluir um grupo de recursos exclui **todos** os recursos contidos nele.
 
 ### Método: Portal
 
@@ -474,18 +474,18 @@ az provider list --query "[?registrationState=='Registered' && starts_with(names
 
 ```mermaid
 graph LR
-    L0[Lab 00<br/>Setup ✓] --> L1[Lab 01<br/>Identity<br/>& Governance]
-    L1 -->|Usuários e RBAC<br/>prontos| L2[Lab 02<br/>Networking]
-    L2 -->|VNets, NSGs e DNS<br/>prontos| L3[Lab 03<br/>Storage]
-    L3 -->|Storage Accounts<br/>prontas| L4[Lab 04<br/>Compute]
-    L4 -->|VMs e Apps<br/>rodando| L5[Lab 05<br/>Monitor<br/>& Backup]
+    L0[Lab 00<br/>Setup ✓] --> L1[Lab 01<br/>Identidades e<br/>Governança]
+    L1 -->|Usuários e controle de acesso<br/>prontos| L2[Lab 02<br/>Redes Virtuais]
+    L2 -->|Redes virtuais, grupos de segurança<br/>e DNS prontos| L3[Lab 03<br/>Armazenamento]
+    L3 -->|Contas de armazenamento<br/>prontas| L4[Lab 04<br/>Computação Azure]
+    L4 -->|Máquinas virtuais e aplicativos<br/>rodando| L5[Lab 05<br/>Monitorar e<br/>Manter]
 ```
 
 **Dependências entre labs:**
-- Lab 01 cria os **usuários e RBAC** que serão testados nos labs seguintes
-- Lab 02 cria a **rede** (VNets, Subnets, NSGs) onde todos os recursos viverão
-- Lab 03 cria as **Storage Accounts** que VMs usam para discos, logs e arquivos
-- Lab 04 cria **VMs, containers e apps** dentro da rede e conectados ao storage
+- Lab 01 cria os **usuários e controles de acesso** que serão testados nos labs seguintes
+- Lab 02 cria a **rede** (redes virtuais, sub-redes e grupos de segurança de rede) onde todos os recursos viverão
+- Lab 03 cria as **contas de armazenamento** que as máquinas virtuais usam para discos, logs e arquivos
+- Lab 04 cria **máquinas virtuais, containers e aplicativos** dentro da rede e conectados ao armazenamento
 - Lab 05 configura **monitoramento e backup** de todos os recursos anteriores
 
 ---
@@ -503,7 +503,7 @@ done
 
 ---
 
-## Checklist — Lab 00
+## Checklist de Verificação — Lab 00
 
 - [ ] CLI e PowerShell validados
 - [ ] Login feito em ambas as ferramentas

@@ -1,7 +1,7 @@
-# Lab 02 — Redes Virtuais (15-20% do exame)
+# Lab 02 — Configurar e Gerenciar Redes Virtuais (15-20% do exame)
 
-> **Pré-requisito:** Lab 01 concluído (usuários, grupos e RBAC prontos).
-> **Contexto:** A Contoso Healthcare precisa de uma topologia **hub-spoke**: Hub central com Bastion e Gateway, Spoke Web para portal do paciente e API, Spoke Data para banco de dados e private endpoints. NSGs isolam as camadas, UDRs forçam tráfego pelo Hub, e DNS resolve nomes internos.
+> **Pré-requisito:** Lab 01 concluído, com usuários, grupos e RBAC já configurados.
+> **Contexto:** Este lab trata da configuração e do gerenciamento de redes virtuais no Azure por meio de uma topologia **hub-spoke**, com segmentação por sub-redes, peering, grupos de segurança de rede (NSGs), rotas definidas pelo usuário (UDRs), DNS e balanceamento de carga.
 
 ```mermaid
 graph TB
@@ -42,9 +42,9 @@ graph TB
 
 ---
 
-## Parte 1 — Criar VNets e Subnets
+## Parte 1 — Criar redes virtuais e sub-redes
 
-> **Conceito:** VNet é o bloco fundamental de rede privada no Azure. Isolada por padrão — VNets não se comunicam sem peering ou VPN. Endereços devem estar em ranges RFC 1918. Azure reserva **5 IPs** por subnet: .0 (rede), .1 (default gateway), .2-.3 (DNS Azure), .255 (broadcast). Uma /24 tem 251 IPs usáveis.
+> **Conceito:** A rede virtual (**VNet**) é o bloco fundamental de rede privada no Azure. Redes virtuais ficam isoladas por padrão e não se comunicam entre si sem peering ou VPN. Os endereços devem estar em faixas RFC 1918. O Azure reserva **5 IPs** por sub-rede: `.0` para a rede, `.1` como gateway padrão, `.2` e `.3` para DNS do Azure, e o último endereço para broadcast. Uma sub-rede `/24` fica com 251 IPs utilizáveis.
 
 ### Tarefa 1.1 — Criar VNet Hub via Portal (exercício 1/3)
 
@@ -68,7 +68,7 @@ Tags: Projeto=ContosoHealth, Ambiente=Lab
 > Review + Create
 ```
 
-> **ALERTA para prova:** `AzureBastionSubnet` e `GatewaySubnet` são nomes **exatos** obrigatórios. Qualquer outro nome causará erro. GatewaySubnet NÃO deve ter NSG associado.
+> **ALERTA para prova:** `AzureBastionSubnet` e `GatewaySubnet` são nomes **exatos** e obrigatórios. Qualquer outro nome causa erro. `GatewaySubnet` **não** deve ter grupo de segurança de rede (NSG) associado.
 
 ### Tarefa 1.2 — Criar VNet Spoke Web via CLI (exercício 2/3)
 
@@ -224,9 +224,9 @@ az network public-ip list -g $RG_NETWORK \
 
 ---
 
-## Parte 2 — VNet Peering
+## Parte 2 — Peering entre redes virtuais
 
-> **Conceito:** VNet Peering conecta duas VNets pelo backbone Microsoft (sem internet). **NÃO é transitivo**: Hub↔Spoke1 + Hub↔Spoke2 NÃO significa Spoke1↔Spoke2. Requer configuração em **ambos os lados**. Address spaces NÃO podem sobrepor. Global peering conecta VNets em regiões diferentes.
+> **Conceito:** VNet Peering conecta duas redes virtuais pelo backbone da Microsoft, sem usar a internet. **Não é transitivo**: Hub↔Spoke1 e Hub↔Spoke2 **não** implicam Spoke1↔Spoke2. O peering precisa ser configurado em **ambos os lados**, e os espaços de endereçamento **não** podem se sobrepor. O global peering permite conectar redes virtuais em regiões diferentes.
 
 ### Tarefa 2.1 — Peering Hub ↔ Spoke Web via Portal (exercício 1/3)
 
@@ -288,11 +288,18 @@ Get-AzVirtualNetworkPeering -ResourceGroupName $RgNetwork -VirtualNetworkName $V
 # PeeringState deve ser "Connected" — se for "Initiated", o outro lado não configurou
 ```
 
+> **Ponto de atenção — VPN P2S + Peering:**
+> Se você tem um cliente VPN P2S conectado a VNet1 e **depois** cria peering VNet1↔VNet2, o cliente **NÃO** acessa VNet2 automaticamente. O cliente VPN P2S baixa a tabela de rotas no momento da instalação. Novas rotas (de peering) **NÃO são atualizadas** automaticamente.
+> **Solução:** Reinstalar (baixar e reconfigurar) o cliente VPN P2S no dispositivo. Isso atualiza a tabela de rotas.
+>
+> **Ponto de atenção — Máquina virtual em múltiplas sub-redes:**
+> Uma máquina virtual se conecta a uma sub-rede por meio de uma **interface de rede (NIC)**. Para conectar a 2 sub-redes, ela precisa de **2 NICs**. O tamanho da máquina virtual deve suportar múltiplas NICs, e não basta alterar o IP da interface existente.
+
 ---
 
-## Parte 3 — NSGs e ASGs
+## Parte 3 — Grupos de Segurança de Rede (NSGs) e de Aplicativo (ASGs)
 
-> **Conceito:** NSG filtra tráfego com regras de prioridade (100-4096, menor=maior prioridade). Associado a **subnets** ou **NICs** (ou ambos). Regras padrão: AllowVNetInBound (65000), AllowAzureLBInBound (65001), DenyAllInBound (65500). ASG agrupa NICs logicamente para uso em regras.
+> **Conceito:** O grupo de segurança de rede (**NSG**) filtra tráfego com regras de prioridade entre 100 e 4096; quanto menor o número, maior a prioridade. Ele pode ser associado a **sub-redes**, **interfaces de rede (NICs)** ou ambos. Já o grupo de segurança de aplicativo (**ASG**) agrupa NICs logicamente para simplificar regras.
 
 ### Tarefa 3.1 — NSG para camada Web via Portal (exercício 1/3)
 
@@ -398,16 +405,42 @@ $NsgWeb.SecurityRules | Select-Object Name, Priority, Direction, Access,
 ```
 
 > **Dica de Prova:**
-> - NSG na **subnet** E na **NIC**: inbound avalia subnet→NIC, outbound avalia NIC→subnet
-> - **Effective Security Rules** = resultado combinado de NSG da subnet + NSG da NIC
-> - ASG e IP address NÃO podem ser usados na mesma regra como source/destination
+> - NSG na **sub-rede** e na **NIC**: tráfego de entrada avalia sub-rede → NIC; tráfego de saída avalia NIC → sub-rede
+> - **Effective Security Rules** são o resultado combinado do NSG da sub-rede com o NSG da NIC
+> - ASG e endereço IP **não** podem ser usados juntos na mesma regra como origem ou destino
 > - Service Tags: `Internet`, `VirtualNetwork`, `AzureLoadBalancer`, `Storage`, `Sql`
+>
+> **Ponto de atenção — NSG via PowerShell:**
+> ```powershell
+> # PASSO 1: Criar REGRAS primeiro (objetos em memória)
+> $RuleHTTP = New-AzNetworkSecurityRuleConfig -Name "Allow-HTTP" `
+>     -Protocol Tcp -Direction Inbound -Priority 100 -Access Allow `
+>     -SourceAddressPrefix "*" -SourcePortRange "*" `
+>     -DestinationAddressPrefix "*" -DestinationPortRange 80
+> # New-AzNetworkSecurityRuleConfig: cria objeto de REGRA (não cria no Azure ainda)
+>
+> # PASSO 2: Criar NSG passando as regras
+> New-AzNetworkSecurityGroup -Name "nsg-example" `
+>     -ResourceGroupName $RgNetwork -Location $Location `
+>     -SecurityRules $RuleHTTP
+> # -SecurityRules: aceita array de RuleConfig objects
+> ```
+> **Ordem:** `New-AzNetworkSecurityRuleConfig` → `New-AzNetworkSecurityGroup -SecurityRules`
+> Se esquecer o RuleConfig, o NSG é criado **sem regras customizadas** (só as padrão).
+>
+> **Pegadinha frequente — ASG vs Service Tag vs Subnet:**
+> - "Permitir tráfego para 2 máquinas virtuais específicas em cada sub-rede, com o menor número de regras" → **ASG**
+> - **ASG** agrupa NICs logicamente; uma regra de NSG com ASG como destino cobre todas as máquinas virtuais do grupo
+> - **Service Tag** representa serviços do Azure, como `AzureLoadBalancer` ou `Storage`, e **não** agrupa suas máquinas virtuais
+> - **Subnet** como destino cobre **todas** as máquinas virtuais da sub-rede, não só as desejadas
+> - **IP individual** exige uma regra por máquina virtual
+> **Regra:** se a questão pedir "menor número de regras NSG + máquinas virtuais específicas", a resposta é **ASG**
 
 ---
 
 ## Parte 4 — Azure Bastion
 
-> **Conceito:** Bastion permite RDP/SSH via browser sem portas públicas nas VMs. Subnet **AzureBastionSubnet** com mínimo /26. Funciona com VMs em VNets em **peering**. Tiers: Basic (sessão simples), Standard (multi-sessão, upload/download).
+> **Conceito:** Azure Bastion permite RDP ou SSH pelo navegador, sem expor portas públicas nas máquinas virtuais. A sub-rede **AzureBastionSubnet** deve ter no mínimo `/26`. O serviço funciona com máquinas virtuais em redes virtuais conectadas por peering. Tiers: Basic para sessão simples e Standard para múltiplas sessões e upload/download.
 
 ### Tarefa 4.1 — Implementar Bastion via CLI (exercício 1/2)
 
@@ -438,9 +471,9 @@ Get-AzBastion -ResourceGroupName $RgNetwork |
 
 ---
 
-## Parte 5 — User Defined Routes
+## Parte 5 — Rotas Definidas pelo Usuário
 
-> **Conceito:** UDRs substituem rotas padrão do Azure. Usados para forçar tráfego por NVA/Firewall. Next hop types: **VirtualAppliance** (IP de NVA), **VirtualNetworkGateway** (VPN), **VnetLocal** (VNet local), **Internet**, **None** (drop). Para o cenário: forçar tráfego entre spokes pelo hub.
+> **Conceito:** Rotas definidas pelo usuário (**UDRs**) substituem rotas padrão do Azure. São usadas para forçar tráfego por uma NVA ou firewall. Os próximos saltos mais cobrados são **VirtualAppliance** (IP de NVA), **VirtualNetworkGateway** (VPN), **VnetLocal** (rede virtual local), **Internet** e **None** (descarta o tráfego). Neste cenário, elas servem para forçar o tráfego entre spokes pelo hub.
 
 ### Tarefa 5.1 — UDR Spoke Web → Hub via CLI (exercício 1/2)
 
@@ -507,7 +540,7 @@ $Vnet | Set-AzVirtualNetwork
 
 ### Tarefa 6.1 — Service Endpoint para Storage (exercício 1/2)
 
-> **Conceito:** Service Endpoint estende identidade da VNet para serviço PaaS. Tráfego pelo backbone Azure. Serviço PaaS mantém IP público mas pode restringir acesso à VNet. **Gratuito.**
+> **Conceito:** Service Endpoint estende a identidade da rede virtual para um serviço PaaS. O tráfego segue pelo backbone do Azure. O serviço PaaS mantém IP público, mas pode restringir acesso à rede virtual. É um recurso **gratuito**.
 
 ```bash
 # Habilitar Service Endpoint na subnet web
@@ -524,7 +557,7 @@ az network vnet subnet show --name "snet-web" -g $RG_NETWORK --vnet-name $VNET_S
 
 ### Tarefa 6.2 — Private Endpoint para Storage (exercício 2/2)
 
-> **Conceito:** Private Endpoint cria NIC privada na VNet para serviço PaaS. O serviço recebe IP **privado** da subnet. Tráfego nunca sai da VNet. Mais seguro que Service Endpoint mas tem custo. Requer Private DNS Zone para resolução.
+> **Conceito:** Private Endpoint cria uma interface de rede privada dentro da rede virtual para acesso a um serviço PaaS. O serviço recebe um IP **privado** da sub-rede. O tráfego não sai da rede virtual. É mais seguro que Service Endpoint, mas tem custo adicional e normalmente exige Private DNS Zone para resolução de nome.
 
 ```bash
 # Preparar subnet para Private Endpoint
@@ -547,7 +580,7 @@ echo "O PE será criado no Lab 03 (Storage) conectado a sachprontuarios"
 
 ### Tarefa 7.1 — DNS Público via CLI (exercício 1/2)
 
-> **Conceito:** Azure DNS hospeda zonas para resolução de nomes. Zona **pública** = internet. Zona **privada** = dentro de VNets. Tipos: A (IPv4), AAAA (IPv6), CNAME (alias), MX (email), TXT (verificação), NS (name server), SOA (authority).
+> **Conceito:** Azure DNS hospeda zonas para resolução de nomes. Zona **pública** resolve nomes na internet; zona **privada** resolve nomes dentro de redes virtuais. Tipos que mais aparecem na prova: A (IPv4), AAAA (IPv6), CNAME (alias), MX (email), TXT (verificação), NS (name server) e SOA (authority).
 
 ```bash
 # Criar zona DNS pública (domínio fictício para o portal do paciente)
@@ -627,7 +660,7 @@ New-AzPrivateDnsRecordSet `
 
 ### Tarefa 8.1 — LB Público via CLI (exercício 1/3)
 
-> **Conceito:** Azure LB opera na camada 4 (TCP/UDP). **Public LB** distribui tráfego da internet. **Internal LB** distribui dentro da VNet. SKU Standard: zone-redundant, requer NSG, SLA 99.99%.
+> **Conceito:** Azure Load Balancer opera na camada 4 (TCP/UDP). O **Public Load Balancer** distribui tráfego vindo da internet; o **Internal Load Balancer** distribui tráfego dentro da rede virtual. A SKU Standard é zone-redundant, exige NSG no backend e oferece SLA de 99,99%.
 
 ```bash
 # Criar LB público para portal do paciente
@@ -701,11 +734,30 @@ az network lb list -g $RG_NETWORK \
 ```
 
 > **Dica de Prova:**
-> - LB Standard é **zone-redundant** por padrão
-> - LB Standard **requer** NSG no backend (LB Basic não)
-> - Health probe falhou = VM **removida** do pool
+> - O Load Balancer Standard é **zone-redundant** por padrão
+> - O Load Balancer Standard **requer** NSG no backend; o Basic não
+> - Se a health probe falhar, a máquina virtual é **removida** do pool
 > - **Session persistence**: None (round-robin), Client IP, Client IP + Protocol
-> - LB interno usa IP privado; LB público usa Public IP
+> - O Load Balancer interno usa IP privado; o público usa Public IP
+
+> **Pegadinha frequente — Distribuição de tráfego no Load Balancer:**
+> - **Timeouts + distribuição desigual** → alterar modo para **hash de 5 tuplas** (IP src, port src, IP dst, port dst, protocol)
+> - **Health probe** verifica saúde, NÃO muda como o tráfego é distribuído
+> - **Session affinity/persistence** habilitada faz um cliente sempre voltar para a mesma máquina virtual, o que gera distribuição desigual
+> - Para distribuição **uniforme**: desabilitar session affinity (persistence = None)
+>
+> **Pegadinha frequente — Troubleshooting de Load Balancer (conectividade intermitente):**
+> - "Problemas intermitentes de conectividade no balanceador público" → verificar **2 coisas**:
+>   1. **Health probe** (sonda de integridade) — probe mal configurada = backend unhealthy
+>   2. **SKU compatibility** — Load Balancer Standard requer Public IP Standard
+> - ❌ Alterar afinidade de IP = muda distribuição, NÃO resolve conectividade
+> - ❌ Regras de NSG podem ser relevantes, mas **não** costumam ser a causa raiz de intermitência nesse cenário
+>
+> **Ponto de atenção — Verificar porta na máquina virtual:**
+> - "Verificar se o servidor está escutando na porta 80" → **`netstat -an`** na máquina virtual Windows
+> - ❌ `Get-AzVirtualNetworkUsageList` = uso de rede virtual, não portas
+> - ❌ `nbtstat -c` = cache NetBIOS, não portas
+> - ❌ `Test-NetConnection localhost` = testa conexão, não lista portas
 
 ---
 
@@ -747,24 +799,32 @@ az network route-table list -g $RG_NETWORK \
   --query "[].{RT:name, Rotas:routes[].{Dest:addressPrefix,NextHop:nextHopType}}" -o json
 ```
 
+> **Ponto de atenção — Packet Capture (pré-requisitos):**
+> - "Inspecionar tráfego de rede entre VM1 e VM2" → **2 passos**:
+>   1. Instalar **AzureNetworkWatcherExtension** na VM
+>   2. Usar **Packet Capture** do Network Watcher
+> - ❌ "Configurar Entrada e Saída de Rede" = métricas, NÃO captura pacotes
+> - ❌ "Alerta de log" = notificação, NÃO captura
+> - Packet Capture requer a **extensão** instalada na VM — sem ela, não funciona
+
 ---
 
-## Checklist — Lab 02
+## Checklist de Verificação — Lab 02
 
-- [ ] 3 VNets criadas (Hub + 2 Spokes) via Portal, CLI, PowerShell e Bicep
+- [ ] 3 redes virtuais (VNets) criadas: Hub + 2 spokes, via Portal, CLI, PowerShell e Bicep
 - [ ] Subnets especiais: AzureBastionSubnet (/26) e GatewaySubnet (/27)
 - [ ] 3 IPs públicos Standard criados
 - [ ] Peering Hub↔Spoke Web e Hub↔Spoke Data (ambos os lados)
-- [ ] 3 NSGs criados com regras (Web: HTTP/HTTPS, App: 8080 da web, DB: 1433 da app)
-- [ ] 3 ASGs criados
-- [ ] NSGs associados às subnets
+- [ ] 3 grupos de segurança de rede (NSGs) criados com regras: Web=HTTP/HTTPS, App=8080 da web, DB=1433 da aplicação
+- [ ] 3 grupos de segurança de aplicativo (ASGs) criados
+- [ ] NSGs associados às sub-redes
 - [ ] Azure Bastion criado no Hub
-- [ ] 2 Route Tables com UDRs (spoke-web→hub, spoke-data→hub)
+- [ ] 2 tabelas de rotas com UDRs (spoke-web→hub, spoke-data→hub)
 - [ ] Service Endpoint para Storage na snet-web
 - [ ] Subnet snet-endpoints preparada para Private Endpoints
 - [ ] DNS público com registros A e CNAME
-- [ ] DNS privado com auto-registration e links para todas as VNets
+- [ ] DNS privado com auto-registration e links para todas as redes virtuais
 - [ ] Load Balancer público com probe e regra
 - [ ] Load Balancer interno com IP fixo 10.1.2.10
 
-**Próximo:** Lab 03 — Storage (criar as Storage Accounts dentro da rede segura)
+**Próximo:** Lab 03 — Implementar e Gerenciar Armazenamento (criar as contas de armazenamento dentro da rede segura)

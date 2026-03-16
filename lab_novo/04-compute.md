@@ -1,7 +1,7 @@
-# Lab 04 — Computação (20-25% do exame)
+# Lab 04 — Implantar e Gerenciar Recursos de Computação do Azure (20-25% do exame)
 
 > **Pré-requisito:** Labs 01-03 concluídos (identidade, rede e storage prontos).
-> **Contexto:** A Contoso Healthcare precisa implantar: 2 VMs web (portal do paciente) no snet-web atrás do LB público, 1 VM de banco de dados no snet-db, um Scale Set para a API, containers para relatórios batch (ACI) e API leve (Container Apps), e App Service como alternativa PaaS para o portal.
+> **Contexto:** Este lab trata da implantação e do gerenciamento de recursos de computação do Azure, incluindo máquinas virtuais, conjuntos de dimensionamento, containers, App Service e operações associadas de disponibilidade, escala e mobilidade.
 
 ```mermaid
 graph TB
@@ -125,14 +125,28 @@ ARMEOF
 ```
 
 > **Funções ARM para a prova:**
-> - `[resourceGroup().location]` — região do RG do deploy
+> - `[resourceGroup().location]` — região do grupo de recursos do deploy
 > - `[concat('a', 'b')]` — concatena strings → `"ab"`
 > - `[parameters('x')]` — referencia parâmetro
 > - `[variables('x')]` — referencia variável
 > - `[resourceId('Type', 'Name')]` — constrói Resource ID
 > - `[reference('Name').prop]` — obtém propriedade após deploy
-> - `[uniqueString(resourceGroup().id)]` — hash de 13 chars baseado no RG
-> - `dependsOn` — define ordem de criação (NIC antes da VM)
+> - `[uniqueString(resourceGroup().id)]` — hash de 13 caracteres baseado no grupo de recursos
+> - `dependsOn` — define ordem de criação, como interface de rede antes da máquina virtual
+> - **`copy`** — cria múltiplas instâncias do mesmo recurso, por exemplo 2 máquinas virtuais a partir de uma única definição
+>
+> **Ponto de atenção — ARM copy element:**
+> - "Implantar 2 máquinas virtuais usando 1 template com 1 definição de recurso" → adicionar o **elemento `copy`**
+> - `copy` permite iteração: cria N instâncias variando parâmetros (nome, zona, etc.)
+> - ❌ Versão da API = já está no template
+> - ❌ ID da assinatura = não é necessário
+> - ❌ Local do grupo de recursos = já fornecido por `resourceGroup().location`
+>
+> **Pegadinha frequente — ARM --parameters inline:**
+> - "Passar array como parâmetro inline" → `--parameters arrayParam='["v1","v2"]'`
+> - **Inline** = direto no comando `--parameters key=value`
+> - **Arquivo** = `--parameters @params.json` (NÃO é inline)
+> - `--template-file` aponta para o template, NÃO serve para parâmetros
 
 ### Tarefa 1.2 — Bicep equivalente (exercício 2/3)
 
@@ -365,7 +379,7 @@ az vm encryption enable \
 az vm encryption show --name $VM_DB01 -g $RG_COMPUTE -o table
 ```
 
-### Tarefa 3.3 — Snapshot e Mover VM (exercício 3/3)
+### Tarefa 3.3 — Snapshot e mover máquina virtual (exercício 3/3)
 
 ```bash
 # Snapshot do OS disk
@@ -378,6 +392,38 @@ echo "Para mover VM entre RGs: az resource move --destination-group rg-destino -
 echo "Mover entre RGs NÃO causa downtime"
 echo "Mover entre regiões requer Azure Resource Mover ou snapshot + recriação"
 ```
+
+### Tarefa 3.4 — Mover recursos entre grupo de recursos, subscription e região (exercício extra)
+
+> **Conceito:** O comando `az resource move` move recursos entre **grupos de recursos** e, quando suportado, também entre **subscriptions**. Ele **não** move recursos entre regiões. Para trocar de região, o caminho típico é **redeploy**, cópia ou uso de um serviço específico de mobilidade. Na prova, essa distinção aparece com frequência.
+
+```bash
+# Mover VM + recursos dependentes para outro RG da MESMA subscription
+VM_DB_ID=$(az vm show --name $VM_DB01 -g $RG_COMPUTE --query id -o tsv)
+NIC_DB_ID=$(az vm show --name $VM_DB01 -g $RG_COMPUTE --query "networkProfile.networkInterfaces[0].id" -o tsv)
+OSDISK_ID=$(az vm show --name $VM_DB01 -g $RG_COMPUTE --query "storageProfile.osDisk.managedDisk.id" -o tsv)
+
+echo az resource move \
+  --destination-group "rg-ch-compute-move" \
+  --ids $VM_DB_ID $NIC_DB_ID $OSDISK_ID
+
+# Mesmo conceito para outra subscription (mesmo tenant), se o tipo do recurso suportar
+echo az resource move \
+  --destination-group "rg-destino" \
+  --destination-subscription-id "<subscription-id-destino>" \
+  --ids $VM_DB_ID $NIC_DB_ID $OSDISK_ID
+```
+
+> **Tabela de Decisão para a Prova:**
+>
+> | Cenário | Ferramenta/Resposta |
+> |---|---|
+> | Mover recurso para outro **grupo de recursos (RG)** | `az resource move` |
+> | Mover recurso para outra **subscription** | `az resource move --destination-subscription-id` |
+> | Mover recurso para outra **região** | **não** é `az resource move`; usar redeploy/cópia/serviço específico |
+> | Máquina virtual depende de NIC, disco e IP | mover o **conjunto compatível** de recursos |
+>
+> **Pegadinha clássica:** "move across regions" **não** é o mesmo que "move across subscriptions". Região geralmente exige recriação.
 
 ---
 
@@ -397,6 +443,27 @@ az vm availability-set create \
 # Update Domains: grupos atualizados sequencialmente durante manutenção (máx 20)
 # Fórmula: ceil(VMs / UDs) = VMs offline por vez. 10 VMs/5 UDs = 2 offline/vez
 ```
+
+> **CÁLCULO DE INDISPONIBILIDADE — CAI NA PROVA:**
+>
+> | Cenário | Fórmula | Exemplo: 18 máquinas virtuais, 2 fault domains, 10 update domains |
+> |---|---|---|
+> | **Manutenção planejada** | ceil(VMs ÷ Update Domains) | ceil(18 ÷ 10) = **2 máquinas virtuais offline** |
+> | **Falha de hardware** | ceil(VMs ÷ Fault Domains) | ceil(18 ÷ 2) = **9 máquinas virtuais offline** |
+>
+> **Pegadinha frequente — Confusão entre Update Domain e Fault Domain:**
+> - Palavra "manutenção" / "planned maintenance" → **Update Domains** → ceil(18÷10) = **2**
+> - Palavra "falha de hardware" / "hardware failure" → **Fault Domains** → ceil(18÷2) = **9**
+> - O erro mais comum é usar Fault Domain quando a questão fala em manutenção planejada
+> - **DECORE:** manutenção = update domain. A Microsoft reinicia **1 update domain por vez**. Máximo offline = `ceil(VMs/UDs)`
+> - A Microsoft atualiza **1 UD por vez** durante manutenção
+
+> **Spot VMs — Fatores de eviction (remoção):**
+> - ✅ Azure precisa da capacidade de volta
+> - ✅ Preço spot excede o máximo definido
+> - ❌ CPU da máquina virtual (não é fator)
+> - ❌ Hora do dia (NÃO é fator)
+> - Spot VMs não têm SLA e podem ser removidas a qualquer momento. São ideais para dev/test e cargas batch.
 
 ### Tarefa 4.2 — VMSS com Autoscale (exercício 2/2)
 
@@ -461,7 +528,7 @@ az acr repository list --name $ACR_NAME -o table
 
 ### Tarefa 5.2 — Azure Container Instances (exercício 2/3)
 
-> **Conceito:** ACI executa containers sem gerenciar VMs. **ACI usa Azure Files para volumes, NÃO Blob Storage.** Ideal para batch jobs e tarefas de curta duração. NÃO suporta autoscaling.
+> **Conceito:** Azure Container Instances (**ACI**) executa contêineres sem exigir gerenciamento de máquinas virtuais. **ACI usa Azure Files para volumes, não Blob Storage.** É ideal para batch jobs e tarefas de curta duração. Não suporta autoscaling.
 
 ```bash
 # ACI para relatórios batch (imagem do ACR)
@@ -530,6 +597,25 @@ az containerapp show --name "ca-ch-api" -g $RG_COMPUTE \
 > | **Volume** | Azure Files | Azure Files | Discos + Files |
 > | **Sidecars** | Container Group | ✅ Dapr | ✅ |
 > | **Cenário** | Batch/tarefas | Microservices | Workloads complexos |
+>
+> **Ponto de atenção — Container Apps e Scaling Triggers:**
+> | Fonte do evento | Trigger correto | Trigger ERRADO |
+> |---|---|---|
+> | Requisições HTTP | `http` | — |
+> | Azure Service Bus / Queue / Kafka | `custom` (KEDA event-driven) | ❌ `http` |
+> | Azure Storage Queue | `custom` (KEDA) | ❌ `http` |
+> | Cron/Schedule | `custom` (KEDA) | ❌ `http` |
+>
+> **Regra:** HTTP trigger = apenas para requisições HTTP diretas. Para filas/mensagens/eventos = **KEDA event-driven**.
+>
+> **Ponto de atenção — Container Apps: Sidecar vs Init vs Privileged:**
+> | Tipo | Quando roda | Uso |
+> |---|---|---|
+> | **Sidecar** | Continuamente, ao lado do app principal | Cache, logging, proxy |
+> | **Init container** | Antes do app, termina e morre | Setup, migrations |
+> | Privileged | NÃO é um tipo de container | Conceito de segurança (root) |
+>
+> **Regra:** "Container que roda junto e atualiza cache" = **Sidecar**. "Roda antes e inicializa" = **Init**.
 
 ---
 
@@ -642,8 +728,73 @@ Set-AzAppServicePlan -Name "plan-ch-portal" -ResourceGroupName $RgCompute `
 > - Slot swap é **instantâneo** (troca de ponteiro)
 > - **Auto-swap**: deploy no slot → swap automático para production
 > - **Custom domain**: CNAME para subdomínio, A record para apex
-> - **VNet Integration**: App Service OUTBOUND acessa VNet (não substitui Private Endpoint para inbound)
+> - **VNet Integration**: o App Service acessa a rede virtual no tráfego de saída; isso não substitui Private Endpoint para tráfego de entrada
 > - Backup requer **Standard+** e uma storage account com container
+
+> **ARMADILHA DA PROVA — Autoscale por tier:**
+> | Tier | Suporta Autoscale? | Ação necessária |
+> |---|---|---|
+> | Free (F1) / Shared (D1) | ❌ NÃO | Scale Up para Basic+ |
+> | Basic (B1-B3) | ❌ NÃO | Scale Up para Standard+ |
+> | **Standard (S1-S3)** | ✅ SIM | Configurar regra de autoscale |
+> | Premium (P1-P3) | ✅ SIM | Configurar regra de autoscale |
+>
+> Se a questão pedir autoscale em plano Basic: 2 passos = 1) Scale Up para Standard, 2) Configurar regra de autoscale.
+>
+> **Pegadinha frequente — Mover App Service entre grupos de recursos:**
+> - Certificado SSL **NÃO pode ser movido** junto com o App Service
+> - Para mover: 1) **excluir o certificado SSL** do grupo de recursos de origem, 2) **mover todos os recursos** para o grupo de destino, 3) fazer o upload do certificado novamente no destino
+> - ❌ Criar novo plano ou novo app no grupo de destino é desnecessário
+> - O certificado deve ser excluído e reimportado no novo grupo de recursos
+
+### Tarefa 6.4 — Custom Domain e Certificado SSL (exercício extra)
+
+> **Conceito:** Configurar **custom domain** e **SSL** no App Service são passos diferentes. Primeiro você prova a posse do domínio, depois faz o **bind** do certificado ao hostname. Na prova, muita gente erra porque tenta pular direto para o SSL sem antes associar o hostname.
+
+```
+Portal > App Service > app-ch-portal > Custom domains
+
+1. Add custom domain
+   - Domain provider: All other domain services
+   - Hostname: portal.contoso-health.com.br
+   - Validar registro CNAME ou TXT no provedor DNS
+
+2. Depois de validar:
+   - TLS/SSL settings > Private Key Certificates (.pfx) > Upload Certificate
+   - Ou usar App Service Managed Certificate, quando aplicável
+
+3. Bind SSL
+   - Hostname: portal.contoso-health.com.br
+   - Certificate: selecionar o certificado valido
+   - SSL Type: SNI SSL
+```
+
+```bash
+# Associar hostname customizado
+az webapp config hostname add \
+  --webapp-name $WEBAPP -g $RG_COMPUTE \
+  --hostname "portal.contoso-health.com.br"
+
+# Upload de certificado PFX (opcional, se voce tiver um certificado proprio)
+az webapp config ssl upload \
+  --name $WEBAPP -g $RG_COMPUTE \
+  --certificate-file "/caminho/portal-contoso.pfx" \
+  --certificate-password "<senha-do-pfx>"
+
+# Bind do certificado ao hostname
+az webapp config ssl bind \
+  --name $WEBAPP -g $RG_COMPUTE \
+  --certificate-thumbprint "<thumbprint>" \
+  --ssl-type SNI \
+  --hostname "portal.contoso-health.com.br"
+```
+
+> **Dica de Prova:**
+> - **CNAME** costuma ser usado para subdominio (`portal.contoso...`)
+> - **A/ALIAS** costuma aparecer para dominio raiz/apex
+> - **SNI SSL** e o tipo mais comum
+> - **Hostname validation** vem antes do **SSL binding**
+> - "Adicionar dominio customizado" e "habilitar HTTPS com certificado" sao duas etapas separadas
 
 ---
 
@@ -702,32 +853,33 @@ az network nic show-effective-route-table \
 
 ---
 
-## Checklist — Lab 04
+## Checklist de Verificação — Lab 04
 
 - [ ] ARM Template interpretado e usado para deploy
 - [ ] Bicep equivalente criado e usado para deploy
 - [ ] Conversão ARM↔Bicep executada
 - [ ] What-If testado
 - [ ] Export de template executado
-- [ ] 3 VMs criadas (2 web + 1 DB) em Availability Zones via ARM, Bicep, CLI e PowerShell
+- [ ] 3 máquinas virtuais (VMs) criadas: 2 web + 1 banco de dados, em Availability Zones, via ARM, Bicep, CLI e PowerShell
 - [ ] VMs sem IP público (DB) configuradas
 - [ ] VM redimensionada
 - [ ] Disco de dados criado e anexado
 - [ ] Azure Disk Encryption configurado (Key Vault + VM)
 - [ ] Snapshot de disco criado
-- [ ] Conceito de mover VM entre RGs/regiões entendido
+- [ ] Conceito de mover recursos entre grupos de recursos, assinaturas e regiões entendido
 - [ ] Availability Set criado
-- [ ] VMSS criado com autoscale (2-5 instâncias)
-- [ ] ACR criado e imagem construída (az acr build)
-- [ ] ACI criado com imagem do ACR
-- [ ] ACI criado com Azure Files mount
+- [ ] Conjunto de dimensionamento de máquinas virtuais (VMSS) criado com autoscale: 2 a 5 instâncias
+- [ ] Azure Container Registry (ACR) criado e imagem construída com `az acr build`
+- [ ] Azure Container Instances (ACI) criado com imagem do ACR
+- [ ] Azure Container Instances (ACI) criado com montagem de Azure Files
 - [ ] Container App criado com scale-to-zero
 - [ ] App Service Plan + Web App criados (Portal + CLI)
 - [ ] Deployment Slot criado e swap executado
 - [ ] Backup do App Service configurado
-- [ ] VNet Integration configurada
+- [ ] Integração com rede virtual (VNet Integration) configurada
 - [ ] TLS 1.2 e HTTPS-only configurados
+- [ ] Custom domain e bind de certificado SSL entendidos
 - [ ] VMs associadas ao Load Balancer público
 - [ ] Network Watcher: IP Flow Verify e Next Hop testados
 
-**Próximo:** Lab 05 — Monitor & Backup (monitorar tudo e proteger com backup/DR)
+**Próximo:** Lab 05 — Monitorar e Manter Recursos do Azure (monitorar tudo e proteger com backup/DR)

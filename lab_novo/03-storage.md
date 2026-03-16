@@ -1,7 +1,7 @@
-# Lab 03 — Armazenamento (15-20% do exame)
+# Lab 03 — Implementar e Gerenciar Armazenamento (15-20% do exame)
 
-> **Pré-requisito:** Lab 02 concluído (rede pronta com VNets, NSGs e service endpoints).
-> **Contexto:** A Contoso Healthcare precisa de 3 storage accounts: `sachprontuarios` para prontuários médicos (blobs + files), `sachimagens` para imagens de exames (archive), `sachreplica` para replicação de dados críticos em outra região. A rede do Lab 02 protege o acesso.
+> **Pré-requisito:** Lab 02 concluído, com redes virtuais, grupos de segurança de rede e service endpoints já configurados.
+> **Contexto:** Este lab trata da implementação e do gerenciamento de armazenamento no Azure, incluindo contas de armazenamento, blobs, Azure Files, proteção de dados, replicação e integração segura com a rede criada anteriormente.
 
 ```mermaid
 graph TB
@@ -44,7 +44,21 @@ graph TB
 
 ## Parte 1 — Criar Storage Accounts
 
-> **Conceito:** Storage Account é o namespace para blobs, files, tables e queues. Nome **globalmente único**, 3-24 chars, lowercase + números. Tipos: **StorageV2** (recomendado), **BlobStorage** (legacy), **BlockBlobStorage** (premium blob), **FileStorage** (premium files). O account-level access tier (Hot/Cool) é o padrão para novos blobs.
+> **Conceito:** Storage Account, ou **conta de armazenamento**, é o namespace para blobs, files, tables e queues. O nome deve ser **globalmente único**, com 3 a 24 caracteres, em minúsculas e números. Tipos principais: **StorageV2** (recomendado), **BlobStorage** (legacy), **BlockBlobStorage** (premium blob) e **FileStorage** (premium files). O tier de acesso no nível da conta, como Hot ou Cool, vira o padrão para novos blobs.
+>
+> **Pegadinha frequente — Data Lake Gen2 e tipos de conta:**
+>
+> | Tipo de conta | Suporta Data Lake Gen2 (HNS)? |
+> |---|:---:|
+> | **Standard GPv2** | ✅ SIM |
+> | **Premium Block Blobs** | ✅ SIM |
+> | Premium File Shares | ❌ NÃO (só Azure Files) |
+> | **Premium Page Blobs** | ❌ NÃO (só VHDs) |
+>
+> Os distratores mais comuns são File Shares e Page Blobs. A resposta correta é sempre: **GPv2 Standard + Premium Block Blobs**.
+> - Data Lake Gen2 = Blob Storage + **Hierarchical Namespace (HNS)**
+> - Só tipos que suportam **block blobs** suportam HNS
+> - Page Blobs = VHDs, File Shares = SMB → nenhum suporta HNS
 
 ### Tarefa 1.1 — sachprontuarios via Portal (exercício 1/3)
 
@@ -219,7 +233,7 @@ az deployment group create \
 
 ### Tarefa 2.1 — Gerenciar Access Keys (exercício 1/3)
 
-> **Conceito:** Cada storage account tem 2 access keys que dão acesso TOTAL. Rotação: use key1, regenere key2, troque para key2, regenere key1. Em produção, prefira Entra ID (RBAC) ou SAS.
+> **Conceito:** Cada conta de armazenamento tem 2 access keys que dão acesso **total**. A rotação correta é: usar `key1`, regenerar `key2`, migrar para `key2` e depois regenerar `key1`. Em produção, prefira Entra ID, controle de acesso baseado em função (**RBAC**) ou assinaturas de acesso compartilhado (**SAS**).
 
 ```bash
 # Listar keys
@@ -250,9 +264,9 @@ $SaContext = New-AzStorageContext -StorageAccountName $SaProntuarios -StorageAcc
 # New-AzStorageContext: cria objeto de contexto para autenticar operações
 ```
 
-### Tarefa 2.2 — SAS Tokens (exercício 2/3)
+### Tarefa 2.2 — Tokens SAS (exercício 2/3)
 
-> **Conceito:** SAS dá acesso delegado com permissões granulares e tempo limitado. Tipos: **Account SAS** (toda a conta), **Service SAS** (um serviço específico), **User Delegation SAS** (Entra ID — mais seguro, sem key). Para revogar: delete Stored Access Policy ou rotacione a key.
+> **Conceito:** A assinatura de acesso compartilhado (**SAS**) dá acesso delegado com permissões granulares e tempo limitado. Tipos: **Account SAS** (toda a conta), **Service SAS** (um serviço específico) e **User Delegation SAS** (baseado em Entra ID, mais seguro e sem uso de key). Para revogar, remova a Stored Access Policy ou rotacione a key.
 
 ```bash
 # Gerar Account SAS (1 hora de validade)
@@ -333,11 +347,18 @@ az storage account show --name $SA_PRONTUARIOS -g $RG_STORAGE \
   --query "networkRuleSet.{Default:defaultAction, IPs:ipRules[].ipAddressOrRange, VNets:virtualNetworkRules[].virtualNetworkResourceId, Bypass:bypass}" -o json
 
 # Identity-based access para Azure Files
-# Requer Entra Domain Services ou AD DS híbrido
+# Requer Entra Domain Services ou AD DS híbrido (Kerberos)
 # 3 roles específicos:
 #   Storage File Data SMB Share Reader
 #   Storage File Data SMB Share Contributor
 #   Storage File Data SMB Share Elevated Contributor (pode alterar ACLs NTFS)
+
+# PEGADINHA FREQUENTE:
+# "Qual serviço de dados suporta acesso baseado em identidade?" → AZURE FILES
+# ❌ Containers (Blobs) = acesso via RBAC/SAS, NÃO via Kerberos/identidade
+# ❌ Filas = acesso via chave/SAS
+# ❌ Tabelas = acesso via chave/SAS
+# ✅ File Shares = podem usar Microsoft Entra Kerberos para autenticação SMB
 ```
 
 ---
@@ -426,6 +447,36 @@ azcopy sync "/tmp/contoso-sync/" \
   "https://${SA_PRONTUARIOS}.blob.core.windows.net/relatorios/sync/?${SAS_TOKEN}"
 # azcopy sync: como rsync — só transfere o que mudou
 ```
+
+### Tarefa 3.4 — Azure Storage Explorer (exercício extra)
+
+> **Conceito:** O **Azure Storage Explorer** é a ferramenta gráfica oficial da Microsoft para navegar e administrar **Blobs, Files, Queues e Tables**. Na prova, ele costuma aparecer como a melhor opção quando o enunciado pede uma forma **visual** de inspecionar containers, gerar SAS rapidamente, verificar propriedades ou fazer upload/download sem automação.
+
+```
+Azure Storage Explorer > Sign in with Azure Account
+
+1. Expandir:
+   - Storage Accounts
+   - sachprontuarios
+   - Blob Containers
+   - prontuarios
+
+2. Validar operações úteis:
+   - Upload > Upload Files... > enviar /tmp/test-version.json
+   - Manage Access Policies no container "relatorios"
+   - Properties em um blob para ver tier, metadata e versionId
+
+3. Navegar em Azure Files:
+   - File Shares > dept-financeiro
+   - Criar pasta "2026/Q2"
+   - Upload/download de arquivos do share
+```
+
+> **Dica de Prova:**
+> - **Storage Explorer** = ferramenta gráfica/desktop para administrar dados do Storage
+> - **AzCopy** = melhor para cópia em massa e automação
+> - **Portal** = melhor para configuração da conta, firewall, encryption, lifecycle e endpoints
+> - Se a questão pedir "navegar containers/file shares, comparar conteúdo, gerar SAS rapidamente" → **Storage Explorer**
 
 ---
 
@@ -547,6 +598,48 @@ Write-Host "Snapshot criado: $($Snapshot.SnapshotTime)"
 # Snapshots são incrementais e armazenados no nível do share
 ```
 
+### Tarefa 4.4 — Soft Delete e Restore de Azure Files (exercício extra)
+
+> **Conceito:** O **soft delete de Azure Files** protege o **file share inteiro** contra exclusão acidental. Isso é diferente de snapshot: snapshot protege o conteúdo em um ponto no tempo; soft delete protege contra o ato de apagar o share. Na prova, quando pedirem "restaurar um file share deletado dentro do período de retenção", a resposta costuma envolver **share soft delete + restore**.
+
+```bash
+# Habilitar soft delete para file shares por 14 dias
+az storage account file-service-properties update \
+  --account-name $SA_PRONTUARIOS -g $RG_STORAGE \
+  --enable-delete-retention true \
+  --delete-retention-days 14
+# --enable-delete-retention: ativa share soft delete
+# --delete-retention-days: janela em que o share pode ser restaurado
+
+# Verificar configuração
+az storage account file-service-properties show \
+  --account-name $SA_PRONTUARIOS -g $RG_STORAGE \
+  --query "{Enabled:shareDeleteRetentionPolicy.enabled, Days:shareDeleteRetentionPolicy.days}" -o json
+
+# Excluir um share de teste
+az storage share-rm delete \
+  --storage-account $SA_PRONTUARIOS -g $RG_STORAGE \
+  --name "dept-rh"
+
+# Listar shares deletados e identificar o campo deletedVersion
+az storage share-rm list \
+  --storage-account $SA_PRONTUARIOS -g $RG_STORAGE \
+  --include-deleted true -o json
+
+# Restaurar o share deletado
+az storage share-rm restore \
+  --storage-account $SA_PRONTUARIOS -g $RG_STORAGE \
+  --name "dept-rh" \
+  --deleted-version "<deletedVersion-copiado-do-list>"
+# --restored-name é opcional se quiser restaurar com outro nome
+```
+
+> **Dica de Prova:**
+> - **Blob soft delete** protege blobs e containers
+> - **File share soft delete** protege o share inteiro em Azure Files
+> - **Snapshot** não substitui soft delete; são mecanismos complementares
+> - Se o enunciado falar em "share deletado ontem" e ainda dentro da retenção: **restore do share**
+
 ---
 
 ## Parte 5 — Data Protection
@@ -643,13 +736,73 @@ graph LR
     style DELETE fill:#f44336
 ```
 
+### Tarefa 5.3 — Lifecycle por Último Acesso (Access Tracking) (exercício 3/3 - NOVA)
+
+> **Conceito:** Por padrão, lifecycle rules usam `daysAfterModificationGreaterThan` — ou seja, baseiam-se na **data de modificação** do blob. Se a prova disser "blobs não **modificados** há 30 dias", funciona direto sem config extra.
+>
+> Porém, se a prova disser "blobs não **acessados** há 30 dias" (last accessed), você precisa usar `daysAfterLastAccessTimeGreaterThan`. Esse filtro **REQUER** que o **access tracking** esteja habilitado na storage account **ANTES** de criar a regra. Sem isso, o Azure não rastreia quando cada blob foi lido pela última vez.
+>
+> **REGRA RÁPIDA PARA A PROVA:**
+>
+> | Enunciado diz... | Condição no JSON | Precisa de config extra? |
+> |---|---|---|
+> | "not **modified** for 30 days" | `daysAfterModificationGreaterThan` | ❌ NÃO — funciona por padrão |
+> | "not **accessed** for 30 days" | `daysAfterLastAccessTimeGreaterThan` | ✅ SIM — habilitar **access tracking** primeiro |
+>
+> **Palavra-chave:** Se vir "last accessed", "não acessados", "idle" → access tracking obrigatório.
+
+```bash
+# Passo 1: Habilitar Access Tracking na storage account (PRÉ-REQUISITO)
+az storage account blob-service-properties update \
+  --account-name $SA_PRONTUARIOS -g $RG_STORAGE \
+  --enable-last-access-tracking true
+# --enable-last-access-tracking true: rastreia a última vez que cada blob foi lido
+# SEM ISSO, regras com daysAfterLastAccessTimeGreaterThan NÃO funcionam!
+```
+
+```bash
+# Passo 2: Criar lifecycle policy usando "último acesso" (não modificação)
+cat > /tmp/lifecycle-access-tracking.json << 'EOF'
+{
+  "rules": [
+    {
+      "enabled": true,
+      "name": "mover-blobs-nao-acessados",
+      "type": "Lifecycle",
+      "definition": {
+        "actions": {
+          "baseBlob": {
+            "tierToCool": { "daysAfterLastAccessTimeGreaterThan": 30 },
+            "tierToArchive": { "daysAfterLastAccessTimeGreaterThan": 90 },
+            "delete": { "daysAfterLastAccessTimeGreaterThan": 365 }
+          }
+        },
+        "filters": {
+          "blobTypes": ["blockBlob"],
+          "prefixMatch": ["prontuarios/"]
+        }
+      }
+    }
+  ]
+}
+EOF
+# daysAfterLastAccessTimeGreaterThan: baseado no ÚLTIMO ACESSO (leitura)
+# Diferente de daysAfterModificationGreaterThan que é baseado na MODIFICAÇÃO (escrita)
+
+az storage account management-policy create \
+  --account-name $SA_PRONTUARIOS -g $RG_STORAGE \
+  --policy @/tmp/lifecycle-access-tracking.json
+```
+
+> **ARMADILHA DA PROVA:** A questão mostra uma lifecycle rule com `daysAfterLastAccessTimeGreaterThan` e pergunta "o que mais precisa configurar?". A resposta é **habilitar access tracking** (`--enable-last-access-tracking true`). Se a questão usar `daysAfterModificationGreaterThan`, **NÃO** precisa de access tracking — esse é o padrão.
+
 ---
 
 ## Parte 6 — Object Replication
 
 ### Tarefa 6.1 — Configurar replicação entre regiões (exercício 1/2)
 
-> **Conceito:** Object Replication copia blobs assincronamente entre storage accounts. A replicação é assíncrona (sem SLA de tempo) e não funciona com blobs em tier Archive nem com HNS habilitado.
+> **Conceito:** Object Replication copia blobs de forma assíncrona entre contas de armazenamento. A replicação não tem SLA de tempo e não funciona com blobs em tier Archive nem com **Hierarchical Namespace (HNS)** habilitado.
 
 > **CHECKLIST DE PRÉ-REQUISITOS — DECORE ESTA TABELA:**
 >
@@ -663,12 +816,20 @@ graph LR
 > | Acesso público de blob | Qualquer | ❌ NÃO é pré-requisito |
 > | NFS v3 | Qualquer | ❌ NÃO é pré-requisito |
 >
-> **ARMADILHA CLÁSSICA DA PROVA:** A questão mostra as configurações de uma storage account e pergunta "o que precisa mudar para habilitar Object Replication?". Você deve **verificar cada item da lista acima** contra as configurações mostradas. Geralmente o que falta é **Versioning** (desabilitado) ou **Change Feed** (desabilitado na origem). **NÃO confunda com HNS** — HNS precisa estar DESABILITADO (e geralmente já está).
+> **Pegadinha frequente — O que falta para Object Replication?**
+> A questão mostra as configurações de uma storage account e pergunta "o que precisa mudar?". Faça assim:
+> 1. Leia CADA configuração listada
+> 2. Compare com a checklist acima
+> 3. O que está **desabilitado** e deveria estar **habilitado** = resposta
 >
-> Exemplo real de pegadinha:
-> - Change feed: ✅ habilitado → OK
-> - Versioning: ❌ **desabilitado** → **ESTE é o problema!**
-> - A resposta NÃO é HNS (que já está desabilitado = OK)
+> **Exemplo de cenário típico:**
+> - Namespace hierárquico: Desabilitado → OK (deve ficar desabilitado)
+> - Versionamento: **Desabilitado** → **ESTE é o problema!** ✅
+> - Feed de alterações: habilitado → OK
+> - O distrator comum é "Namespace hierárquico", mas ele já está correto (deve ficar desabilitado)
+> - **Resposta correta: Controle de versão (Versionamento)**
+>
+> **REGRA:** Em Object Replication, o item que costuma faltar é **versioning**. HNS quase sempre aparece como distrator.
 
 ```bash
 # Habilitar versioning e change feed na ORIGEM (sachprontuarios)
@@ -817,7 +978,19 @@ az storage account show --name $SA_IMAGENS -g $RG_STORAGE \
 
 ## Parte 9 — Azure Data Lake Storage Gen2
 
-> **Conceito:** Data Lake Storage Gen2 **NÃO é um serviço separado** — é uma Storage Account **StorageV2** com **Hierarchical Namespace (HNS) habilitado**. HNS transforma o flat namespace do Blob Storage em um sistema de arquivos real com diretórios, o que permite operações atômicas em diretórios (rename, delete) e **ACLs POSIX** para controle granular de permissões por pasta/arquivo.
+> **Conceito:** Data Lake Storage Gen2 **não é um serviço separado**. Ele é uma conta de armazenamento **StorageV2** com **Hierarchical Namespace (HNS)** habilitado. O HNS transforma o namespace plano do Blob Storage em um sistema de arquivos real com diretórios, o que permite operações atômicas em diretórios, como rename e delete, além de **ACLs POSIX** para controle granular por pasta e arquivo.
+
+> **Tipos de conta que suportam Data Lake Gen2 (HNS):**
+>
+> | Tipo de Conta | Suporta HNS? | Quando usar |
+> |---|---|---|
+> | **StorageV2 (General Purpose v2)** | ✅ SIM | Padrão — blobs, files, queues, tables |
+> | **Premium Block Blobs (BlockBlobStorage)** | ✅ SIM | Baixa latência, alta taxa de transação |
+> | BlobStorage | ❌ NÃO | Legacy — não use |
+> | Premium Page Blobs | ❌ NÃO | Discos de VM (VHDs) — sem HNS |
+> | Premium File Shares (FileStorage) | ❌ NÃO | Azure Files premium — sem HNS |
+>
+> **ARMADILHA:** Page Blobs (discos) e File Shares premium NÃO suportam HNS. Na prova, se vir "Page Blob" ou "File Share premium" como opção de Data Lake, descarte.
 
 ```mermaid
 graph TB
@@ -931,7 +1104,7 @@ az storage fs file list \
 
 ### Tarefa 9.3 — ACLs POSIX e PowerShell (exercício 3/3)
 
-> **Conceito — ACLs POSIX:** Data Lake Gen2 suporta ACLs no estilo Linux: `rwx` (read/write/execute) para **owner**, **owning group** e **other**. Execute (`x`) em diretório = permissão para navegar/listar. São diferentes do Azure RBAC — ACLs POSIX são no **data plane**, RBAC é no **management + data plane**.
+> **Conceito — ACLs POSIX:** Data Lake Gen2 suporta ACLs no estilo Linux: `rwx` (read, write e execute) para **owner**, **owning group** e **other**. A permissão `x` em diretório significa poder navegar e listar. Elas são diferentes do Azure RBAC: ACLs POSIX atuam no **data plane**, enquanto RBAC atua no **management plane** e, em alguns casos, também no data plane.
 
 ```bash
 # Configurar ACL: grp-ch-clinico pode ler /dados/clinico/
@@ -1042,23 +1215,25 @@ Update-AzDataLakeGen2Item -Context $DLContext `
 
 ---
 
-## Checklist — Lab 03
+## Checklist de Verificação — Lab 03
 
-- [ ] 3 Storage Accounts criadas (Portal + CLI + PowerShell + Bicep)
-- [ ] Data Lake Gen2 (HNS) criado (Portal + CLI + PowerShell)
+- [ ] 3 contas de armazenamento (Storage Accounts) criadas: Portal, CLI, PowerShell e Bicep
+- [ ] Data Lake Gen2 com namespace hierárquico (HNS) criado: Portal, CLI e PowerShell
 - [ ] Filesystem e diretórios criados no Data Lake
-- [ ] ACLs POSIX configurados (r-x para clínico, rwx para financeiro)
+- [ ] ACLs POSIX configuradas: r-x para clínico e rwx para financeiro
 - [ ] Redundância: GRS (prontuarios), LRS→GRS (imagens), LRS (replica)
 - [ ] Access Keys rotacionadas
-- [ ] SAS tokens gerados (Account, Service, User Delegation)
+- [ ] Assinaturas de acesso compartilhado (SAS) geradas: Account, Service e User Delegation
 - [ ] Stored Access Policy criada, usada e revogada
-- [ ] Firewall configurado (VNet rule + IP)
+- [ ] Firewall configurado com regra de rede virtual e IP permitido
 - [ ] Containers criados e blobs uploaded com hierarquia virtual
 - [ ] Blob tiers: Hot → Cool → Archive
 - [ ] AzCopy usado (copy e sync)
+- [ ] Azure Storage Explorer usado para navegar Blob e File Shares
 - [ ] File Shares criados para 3 departamentos
 - [ ] Large File Shares habilitado + quota atualizada para 100 TiB
 - [ ] Snapshot de file share criado
+- [ ] Soft Delete e restore de Azure Files entendido
 - [ ] Soft Delete testado (criar, deletar, restaurar)
 - [ ] Versioning testado
 - [ ] Lifecycle Management configurado (2 regras)
@@ -1066,4 +1241,4 @@ Update-AzDataLakeGen2Item -Context $DLContext `
 - [ ] Private Endpoint criado com Private DNS Zone
 - [ ] Criptografia verificada
 
-**Próximo:** Lab 04 — Compute (criar VMs, containers e App Service dentro da rede e conectados ao storage)
+**Próximo:** Lab 04 — Implantar e Gerenciar Recursos de Computação do Azure (criar VMs, containers e App Service dentro da rede e conectados ao storage)

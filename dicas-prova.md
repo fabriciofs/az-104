@@ -164,6 +164,12 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 - Source `AzureLoadBalancer` permite health probes do LB
 - "Backend unhealthy" → verificar health probe + NSG
 
+**ASG (Application Security Group) — errou S3:**
+- "Permitir trafego para VMs especificas com menor numero de regras NSG" → **ASG**
+- ASG agrupa NICs logicamente → 1 regra com ASG como destino cobre todas as VMs do grupo
+- Service Tag = servicos Azure (Storage, LB), NAO suas VMs
+- Subnet = todas as VMs, nao so as desejadas
+
 ### Service Endpoints e Private Endpoints
 
 | Mecanismo               | O que filtra                        | Direcao                          |
@@ -259,6 +265,9 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 - Backend unhealthy → verificar **health probe** + **NSG**
 - Sem conectividade → verificar NSG permite source `AzureLoadBalancer`
 - Standard LB requer NSG explicito (diferente do Basic)
+- **Conectividade intermitente** (errou S3) → verificar **health probe** + **SKU compatibility** (LB Standard requer PIP Standard)
+- "Verificar se servidor esta escutando na porta 80" → **`netstat -an`** (na VM Windows)
+  - NAO `Get-AzVirtualNetworkUsageList`, NAO `nbtstat -c`, NAO `Test-NetConnection`
 
 ---
 
@@ -349,6 +358,8 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 - NAO usar arquivo separado para arrays inline — usar diretamente no `--parameters`
 - Folha **Implantacoes** no RG mostra nome, status, **data/hora** de cada deploy ARM
 - Folha Diagnostico = metricas; Folha Policy = politicas
+- **copy element** (errou S3): para criar N instancias do mesmo recurso (ex: 2 VMs) a partir de 1 definicao → adicionar **elemento copy**
+- NAO precisa de API version, subscription ID, ou location extras — `copy` e a resposta
 
 ### Availability Set - Update Domains (calculo)
 
@@ -358,6 +369,8 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 - Exemplo: 18 VMs, 10 UDs → primeiros 10 UDs recebem 1 VM cada, 8 UDs restantes recebem +1 = **2 VMs max por UD**
 - Numero maximo de VMs indisponiveis = VMs no maior UD = **ceil(18/10) = 2**
 - NAO e 9 (isso seria fault domain com 2 FDs)
+- **ERROU 3x** (S1, S2 respondeu 9, S3 respondeu 8). Correto = **2**!
+- **manutencao planejada = Update Domains**. **falha hardware = Fault Domains**. DECORAR!
 
 ---
 
@@ -447,6 +460,9 @@ Para configurar Object Replication entre storage1 (origem) → storage2 (destino
 
 - 3 metodos: (1) Storage account key (padrao), (2) Entra ID Domain Services, (3) On-premises AD DS
 - RBAC controla acesso no nivel do **share**; ACLs NTFS controlam acesso **granular**
+- **Identity-based access** (errou S3): "acesso baseado em identidade ao storage" → **Azure Files** (File Shares)
+  - ❌ Containers (Blobs), Filas, Tabelas = NAO suportam Kerberos/identity-based
+  - ✅ File Shares = suportam Microsoft Entra Kerberos para autenticacao SMB
 
 ---
 
@@ -460,6 +476,8 @@ Para configurar Object Replication entre storage1 (origem) → storage2 (destino
 - VNet Integration = **outbound** (App Service acessa VNet)
 - Private Endpoint = **inbound** (VNet acessa App Service)
 - Subnet dedicada /28 minimo para VNet Integration
+- **Mover App Service entre RGs** (S3): certificado SSL NAO pode ser movido junto
+  - 1) Excluir certificado SSL do RG1, 2) Mover recursos para RG2, 3) Re-upload certificado
 
 ### Custom Domain e TLS
 
@@ -602,6 +620,9 @@ Para configurar Object Replication entre storage1 (origem) → storage2 (destino
 | Unplanned Failover | Possivel (ate RPO) | Desastre (ultimo recovery point)        |
 
 - Apos failover real: **Commit** para confirmar ou **Change recovery point** para usar outro ponto
+- **Status antes de Re-protect** (errou S3): **Failover Committed** (NAO "Concluir failover")
+- "Concluir failover" / "Complete failover" NAO e um estado valido
+- Sequencia: Failover → **Commit** → status = **Failover committed** → pode Re-protect
 
 ### Mover Recursos
 
@@ -660,6 +681,13 @@ Para configurar Object Replication entre storage1 (origem) → storage2 (destino
 - Estado de alerta e **sempre manual** — NAO muda automaticamente quando a condicao some
 - "50 alertas fechados" → um **administrador alterou manualmente** o estado
 - Alertas NAO se fecham sozinhos (nem por idade, nem por resolver a condicao)
+
+### Alert Rule vs Alert Processing Rule (errou S3)
+
+- **Alert Rule** = detecta evento + dispara notificacao (Action Group)
+- **Alert Processing Rule** = pos-processamento de alertas ja disparados (suprimir, filtrar)
+- "Notificar admin quando VM conectar a VNet" → **Alert Rule + Action Group** (NAO Processing Rule)
+- "Suprimir alertas durante manutencao" → **Alert Processing Rule**
 
 ### Dashboard compartilhado
 
