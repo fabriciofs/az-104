@@ -9,26 +9,26 @@
 ## Diagrama
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                       rg-lab-storage-cmds                              │
-│                                                                        │
-│  ┌──────────────────────────┐      ┌──────────────────────────────┐   │
-│  │ stlabcmdssrc<id>         │      │ stlabcmdsdest<id>            │   │
-│  │ (ORIGEM)                 │      │ (DESTINO)                    │   │
-│  │                          │      │                              │   │
-│  │ Container: images        │ ───► │ Container: images-replica    │   │
-│  │ Container: logs          │ ───► │ Container: logs-backup       │   │
-│  │ File Share: docs         │      │                              │   │
-│  └──────────────────────────┘      └──────────────────────────────┘   │
-│                                                                        │
-│  Ferramentas praticadas:                                               │
-│  • AzCopy copy / sync                                                  │
-│  • Set-AzStorageBlobContent (PowerShell)                               │
-│  • Get-ChildItem | Set-AzStorageBlobContent (upload em massa)          │
-│  • az storage blob upload / upload-batch (CLI)                         │
-│  • Start-AzStorageBlobCopy (server-to-server PowerShell)               │
-│  • az storage blob copy start-batch (server-to-server CLI)             │
-└────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                       rg-lab-storage-cmds                            │
+│                                                                      │
+│  ┌──────────────────────────┐      ┌──────────────────────────────┐  │
+│  │ stlabcmdssrc<id>         │      │ stlabcmdsdest<id>            │  │
+│  │ (ORIGEM)                 │      │ (DESTINO)                    │  │
+│  │                          │      │                              │  │
+│  │ Container: images        │ ───► │ Container: images-replica    │  │
+│  │ Container: logs          │ ───► │ Container: logs-backup       │  │
+│  │ File Share: docs         │      │                              │  │
+│  └──────────────────────────┘      └──────────────────────────────┘  │
+│                                                                      │
+│  Ferramentas praticadas:                                             │
+│  • AzCopy copy / sync                                                │
+│  • Set-AzStorageBlobContent (PowerShell)                             │
+│  • Get-ChildItem | Set-AzStorageBlobContent (upload em massa)        │
+│  • az storage blob upload / upload-batch (CLI)                       │
+│  • Start-AzStorageBlobCopy (server-to-server PowerShell)             │
+│  • az storage blob copy start-batch (server-to-server CLI)           │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -1018,16 +1018,16 @@ Get-AzStorageFile -ShareName "docs" -Context $ctx | Select-Object Name
 
 Depois de praticar, revise esta tabela — ela resume as combinacoes que caem no AZ-104:
 
-| Cenario | Comando correto | Armadilha |
-|---------|----------------|-----------|
-| Copiar TODOS os arquivos de pasta local para blob | `Get-ChildItem -Recurse \| Set-AzStorageBlobContent` | `Set-AzStorageBlobContent` sozinho faz 1 arquivo |
-| Copiar pasta local para blob (CLI) | `azcopy copy "path/*" "url" --recursive` | `azcopy sync` nao e a mesma coisa |
-| Sincronizar pasta local com blob | `azcopy sync "path" "url" --recursive` | Sem `--delete-destination`, nao remove extras |
-| Copiar blob entre storage accounts | `azcopy copy "url-src" "url-dest" --recursive` | Server-to-server, nao passa pelo local |
-| Copiar blob entre contas (PS) | `Start-AzStorageBlobCopy` | NAO e `Set-AzStorageBlobContent` (este e upload local) |
-| Upload para File Share (CLI) | `az storage file upload` / `upload-batch` | NAO usar `az storage blob upload` para files |
-| Upload para File Share (PS) | `Set-AzStorageFileContent` | NAO usar `Set-AzStorageBlobContent` para files |
-| Mover dados em massa (petabytes) | Azure Data Box | AzCopy nao e viavel para petabytes offline |
+| Cenario                                           | Comando correto                                      | Armadilha                                              |
+| ------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------ |
+| Copiar TODOS os arquivos de pasta local para blob | `Get-ChildItem -Recurse \| Set-AzStorageBlobContent` | `Set-AzStorageBlobContent` sozinho faz 1 arquivo       |
+| Copiar pasta local para blob (CLI)                | `azcopy copy "path/*" "url" --recursive`             | `azcopy sync` nao e a mesma coisa                      |
+| Sincronizar pasta local com blob                  | `azcopy sync "path" "url" --recursive`               | Sem `--delete-destination`, nao remove extras          |
+| Copiar blob entre storage accounts                | `azcopy copy "url-src" "url-dest" --recursive`       | Server-to-server, nao passa pelo local                 |
+| Copiar blob entre contas (PS)                     | `Start-AzStorageBlobCopy`                            | NAO e `Set-AzStorageBlobContent` (este e upload local) |
+| Upload para File Share (CLI)                      | `az storage file upload` / `upload-batch`            | NAO usar `az storage blob upload` para files           |
+| Upload para File Share (PS)                       | `Set-AzStorageFileContent`                           | NAO usar `Set-AzStorageBlobContent` para files         |
+| Mover dados em massa (petabytes)                  | Azure Data Box                                       | AzCopy nao e viavel para petabytes offline             |
 
 ---
 
