@@ -953,6 +953,169 @@ nslookup vm-api.app.internal
 
 ---
 
+## Parte 3B — Delegacao de Subdominio DNS (registro NS)
+
+> **Contexto de prova:** "Voce tem a zona contoso.com e precisa delegar test.contoso.com para outro servidor DNS. O que fazer?" → Criar um record set NS chamado "test" na zona contoso.com. Isso caiu no simulado e e um conceito que confunde.
+
+### Task 3B.1: Entender delegacao DNS (conceito)
+
+```
+Delegacao = "eu gerencio contoso.com, mas test.contoso.com e responsabilidade de outro DNS"
+
+contoso.com (zona pai — voce gerencia)
+  ├── www    → A record  → 1.2.3.4       (voce resolve)
+  ├── api    → A record  → 5.6.7.8       (voce resolve)
+  └── test   → NS record → ns1.outro.com (DELEGADO — outro DNS resolve)
+                           ns2.outro.com
+
+Quando alguem consulta app.test.contoso.com:
+  1. DNS raiz → "contoso.com esta no Azure DNS"
+  2. Azure DNS → "test.contoso.com? Veja no ns1.outro.com" (NS record)
+  3. ns1.outro.com → "app.test.contoso.com = 9.8.7.6" (resolve la)
+```
+
+### Task 3B.2: Criar zona filha e delegar via NS record
+
+```bash
+# Usar a zona publica criada na Task 3.1 (lab.contoso.com ou similar)
+# Se nao tem, crie uma:
+az network dns zone create \
+  --resource-group rg-lab-udr-dns \
+  --name lab.contoso.com
+
+# Criar uma zona filha (simula "outro servidor DNS")
+az network dns zone create \
+  --resource-group rg-lab-udr-dns \
+  --name test.lab.contoso.com
+
+# Ver os name servers da zona filha
+az network dns zone show \
+  --resource-group rg-lab-udr-dns \
+  --name test.lab.contoso.com \
+  --query "nameServers" -o tsv
+```
+
+> **Anote os name servers** da zona filha (ex: ns1-08.azure-dns.com, ns2-08.azure-dns.net, etc.)
+
+### Task 3B.3: Criar o registro NS na zona pai (A RESPOSTA DA PROVA)
+
+```bash
+# Obter os name servers da zona filha
+NS1=$(az network dns zone show --resource-group rg-lab-udr-dns --name test.lab.contoso.com --query "nameServers[0]" -o tsv)
+NS2=$(az network dns zone show --resource-group rg-lab-udr-dns --name test.lab.contoso.com --query "nameServers[1]" -o tsv)
+NS3=$(az network dns zone show --resource-group rg-lab-udr-dns --name test.lab.contoso.com --query "nameServers[2]" -o tsv)
+NS4=$(az network dns zone show --resource-group rg-lab-udr-dns --name test.lab.contoso.com --query "nameServers[3]" -o tsv)
+
+# CRIAR O REGISTRO NS NA ZONA PAI — esta e a delegacao!
+az network dns record-set ns add-record \
+  --resource-group rg-lab-udr-dns \
+  --zone-name lab.contoso.com \
+  --record-set-name test \
+  --nsdname $NS1
+
+az network dns record-set ns add-record \
+  --resource-group rg-lab-udr-dns \
+  --zone-name lab.contoso.com \
+  --record-set-name test \
+  --nsdname $NS2
+
+az network dns record-set ns add-record \
+  --resource-group rg-lab-udr-dns \
+  --zone-name lab.contoso.com \
+  --record-set-name test \
+  --nsdname $NS3
+
+az network dns record-set ns add-record \
+  --resource-group rg-lab-udr-dns \
+  --zone-name lab.contoso.com \
+  --record-set-name test \
+  --nsdname $NS4
+
+echo "Delegacao criada: test.lab.contoso.com delegado via NS records na zona pai"
+```
+
+> **O que fizemos:** Criamos um record set NS chamado `test` na zona `lab.contoso.com`. Os valores NS apontam para os name servers da zona `test.lab.contoso.com`. Agora, qualquer consulta para `*.test.lab.contoso.com` sera redirecionada para esses name servers.
+
+### Task 3B.4: Verificar a delegacao pelo portal
+
+1. Portal > **DNS zones** > **lab.contoso.com** > **Record sets**
+2. Procure o registro `test` do tipo **NS**
+3. Observe que aponta para os name servers da zona filha
+
+4. Agora va em **test.lab.contoso.com** > **Record sets**
+5. Crie um registro A de teste:
+
+```bash
+az network dns record-set a add-record \
+  --resource-group rg-lab-udr-dns \
+  --zone-name test.lab.contoso.com \
+  --record-set-name app \
+  --ipv4-address 10.99.99.99
+```
+
+6. Teste a resolucao (se o dominio fosse real e estivesse delegado no registrador):
+
+```bash
+# Consultar diretamente nos name servers do Azure
+nslookup app.test.lab.contoso.com $NS1
+```
+
+> **Resultado esperado:** Resolve para 10.99.99.99. O DNS da zona pai (lab.contoso.com) delegou para a zona filha (test.lab.contoso.com) que contem o registro.
+
+### Task 3B.5: Verificar que os outros tipos NAO funcionam para delegacao
+
+```bash
+# Ver todos os record sets na zona pai
+az network dns record-set list \
+  --resource-group rg-lab-udr-dns \
+  --zone-name lab.contoso.com \
+  --query "[].{name:name, type:type, records:nsRecords || aRecords || soaRecord}" \
+  -o table
+```
+
+> **Por que as outras opcoes da prova estao erradas:**
+> | Opcao | Por que NAO funciona para delegacao |
+> |---|---|
+> | Registro A | Aponta para um **IP**, nao para outro DNS server |
+> | Registro SOA | SOA e criado **automaticamente** na zona filha, nao na pai |
+> | Modificar A da zona pai | Nao tem relacao com delegacao de subdominio |
+> | **Registro NS** | **CORRETO** — aponta para os name servers responsaveis pelo subdominio |
+
+### Dicas de prova — Delegacao DNS
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│              DELEGACAO DNS — REGRAS PARA PROVA                      │
+│                                                                     │
+│  1. Delegacao = registro NS na ZONA PAI (nao na filha)             │
+│     "Delegar test.contoso.com" → criar NS "test" em contoso.com   │
+│                                                                     │
+│  2. O registro NS aponta para NAME SERVERS, nao para IPs           │
+│     NS = "quem responde por esse subdominio"                       │
+│     A  = "qual IP desse nome" (diferente!)                         │
+│                                                                     │
+│  3. SOA e criado AUTOMATICAMENTE na zona filha                     │
+│     Voce NAO precisa criar SOA manualmente                         │
+│                                                                     │
+│  4. A delegacao e feita APENAS na zona pai                         │
+│     Nao precisa criar nada "especial" na zona filha               │
+│     (so os registros normais que ela vai gerenciar)                │
+│                                                                     │
+│  5. Tipos de registro DNS para prova:                              │
+│     A     → Nome → IPv4                                            │
+│     AAAA  → Nome → IPv6                                            │
+│     CNAME → Nome → Outro nome (alias) — NAO no apex!              │
+│     NS    → Delegacao de subdominio                                │
+│     SOA   → Autoridade da zona (automatico)                        │
+│     MX    → Servidor de email                                      │
+│     TXT   → Texto livre (SPF, verificacao de dominio)              │
+│     PTR   → IP → Nome (reverse DNS)                                │
+│     SRV   → Servico especifico (porta + protocolo)                 │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## Parte 4 — Questoes de Prova
 
 ### Questao 1
@@ -1046,6 +1209,50 @@ D) Todas as anteriores
 5. **NSG** permitindo o trafego na subnet do NVA (sem NSG Allow, o pacote e bloqueado)
 
 Neste lab nao configuramos tudo isso porque o objetivo era demonstrar o comportamento da UDR. Mas na prova, lembre: NVA requer IP forwarding em DUAS camadas (NIC + OS).
+
+</details>
+
+### Questao 6
+**Voce tem uma zona DNS do Azure chamada contoso.com. Precisa adicionar um subdominio test.contoso.com e delegar para um servidor DNS diferente. Como voce deve configurar a delegacao?**
+
+A) Adicione um registro A para test.contoso.com
+B) Adicione um conjunto de registros NS chamado "test" a zona contoso.com
+C) Crie o registro SOA para test.contoso.com
+D) Modifique o registro A de contoso.com
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: B) Registro NS chamado "test" na zona contoso.com**
+
+Para delegar um subdominio, voce cria um record set NS na **zona pai** com o nome do subdominio. Os valores NS apontam para os name servers que gerenciam a zona filha.
+
+**A) Errada:** Registro A aponta para um IP, nao delega para outro DNS.
+**C) Errada:** SOA e criado automaticamente na zona filha — voce nao cria SOA na zona pai para delegar.
+**D) Errada:** Modificar o registro A da zona pai nao tem relacao com delegacao de subdominio.
+
+**Regra:** Delegacao DNS = registro NS na zona PAI apontando para os name servers da zona FILHA.
+
+</details>
+
+### Questao 7
+**Voce criou a zona test.contoso.com no Azure DNS. A zona pai contoso.com tambem esta no Azure DNS. Usuarios na internet nao conseguem resolver nomes em test.contoso.com. O que esta faltando?**
+
+A) Virtual Network Link para a zona test.contoso.com
+B) Registro NS "test" na zona contoso.com apontando para os name servers de test.contoso.com
+C) Registro CNAME na zona contoso.com
+D) Habilitar auto registration na zona test.contoso.com
+
+<details>
+<summary>Ver resposta</summary>
+
+**Resposta: B) Registro NS na zona pai**
+
+A zona filha existe mas ninguem sabe que ela existe — a zona pai precisa do registro NS para redirecionar consultas. Sem ele, o DNS para em contoso.com e retorna "nao encontrado" para qualquer *.test.contoso.com.
+
+**A) Errada:** VNet Link e para DNS **privada**, nao publica.
+**C) Errada:** CNAME cria alias para um nome, nao delega um subdominio.
+**D) Errada:** Auto registration e para DNS privada, nao publica.
 
 </details>
 

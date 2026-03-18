@@ -164,6 +164,20 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 - Source `AzureLoadBalancer` permite health probes do LB
 - "Backend unhealthy" → verificar health probe + NSG
 
+### ASG vs Service Tag vs IP Range
+
+| Tipo | Quem define | Quando usar | Exemplo |
+| --- | --- | --- | --- |
+| **Service Tag** | Microsoft | Servicos Azure gerenciados | Internet, AzureLoadBalancer, Storage |
+| **ASG** | Voce | Seus recursos agrupados por funcao | asg-web, asg-db, asg-api |
+| **IP Range** | Voce | IPs fixos (ultimo recurso) | 10.0.1.0/24, 203.0.113.50 |
+
+- "Permitir trafego do Azure Load Balancer" → **Service Tag** `AzureLoadBalancer`
+- "Permitir trafego entre web servers e db servers" → **ASG** (source=asg-web, dest=asg-db)
+- VM nova nao recebe trafego mas as outras sim → **falta associar ao ASG**
+- ASG em regra Allow **NAO bloqueia** trafego de outras origens — precisa de Deny explicito
+- ASG e Service Tag podem ser usados **na mesma regra** NSG
+
 ### Service Endpoints e Private Endpoints
 
 | Mecanismo               | O que filtra                        | Direcao                          |
@@ -205,6 +219,27 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 - **Azure DNS Publico** = hospedagem de dominios publicos (acessiveis da internet)
 - **Resolucao fornecida pelo Azure** = apenas dentro da **mesma VNet**, sem nomes customizados
 - "VNets peered + FQDN customizado + minimo esforco" → **Azure DNS Privado** (NAO publico)
+
+### DNS - Delegacao de Subdominio
+
+- "Delegar test.contoso.com para outro DNS" → criar **registro NS** chamado `test` na zona `contoso.com`
+- A delegacao e feita na **zona PAI**, nao na filha
+- Registro NS aponta para **name servers**, nao para IPs (diferente de A record)
+- SOA e criado **automaticamente** na zona filha — nao criar manualmente
+- Registro A **NAO** delega subdominio (aponta para IP)
+
+**Tipos de registro DNS:**
+
+| Tipo | Funcao |
+| --- | --- |
+| A | Nome → IPv4 |
+| AAAA | Nome → IPv6 |
+| CNAME | Nome → Outro nome (alias) — NAO no apex! |
+| **NS** | **Delegacao de subdominio** |
+| SOA | Autoridade da zona (automatico) |
+| MX | Servidor de email |
+| TXT | Texto livre (SPF, verificacao de dominio) |
+| PTR | IP → Nome (reverse DNS) |
 
 ### Network Watcher
 
@@ -349,6 +384,43 @@ Anotacoes rapidas e pegadinhas para revisar antes do exame, consolidadas de todo
 - NAO usar arquivo separado para arrays inline — usar diretamente no `--parameters`
 - Folha **Implantacoes** no RG mostra nome, status, **data/hora** de cada deploy ARM
 - Folha Diagnostico = metricas; Folha Policy = politicas
+
+**Parametros de referencia ao template:**
+
+| Template esta onde | CLI | PowerShell |
+| --- | --- | --- |
+| Disco local | `--template-file` | `-TemplateFile` |
+| URL (blob, GitHub) | `--template-uri` | `-TemplateUri` |
+| Template Spec no Azure | `--template-spec` | `-TemplateSpecId` |
+| `-Tag` | **NAO existe** para deploy (distrator!) | |
+
+- "Template em blob storage" → **-TemplateUri** (NAO -TemplateFile)
+- "Template local" → **-TemplateFile**
+- "Template Spec salvo no Azure" → **-TemplateSpecId**
+
+**Exportar template de recurso existente:**
+
+| Cmdlet | O que faz |
+| --- | --- |
+| `Save-AzDeploymentTemplate` | Salva o template de um **deployment passado** |
+| `Export-AzResourceGroup` | Exporta o **estado atual** dos recursos do RG |
+| RG/Recurso > **Export template** > Deploy | Exporta e faz deploy pelo portal |
+
+- 3 formas de usar VM como modelo: (1) `Save-AzDeploymentTemplate` + deploy, (2) Portal Export + download + deploy, (3) VM > Export template > Deploy direto
+- `Get-AzVM` **NAO** exporta templates (apenas lista VMs)
+- `Save-AzDeploymentScriptLog` salva **logs**, nao templates
+
+### RBAC vs Entra ID Roles vs ABAC
+
+| Sistema | Controla | Escopo | Exemplo |
+| --- | --- | --- | --- |
+| **Entra ID Roles** | Diretorio (usuarios, grupos, apps) | Tenant | Guest Inviter, User Admin |
+| **Azure RBAC** | Recursos Azure (VMs, storage, VNets) | MG → Sub → RG → Resource | Owner, Contributor, Reader |
+| **Azure ABAC** | RBAC + condicoes por atributos | Mesmo do RBAC | "Ler blobs com tag dept=HR" |
+
+- "Convidar usuarios, gerenciar grupos, licencas" → **Entra ID Role**
+- "Gerenciar VMs, storage, VNets" → **Azure RBAC**
+- "Acesso condicional por tag/atributo" → **ABAC** (raramente cai no AZ-104)
 
 ### Availability Set - Update Domains (calculo)
 
@@ -579,6 +651,20 @@ Para configurar Object Replication entre storage1 (origem) → storage2 (destino
 - Limites de retencao: daily (9999 dias), weekly (5163 semanas), monthly (1188 meses), yearly (99 anos)
 - Diferenciar: backup on-demand vs scheduled, full vs incremental, snapshot vs vault tier
 
+### Deletar Recovery Services Vault (sequencia obrigatoria)
+
+1. **Interromper backup** de todos os itens (Stop backup + Delete data)
+2. **Desabilitar soft delete** (habilitado por padrao, retencao 14 dias)
+3. **Purgar itens em soft-deleted state** (Undelete → Delete permanente)
+4. **Deletar vault** (so funciona quando completamente vazio)
+
+- NAO precisa deletar as VMs (so parar o backup)
+- NAO precisa criar novo vault
+- **Lock IMPEDE** exclusao — e distrator quando perguntam "como deletar"
+- Soft delete vem **habilitado por padrao** em todos os vaults novos
+- Itens soft-deleted: podem ser restaurados via **Undelete** dentro de 14 dias
+- **Immutability (WORM)** no vault impede exclusao por qualquer usuario (compliance)
+
 ### Cross Region Restore (CRR)
 
 - CRR so funciona com **GRS** (Geo-Redundant Storage)
@@ -602,6 +688,23 @@ Para configurar Object Replication entre storage1 (origem) → storage2 (destino
 | Unplanned Failover | Possivel (ate RPO) | Desastre (ultimo recovery point)        |
 
 - Apos failover real: **Commit** para confirmar ou **Change recovery point** para usar outro ponto
+
+**Ciclo completo de failover/failback:**
+
+```
+Failover → Commit → Re-protect → Failback
+```
+
+| Status | Significado | Proximo passo |
+| --- | --- | --- |
+| Failover completed | VM na secundaria, nao confirmado | Commit ou Cancel |
+| **Failover committed** | Confirmado, recovery points antigos removidos | **Re-protect** |
+| Re-protecting | Replicacao inversa em andamento | Aguardar |
+| Protected | Replicacao ativa | Pronto para failback |
+
+- "Status antes de re-proteger" → **Failover committed** (NAO "mecanismo de failover confirmado")
+- Re-protect so fica disponivel **apos commit**
+- Re-protect inverte a replicacao: secundaria → primaria
 
 ### Mover Recursos
 
@@ -666,6 +769,32 @@ Para configurar Object Replication entre storage1 (origem) → storage2 (destino
 - Dados fixados em dashboard compartilhado: maximo **30 dias** de exibicao
 - Dashboards privados: sem limite (alem da retencao do Log Analytics)
 
+### Azure Advisor — 5 Categorias
+
+| Categoria | O que faz | Exemplo |
+| --- | --- | --- |
+| **Custo** | Identifica desperdicio | VMs **subutilizadas**, discos orfaos |
+| Seguranca | Recomendacoes de seguranca | Integra com Defender for Cloud |
+| Confiabilidade | Resiliencia | Adicionar redundancia, backups |
+| Excelencia Operacional | Boas praticas de gestao | Tags, policies, automacao |
+| Desempenho | Performance | Resize de VMs, cache, CDN |
+
+- "VMs **subutilizadas**" → **Custo** (NAO Desempenho!)
+- "VMs **lentas**" → **Desempenho**
+- "Alta disponibilidade" **NAO existe** como categoria — o nome correto e **Confiabilidade**
+- Advisor **recomenda**; Budgets **alertam**; Policies **restringem**
+
 ### KQL (Kusto Query Language)
 
-- Operadores essenciais: `where`, `summarize`, `project`, `render`, `ago()`, `bin()`
+| Operador | Traducao na prova | O que faz | SQL equivalente |
+| --- | --- | --- | --- |
+| **where** | onde | Filtra linhas | WHERE |
+| **summarize** | resumir | Agrupa/agrega | GROUP BY |
+| **project** | projeto | Seleciona/renomeia colunas | SELECT |
+| **extend** | estender | Adiciona coluna calculada | SELECT *, nova_col |
+
+- "Agregar resultados por coluna" → **summarize** (NAO where, NAO project)
+- "Filtrar linhas" → **where**
+- "Selecionar colunas" → **project**
+- "Adicionar coluna nova" → **extend**
+- Outros operadores uteis: `render` (visualizacao), `ago()` (tempo relativo), `bin()` (agrupamento temporal)
