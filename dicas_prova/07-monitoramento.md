@@ -1,0 +1,79 @@
+# Monitoramento
+
+## Azure Monitor - Tipos de Alerta
+
+| Tipo                   | Monitora                               | Uso                                     |
+| ---------------------- | -------------------------------------- | --------------------------------------- |
+| Metric alert (Static)  | Valor fixo (ex: CPU > 80%)             | Thresholds conhecidos                   |
+| Metric alert (Dynamic) | Anomalias via ML                       | Comportamento que varia ao longo do dia |
+| Activity Log alert     | Operacoes de controle (create, delete) | Auditoria e compliance                  |
+| Log query alert (KQL)  | Queries em Log Analytics               | Analise complexa                        |
+| Service Health alert   | Eventos da plataforma Azure            | Outages, manutencao                     |
+
+- Dynamic threshold precisa de **~3 dias** de dados historicos
+- "Detectar comportamento anomalo" → **Dynamic**; "CPU > 80%" → **Static**
+- Service Health so monitora **plataforma Azure** (nao metricas dos seus recursos)
+
+## Service Health - Tipos de Evento
+
+1. **Service issues** — servico indisponivel (outage)
+2. **Planned maintenance** — manutencao agendada
+3. **Health advisories** — mudancas que podem afetar voce
+4. **Security advisories** — alertas de seguranca
+
+## Metricas Host vs Guest
+
+| Tipo  | Exemplos                  | Agente necessario |
+| ----- | ------------------------- | :---------------: |
+| Host  | CPU, Network In/Out, Disk |        Nao        |
+| Guest | Memoria, Processos        |  Sim (AMA + DCR)  |
+
+- "Metrica de memoria nao aparece" → instalar **Azure Monitor Agent** + configurar **Data Collection Rules**
+- "Coletar logs customizados (JSON, texto) → Log Analytics" → **AMA + DCR** (NAO Custom Script Extension)
+
+## Azure Monitor - Estados de Alerta
+
+| Estado           | Significado                          | Quem define |
+| ---------------- | ------------------------------------ | ----------- |
+| **New**          | Alerta disparado, ninguem investigou | Automatico  |
+| **Acknowledged** | Admin esta investigando              | **Manual**  |
+| **Closed**       | Admin resolveu/descartou             | **Manual**  |
+
+- Estado de alerta e **sempre manual** — NAO muda automaticamente quando a condicao some
+- "50 alertas fechados" → um **administrador alterou manualmente** o estado
+- Alertas NAO se fecham sozinhos (nem por idade, nem por resolver a condicao)
+
+## Dashboard compartilhado
+
+- Dados fixados em dashboard compartilhado: maximo **30 dias** de exibicao
+- Dashboards privados: sem limite (alem da retencao do Log Analytics)
+
+## Azure Advisor — 5 Categorias
+
+| Categoria | O que faz | Exemplo |
+| --- | --- | --- |
+| **Custo** | Identifica desperdicio | VMs **subutilizadas**, discos orfaos |
+| Seguranca | Recomendacoes de seguranca | Integra com Defender for Cloud |
+| Confiabilidade | Resiliencia | Adicionar redundancia, backups |
+| Excelencia Operacional | Boas praticas de gestao | Tags, policies, automacao |
+| Desempenho | Performance | Resize de VMs, cache, CDN |
+
+- "VMs **subutilizadas**" → **Custo** (NAO Desempenho!)
+- "VMs **lentas**" → **Desempenho**
+- "Alta disponibilidade" **NAO existe** como categoria — o nome correto e **Confiabilidade**
+- Advisor **recomenda**; Budgets **alertam**; Policies **restringem**
+
+## KQL (Kusto Query Language)
+
+| Operador | Traducao na prova | O que faz | SQL equivalente |
+| --- | --- | --- | --- |
+| **where** | onde | Filtra linhas | WHERE |
+| **summarize** | resumir | Agrupa/agrega | GROUP BY |
+| **project** | projeto | Seleciona/renomeia colunas | SELECT |
+| **extend** | estender | Adiciona coluna calculada | SELECT *, nova_col |
+
+- "Agregar resultados por coluna" → **summarize** (NAO where, NAO project)
+- "Filtrar linhas" → **where**
+- "Selecionar colunas" → **project**
+- "Adicionar coluna nova" → **extend**
+- Outros operadores uteis: `render` (visualizacao), `ago()` (tempo relativo), `bin()` (agrupamento temporal)
