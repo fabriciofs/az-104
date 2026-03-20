@@ -77,3 +77,37 @@
 - "Selecionar colunas" → **project**
 - "Adicionar coluna nova" → **extend**
 - Outros operadores uteis: `render` (visualizacao), `ago()` (tempo relativo), `bin()` (agrupamento temporal)
+
+### Funcoes de tempo no KQL
+
+| Funcao | O que faz | Exemplo (hoje = segunda-feira) |
+| --- | --- | --- |
+| `ago(Xd)` | Retorna datetime X dias atras | `ago(9d)` = sabado retrasado |
+| `startofweek(dt)` | Retorna **domingo** (inicio da semana) do datetime | `startofweek(ago(9d))` = domingo retrasado |
+| `endofweek(dt)` | Retorna **sabado** (fim da semana) do datetime | `endofweek(ago(2d))` = sabado passado |
+| `startofday(dt)` | Retorna meia-noite do dia | `startofday(now())` = hoje 00:00 |
+| `startofmonth(dt)` | Retorna primeiro dia do mes | `startofmonth(now())` = dia 01 do mes |
+| `endofmonth(dt)` | Retorna ultimo dia do mes | `endofmonth(now())` = dia 28/30/31 |
+
+- **Semana no KQL comeca no domingo** e termina no sabado
+- `startofweek()` sempre volta ao **domingo** daquela semana
+- `endofweek()` sempre avanca ao **sabado** daquela semana (23:59:59)
+
+### Como calcular intervalos com startofweek/endofweek
+
+```
+Exemplo: hoje = segunda-feira
+
+ago(9d) = 9 dias atras = sabado (semana retrasada)
+startofweek(ago(9d)) = domingo da semana retrasada (recua 1 dia)
+
+ago(2d) = 2 dias atras = sabado (semana passada)
+endofweek(ago(2d)) = sabado da semana passada (ja e sabado, mantem)
+
+Intervalo = domingo retrasado ate sabado passado = 14 dias (2 semanas)
+```
+
+**Dica para a prova:**
+1. Calcule a data exata de `ago(Xd)` a partir do dia da semana informado
+2. Aplique `startofweek` (volta ao domingo) ou `endofweek` (avanca ao sabado)
+3. Conte os dias entre as duas datas resultantes
