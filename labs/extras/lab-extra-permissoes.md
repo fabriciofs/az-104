@@ -589,3 +589,81 @@ D) Reader no RG permite deletar o RG
 RBAC herda de cima para baixo. Reader na subscription se propaga para todos os RGs e recursos. Reader no RG se limita aquele RG e seus recursos. Reader nunca permite criar ou deletar — e somente leitura em qualquer escopo.
 
 </details>
+
+---
+
+## Secao Extra: Conditional Access — Grant vs Session Control
+
+> Adicionado para reforcar erro recorrente nos simulados.
+
+### Controles de Concessao (Grant Controls)
+
+Decidem **SE** o acesso e concedido. Executados ANTES de entrar.
+
+| Controle | O que faz |
+|----------|-----------|
+| **Require MFA** | Exige autenticacao multifator |
+| **Require device compliant** | Exige dispositivo marcado como compliant no Intune |
+| **Require Hybrid Azure AD joined** | Exige dispositivo ingressado no AD + Azure AD |
+| **Require approved client app** | Exige app aprovado (ex: Outlook, Teams) |
+| **Block access** | Bloqueia completamente |
+
+### Controles de Sessao (Session Controls)
+
+Decidem **COMO** a sessao se comporta DEPOIS de concedida.
+
+| Controle | O que faz |
+|----------|-----------|
+| **App enforced restrictions** | Restricoes do app (ex: bloquear download no SharePoint) |
+| **Conditional Access App Control** | Proxy via Defender for Cloud Apps |
+| **Sign-in frequency** | Forca re-autenticacao a cada X horas |
+| **Persistent browser session** | Controla se o browser lembra a sessao |
+
+### PONTO CRITICO PARA PROVA
+
+```
+PERGUNTA: "Configurar politica para exigir MFA"
+ERRADO: Session control
+CERTO:  GRANT control (Require MFA)
+
+PERGUNTA: "Exigir dispositivo ingressado no dominio"
+ERRADO: Session control
+CERTO:  GRANT control (Require Hybrid Azure AD joined)
+
+PERGUNTA: "Forcar re-autenticacao a cada 4 horas"
+ERRADO: Grant control
+CERTO:  SESSION control (Sign-in frequency)
+
+REGRA GERAL:
+- "Exigir algo PARA entrar" → Grant control
+- "Controlar algo DURANTE a sessao" → Session control
+```
+
+---
+
+## Secao Extra: Azure Policy — Escopos Validos
+
+> Adicionado para reforcar erro no simulado 6.
+
+### Onde o Azure Policy pode ser atribuido?
+
+| Escopo | Pode? | Heranca |
+|--------|:-----:|---------|
+| Management Group | **Sim** | Propaga para todas as subscriptions abaixo |
+| Subscription | **Sim** | Propaga para todos os RGs abaixo |
+| Resource Group | **Sim** | Propaga para todos os recursos abaixo |
+| Recurso individual | **Nao** | — |
+| Regiao | **Nao** | — |
+
+### PONTO CRITICO PARA PROVA
+
+```
+PERGUNTA: "Azure Policy pode ser atribuido a recurso individual?"
+RESPOSTA: NAO. Somente MG, Subscription, RG.
+          Para filtrar recurso especifico, use CONDICOES na policy rule
+          (ex: "if name equals 'vm1'")
+
+PERGUNTA: "Azure Policy no nivel do Management Group"
+RESPOSTA: SIM. Propaga para TODAS as subscriptions e RGs abaixo.
+          Ideal para governanca corporativa.
+```
