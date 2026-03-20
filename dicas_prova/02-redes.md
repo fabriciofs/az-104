@@ -43,6 +43,16 @@
 
 ## VPN Gateway
 
+### Mover VM para outra VNet (IMPORTANTE)
+- **NAO e possivel** trocar a VNet de uma NIC existente
+- Para conectar VM a outra VNet: **deletar a VM** (manter disco) → recriar com nova NIC na VNet desejada
+- O disco e preservado, apenas a VM e recriada
+- "Excluir VM e recriar com nova NIC na VNet2" → **SIM, atende ao objetivo**
+- "Adicionar nova NIC na VNet2 sem deletar" → **NAO** (NIC so pode ser de uma VNet)
+- "Mover VM para RG da VNet2" → **NAO** (mover RG nao muda a VNet)
+
+## VPN Gateway
+
 - **S2S** = conexao permanente on-premises ↔ Azure (IPsec/IKE)
 - **P2S** = clientes individuais → Azure (certificado ou RADIUS)
 - **GatewaySubnet** e obrigatoria (nome exato), recomendado /27+

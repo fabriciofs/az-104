@@ -15,6 +15,21 @@
 - **Quem pode usar SSPR:** membros (cloud + sync com writeback) = **sim**; convidados (guests) = **nao**
 - Com password writeback, usuarios **sincronizados** do AD local tambem podem usar SSPR
 
+## Acesso Condicional (Conditional Access)
+
+**Grant Control vs Session Control — NAO confundir!**
+
+| Controle | O que configura | Exemplos |
+| --- | --- | --- |
+| **Grant control** | Requisitos para **conceder** acesso | MFA, dispositivo ingressado no Azure AD, app aprovado |
+| **Session control** | Restricoes **durante** a sessao | Duracao da sessao, persistencia de browser, app enforced restrictions |
+
+- "Exigir MFA" → **Grant control**
+- "Exigir dispositivo Azure AD-joined" → **Grant control**
+- "Limitar duracao de sessao" → **Session control**
+- Alterar **apenas** Grant control ou **apenas** Session control **NAO** e suficiente para uma politica completa — tambem e necessario configurar Assignments (usuarios/grupos) e Conditions (locais)
+- "Alterar session control atende ao objetivo de exigir MFA?" → **NAO**
+
 ## Roles Administrativas (privilegio minimo)
 
 | Necessidade                                                   | Role correta                    | NAO usar                     |

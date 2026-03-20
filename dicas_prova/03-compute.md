@@ -27,6 +27,9 @@
 
 **Update Domains (UD)** = grupos de VMs reiniciadas juntas em manutencao
 - Azure reinicia **1 UD por vez** durante manutencao planejada
+- **Maximo de Update Domains: 20** (NAO 10, NAO 30, NAO 40)
+- **Maximo de Fault Domains: 3** (2 em algumas regioes)
+- Para **maximizar disponibilidade**: usar o valor **maximo** em ambos (FD=Max, UD=20)
 
 **Exemplo visual: 18 VMs, 2 FDs, 10 UDs**
 
@@ -80,6 +83,8 @@ FD1: VM10-VM18  (9 VMs)
 - "Troubleshooting rapido sem RDP/SSH" → **Run Command**
 - Custom Data em **base64** no ARM/Bicep
 - Cloud-init **NAO** funciona em Windows
+- **"VMSS + NGINX via ARM template"** → 2 acoes: (1) Upload script para **Storage Account**, (2) Modificar **extensionProfile** no ARM com Custom Script Extension
+- NAO confundir com DSC (Desired State Configuration) — DSC e alternativa valida na pratica, mas a questao pede Custom Script Extension quando menciona ARM template + extensionProfile
 
 ## ARM Templates (IaC)
 
