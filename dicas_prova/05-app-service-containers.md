@@ -39,6 +39,38 @@
 | Standard | 100 GiB | Webhooks                           |
 | Premium  | 500 GiB | Geo-replication, Private Link, CMK |
 
+### Autenticação no ACR
+
+| Método            | Descrição                                     | Quando usar                          | Recomendado? |
+| ----------------- | --------------------------------------------- | ------------------------------------ | ------------ |
+| **Admin User**    | Usuário único com 2 senhas; habilitar manualmente | Dev/teste, ACI com `--registry-username` | NAO (prod)   |
+| **Service Principal** | App ID + senha; suporta RBAC granular      | CI/CD, pipelines headless            | SIM          |
+| **Managed Identity**  | Sem credenciais no código                  | AKS (`--attach-acr`), Container Apps | SIM (melhor) |
+| **az acr login**  | Token temporário via CLI                      | Desenvolvimento local                | SIM (dev)    |
+
+**Admin User — Por que existe:**
+- Por padrão, ACR só aceita autenticação via Azure AD (sem usuário/senha)
+- Serviços que precisam de `--registry-username` e `--registry-password` (ex: ACI) requerem Admin User habilitado
+- Habilitar: `az acr update --name meuACR --admin-enabled true`
+- Obter credenciais: `az acr credential show --name meuACR`
+- **NAO usar em produção** — é conta compartilhada, sem RBAC granular
+
+**Comandos essenciais:**
+```bash
+# Habilitar admin
+az acr update --name meuACR --admin-enabled true
+
+# Push via cloud (sem Docker local) *** RESPOSTA DA PROVA ***
+az acr build --registry meuACR --image myapp:v1 .
+
+# Push local (requer Docker)
+docker tag myapp:latest meuACR.azurecr.io/myapp:latest
+docker push meuACR.azurecr.io/myapp:latest
+
+# Importar de outro registry
+az acr import --name meuACR --source docker.io/library/nginx:latest --image nginx:latest
+```
+
 ## Containers: ACI vs AKS vs Container Apps
 
 | Servico        | Quando usar                                            |
