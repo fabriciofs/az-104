@@ -92,6 +92,56 @@ A VNet frontend simula a rede onde ficam os web servers voltados para o usuario.
 
 4. **Review + create** > **Create**
 
+<details>
+<summary>Alternativa: CLI e PowerShell</summary>
+
+**Azure CLI:**
+
+```bash
+# Criar VNet com duas subnets
+az network vnet create \
+  --resource-group rg-lab-udr-dns \
+  --name vnet-frontend \
+  --location eastus \
+  --address-prefixes 10.10.0.0/16 \
+  --subnet-name snet-web \
+  --subnet-prefix 10.10.1.0/24
+
+# Adicionar a segunda subnet (a primeira ja foi criada com a VNet)
+az network vnet subnet create \
+  --resource-group rg-lab-udr-dns \
+  --vnet-name vnet-frontend \
+  --name snet-firewall \
+  --address-prefixes 10.10.2.0/24
+```
+
+> **Observe:** No CLI, `az network vnet create` cria a VNet + primeira subnet em um unico comando. Subnets adicionais exigem `az network vnet subnet create` separado.
+
+**PowerShell:**
+
+```powershell
+# Criar as definicoes de subnet primeiro (objetos em memoria, nada e criado ainda)
+$snetWeb = New-AzVirtualNetworkSubnetConfig `
+  -Name "snet-web" `
+  -AddressPrefix "10.10.1.0/24"
+
+$snetFirewall = New-AzVirtualNetworkSubnetConfig `
+  -Name "snet-firewall" `
+  -AddressPrefix "10.10.2.0/24"
+
+# Criar a VNet com ambas as subnets de uma vez
+New-AzVirtualNetwork `
+  -ResourceGroupName "rg-lab-udr-dns" `
+  -Name "vnet-frontend" `
+  -Location "eastus" `
+  -AddressPrefix "10.10.0.0/16" `
+  -Subnet $snetWeb, $snetFirewall
+```
+
+> **Diferenca importante entre CLI e PowerShell:** No CLI, voce cria a VNet com uma subnet e adiciona as demais depois. No PowerShell, voce define as subnets como objetos (`New-AzVirtualNetworkSubnetConfig`) e passa todas de uma vez para `New-AzVirtualNetwork`. Ambos produzem o mesmo resultado.
+
+</details>
+
 ### Task 1.3: Criar vnet-backend
 
 A VNet backend simula a rede interna onde ficam APIs e bancos de dados. Apenas uma subnet aqui — o backend e mais simples.
@@ -115,6 +165,38 @@ A VNet backend simula a rede interna onde ficam APIs e bancos de dados. Apenas u
    | `snet-api` | `10.20.1.0`      | `/24` |
 
 4. **Review + create** > **Create**
+
+<details>
+<summary>Alternativa: CLI e PowerShell</summary>
+
+**Azure CLI:**
+
+```bash
+az network vnet create \
+  --resource-group rg-lab-udr-dns \
+  --name vnet-backend \
+  --location eastus \
+  --address-prefixes 10.20.0.0/16 \
+  --subnet-name snet-api \
+  --subnet-prefix 10.20.1.0/24
+```
+
+**PowerShell:**
+
+```powershell
+$snetApi = New-AzVirtualNetworkSubnetConfig `
+  -Name "snet-api" `
+  -AddressPrefix "10.20.1.0/24"
+
+New-AzVirtualNetwork `
+  -ResourceGroupName "rg-lab-udr-dns" `
+  -Name "vnet-backend" `
+  -Location "eastus" `
+  -AddressPrefix "10.20.0.0/16" `
+  -Subnet $snetApi
+```
+
+</details>
 
 ### Task 1.4: Configurar VNet Peering
 
@@ -297,6 +379,64 @@ Com None:   vm-web ──→ internet  BLOQUEADO (next hop = None)
 4. Clique em **Add**
 
    > **Nota:** A route table existe, mas ainda nao faz nada! Ela precisa ser **associada** a uma subnet para entrar em vigor. E como escrever uma regra no papel mas nao colocar na parede.
+
+<details>
+<summary>Alternativa: CLI e PowerShell</summary>
+
+**Azure CLI:**
+
+```bash
+# Criar a route table
+az network route-table create \
+  --resource-group rg-lab-udr-dns \
+  --name rt-force-firewall \
+  --location eastus
+
+# Adicionar a rota
+az network route-table route create \
+  --resource-group rg-lab-udr-dns \
+  --route-table-name rt-force-firewall \
+  --name to-web-via-nva \
+  --address-prefix 10.10.1.0/24 \
+  --next-hop-type VirtualAppliance \
+  --next-hop-ip-address 10.10.2.4
+
+# Associar a snet-api (Task 2.2 — feito aqui para manter o fluxo)
+az network vnet subnet update \
+  --resource-group rg-lab-udr-dns \
+  --vnet-name vnet-backend \
+  --name snet-api \
+  --route-table rt-force-firewall
+```
+
+> **Atencao no CLI:** A associacao de route table a uma subnet e feita via `subnet update`, NAO via um comando especifico de route table. Isso e contra-intuitivo e pode confundir na prova. O parametro e `--route-table`.
+
+**PowerShell:**
+
+```powershell
+# Criar a route table
+$rt = New-AzRouteTable `
+  -ResourceGroupName "rg-lab-udr-dns" `
+  -Name "rt-force-firewall" `
+  -Location "eastus"
+
+# Adicionar a rota (via Add-AzRouteConfig + Set-AzRouteTable)
+$rt | Add-AzRouteConfig `
+  -Name "to-web-via-nva" `
+  -AddressPrefix "10.10.1.0/24" `
+  -NextHopType "VirtualAppliance" `
+  -NextHopIpAddress "10.10.2.4" | Set-AzRouteTable
+
+# Associar a snet-api (Task 2.2)
+$vnet = Get-AzVirtualNetwork -ResourceGroupName "rg-lab-udr-dns" -Name "vnet-backend"
+$subnet = Get-AzVirtualNetworkSubnetConfig -VirtualNetwork $vnet -Name "snet-api"
+$subnet.RouteTable = $rt
+$vnet | Set-AzVirtualNetwork
+```
+
+> **Padrao PowerShell (pipeline):** No PowerShell, a criacao de rotas segue o padrao `Get → Add/Set Config → Set Resource`. Voce obtem o objeto, modifica em memoria, e depois persiste com `Set-AzRouteTable` ou `Set-AzVirtualNetwork`. Esse padrao se repete para NSGs, subnets e outros recursos de rede.
+
+</details>
 
 ### Task 2.2: Associar rt-force-firewall a snet-api
 
@@ -540,6 +680,57 @@ Para bloquear internet, `0.0.0.0/0` (match-all) + None e mais completo que tenta
 
 3. **Add**
 
+<details>
+<summary>Alternativa: CLI e PowerShell</summary>
+
+**Azure CLI:**
+
+```bash
+# Criar route table + rota + associar (tudo junto)
+az network route-table create \
+  --resource-group rg-lab-udr-dns \
+  --name rt-block-internet \
+  --location eastus
+
+az network route-table route create \
+  --resource-group rg-lab-udr-dns \
+  --route-table-name rt-block-internet \
+  --name block-internet \
+  --address-prefix 0.0.0.0/0 \
+  --next-hop-type None
+
+# Associar a snet-web (Task 2.7)
+az network vnet subnet update \
+  --resource-group rg-lab-udr-dns \
+  --vnet-name vnet-frontend \
+  --name snet-web \
+  --route-table rt-block-internet
+```
+
+> **next-hop-type None:** No CLI, o tipo `None` e passado como string literal. Valores possiveis: `VirtualAppliance`, `VnetLocal`, `Internet`, `VirtualNetworkGateway`, `None`.
+
+**PowerShell:**
+
+```powershell
+$rtBlock = New-AzRouteTable `
+  -ResourceGroupName "rg-lab-udr-dns" `
+  -Name "rt-block-internet" `
+  -Location "eastus"
+
+$rtBlock | Add-AzRouteConfig `
+  -Name "block-internet" `
+  -AddressPrefix "0.0.0.0/0" `
+  -NextHopType "None" | Set-AzRouteTable
+
+# Associar a snet-web (Task 2.7)
+$vnet = Get-AzVirtualNetwork -ResourceGroupName "rg-lab-udr-dns" -Name "vnet-frontend"
+$subnet = Get-AzVirtualNetworkSubnetConfig -VirtualNetwork $vnet -Name "snet-web"
+$subnet.RouteTable = $rtBlock
+$vnet | Set-AzVirtualNetwork
+```
+
+</details>
+
 ### Task 2.7: Associar rt-block-internet a snet-web
 
 1. **Subnets** > **+ Associate** > `vnet-frontend` / `snet-web` > **OK**
@@ -676,6 +867,88 @@ ping -c 4 10.10.1.4
 
 > **Conceito:** UDRs NAO deletam as rotas automaticas — apenas as sobrescrevem temporariamente. Removeu a UDR? As rotas originais voltam como se nada tivesse acontecido.
 
+### Referencia: ARM Template para Route Table com rotas
+
+Em cenarios de IaC (Infrastructure as Code), voce pode definir route tables e suas rotas declarativamente via ARM Template. Abaixo esta um exemplo completo que cria a `rt-force-firewall` com a rota `to-web-via-nva` — equivalente ao que fizemos nas Tasks 2.1 e 2.2.
+
+```json
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "nvaIpAddress": {
+      "type": "string",
+      "defaultValue": "10.10.2.4",
+      "metadata": {
+        "description": "IP privado do NVA (Virtual Appliance)"
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/routeTables",
+      "apiVersion": "2023-09-01",
+      "name": "rt-force-firewall",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "disableBgpRoutePropagation": false,
+        "routes": [
+          {
+            "name": "to-web-via-nva",
+            "properties": {
+              "addressPrefix": "10.10.1.0/24",
+              "nextHopType": "VirtualAppliance",
+              "nextHopIpAddress": "[parameters('nvaIpAddress')]"
+            }
+          },
+          {
+            "name": "block-internet",
+            "properties": {
+              "addressPrefix": "0.0.0.0/0",
+              "nextHopType": "None"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "outputs": {
+    "routeTableId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Network/routeTables', 'rt-force-firewall')]"
+    }
+  }
+}
+```
+
+> **Pontos importantes para a prova sobre ARM Templates de rotas:**
+>
+> | Elemento | Detalhes |
+> |----------|----------|
+> | **type** | `Microsoft.Network/routeTables` (route table) e `routes` como array dentro de `properties` |
+> | **nextHopType** | Valores validos: `VirtualAppliance`, `VnetLocal`, `Internet`, `VirtualNetworkGateway`, `None` |
+> | **nextHopIpAddress** | Obrigatorio **apenas** quando `nextHopType` = `VirtualAppliance`. Para `None`, `Internet`, etc., NAO se usa esse campo |
+> | **disableBgpRoutePropagation** | `false` = propaga rotas BGP (equivale a "Propagate gateway routes = Yes" no portal). `true` = bloqueia |
+> | **Rotas inline** | No ARM, as rotas podem ser definidas **dentro** do recurso da route table (como acima) ou como recursos filhos separados (`Microsoft.Network/routeTables/routes`) |
+>
+> **Para deployar este template:**
+>
+> ```bash
+> # CLI
+> az deployment group create \
+>   --resource-group rg-lab-udr-dns \
+>   --template-file route-table.json \
+>   --parameters nvaIpAddress=10.10.2.4
+> ```
+>
+> ```powershell
+> # PowerShell
+> New-AzResourceGroupDeployment `
+>   -ResourceGroupName "rg-lab-udr-dns" `
+>   -TemplateFile "route-table.json" `
+>   -nvaIpAddress "10.10.2.4"
+> ```
+
 ---
 
 ## Parte 3 — DNS
@@ -715,6 +988,40 @@ Neste lab, como nao somos donos do dominio `contoso.com`, vamos testar consultan
 3. **Copie** o endereco de um Name Server (ex: `ns1-03.azure-dns.com`)
 
    > Voce vai precisar deste name server para testar com nslookup. Ele e o "telefone" do servidor que sabe responder sobre a sua zona.
+
+<details>
+<summary>Alternativa: CLI e PowerShell</summary>
+
+**Azure CLI:**
+
+```bash
+# Criar zona DNS publica
+az network dns zone create \
+  --resource-group rg-lab-udr-dns \
+  --name lab.contoso.com
+
+# Ver os name servers atribuidos
+az network dns zone show \
+  --resource-group rg-lab-udr-dns \
+  --name lab.contoso.com \
+  --query "nameServers" -o tsv
+```
+
+**PowerShell:**
+
+```powershell
+# Criar zona DNS publica
+New-AzDnsZone `
+  -ResourceGroupName "rg-lab-udr-dns" `
+  -Name "lab.contoso.com"
+
+# Ver os name servers
+(Get-AzDnsZone -ResourceGroupName "rg-lab-udr-dns" -Name "lab.contoso.com").NameServers
+```
+
+> **Nota:** DNS zones sao recursos globais — nao e necessario especificar `-Location`. O Azure distribui os name servers automaticamente.
+
+</details>
 
 ### Task 3.2: Adicionar registros DNS
 
@@ -819,6 +1126,63 @@ nslookup -type=TXT lab.contoso.com <name-server>
 2. **Review + create** > **Create** > **Go to resource**
 
    > Note que a zona privada **nao tem name servers** (diferente da publica). Ela e resolvida internamente pelo DNS do Azure (168.63.129.16), nao por name servers publicos.
+
+<details>
+<summary>Alternativa: CLI e PowerShell</summary>
+
+**Azure CLI:**
+
+```bash
+# Criar zona DNS privada
+az network private-dns zone create \
+  --resource-group rg-lab-udr-dns \
+  --name app.internal
+
+# Criar links com auto registration (Task 3.5 — feito aqui para manter o fluxo)
+az network private-dns link vnet create \
+  --resource-group rg-lab-udr-dns \
+  --zone-name app.internal \
+  --name link-frontend \
+  --virtual-network vnet-frontend \
+  --registration-enabled true
+
+az network private-dns link vnet create \
+  --resource-group rg-lab-udr-dns \
+  --zone-name app.internal \
+  --name link-backend \
+  --virtual-network vnet-backend \
+  --registration-enabled true
+```
+
+> **CLI — DNS publica vs privada:** Os comandos sao diferentes! `az network dns` (publica) vs `az network private-dns` (privada). O parametro de auto registration e `--registration-enabled true` (nao `--auto-registration`).
+
+**PowerShell:**
+
+```powershell
+# Criar zona DNS privada
+New-AzPrivateDnsZone `
+  -ResourceGroupName "rg-lab-udr-dns" `
+  -Name "app.internal"
+
+# Criar links com auto registration (Task 3.5)
+New-AzPrivateDnsVirtualNetworkLink `
+  -ResourceGroupName "rg-lab-udr-dns" `
+  -ZoneName "app.internal" `
+  -Name "link-frontend" `
+  -VirtualNetworkId (Get-AzVirtualNetwork -ResourceGroupName "rg-lab-udr-dns" -Name "vnet-frontend").Id `
+  -EnableRegistration
+
+New-AzPrivateDnsVirtualNetworkLink `
+  -ResourceGroupName "rg-lab-udr-dns" `
+  -ZoneName "app.internal" `
+  -Name "link-backend" `
+  -VirtualNetworkId (Get-AzVirtualNetwork -ResourceGroupName "rg-lab-udr-dns" -Name "vnet-backend").Id `
+  -EnableRegistration
+```
+
+> **PowerShell — VirtualNetworkId:** O cmdlet `New-AzPrivateDnsVirtualNetworkLink` exige o **Resource ID** completo da VNet, nao apenas o nome. Por isso usamos `(Get-AzVirtualNetwork ...).Id` inline para obter o ID. Esse padrao de passar Resource IDs e muito comum no PowerShell do Azure.
+
+</details>
 
 ### Task 3.5: Criar Virtual Network Links
 
@@ -1113,6 +1477,75 @@ az network dns record-set list \
 │     SRV   → Servico especifico (porta + protocolo)                 │
 └─────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Comparacao de Metodos
+
+Ao longo deste lab, os recursos foram criados pelo **Portal** com alternativas em **CLI**, **PowerShell** e **ARM Template**. A tabela abaixo resume quando usar cada metodo e suas diferencas praticas.
+
+### Quando usar cada metodo
+
+| Metodo | Melhor para | Quando evitar |
+|--------|-------------|---------------|
+| **Portal** | Aprendizado, exploracao, recursos pontuais | Ambientes de producao repetitivos, automacao |
+| **CLI (`az`)** | Scripts Bash, pipelines Linux/macOS, Cloud Shell | Quem ja domina PowerShell e prefere consistencia |
+| **PowerShell** | Automacao Windows, scripts complexos com logica, pipelines Azure DevOps | Ambientes Linux puros sem necessidade de logica complexa |
+| **ARM Template** | IaC, deploys repetitivos, ambientes identicos (dev/staging/prod) | Prototipacao rapida, recursos experimentais |
+
+### Diferencas de sintaxe por operacao
+
+| Operacao | CLI | PowerShell |
+|----------|-----|------------|
+| Criar VNet | `az network vnet create --name X --address-prefixes Y` | `New-AzVirtualNetwork -Name X -AddressPrefix Y` |
+| Criar subnet | `az network vnet subnet create --vnet-name X --name Y` | `Add-AzVirtualNetworkSubnetConfig` + `Set-AzVirtualNetwork` |
+| Criar route table | `az network route-table create --name X` | `New-AzRouteTable -Name X` |
+| Adicionar rota | `az network route-table route create --route-table-name X` | `Add-AzRouteConfig` + `Set-AzRouteTable` (pipeline) |
+| Associar RT a subnet | `az network vnet subnet update --route-table X` | `$subnet.RouteTable = $rt` + `Set-AzVirtualNetwork` |
+| Criar DNS publica | `az network dns zone create --name X` | `New-AzDnsZone -Name X` |
+| Criar DNS privada | `az network private-dns zone create --name X` | `New-AzPrivateDnsZone -Name X` |
+| Link VNet a DNS privada | `az network private-dns link vnet create` | `New-AzPrivateDnsVirtualNetworkLink -VirtualNetworkId $id` |
+
+### Padroes que caem na prova
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                PADROES CLI vs POWERSHELL (PROVA)                      │
+│                                                                      │
+│  1. CLI usa nomes de recursos diretamente:                           │
+│     --route-table rt-force-firewall                                  │
+│     PowerShell frequentemente exige Resource IDs:                    │
+│     -VirtualNetworkId (Get-AzVirtualNetwork ...).Id                  │
+│                                                                      │
+│  2. PowerShell segue o padrao GET → MODIFY → SET:                    │
+│     $vnet = Get-AzVirtualNetwork ...                                 │
+│     Add-AzVirtualNetworkSubnetConfig -VirtualNetwork $vnet ...       │
+│     $vnet | Set-AzVirtualNetwork                                     │
+│                                                                      │
+│  3. CLI separa DNS publica e privada pelo comando:                   │
+│     az network dns ...          → publica                            │
+│     az network private-dns ...  → privada                            │
+│                                                                      │
+│  4. ARM Template: nextHopIpAddress so aparece com VirtualAppliance   │
+│     Se usar nextHopType = "None", NAO inclua nextHopIpAddress        │
+│                                                                      │
+│  5. Associar route table a subnet:                                   │
+│     CLI: feito via "subnet update" (nao via route-table!)            │
+│     PowerShell: atribuir ao objeto $subnet.RouteTable e salvar       │
+│     ARM: definir routeTable.id dentro da subnet no template          │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### ARM Template vs CLI/PowerShell
+
+| Aspecto | CLI / PowerShell | ARM Template |
+|---------|------------------|--------------|
+| **Abordagem** | Imperativa ("faca isso, depois aquilo") | Declarativa ("quero este estado final") |
+| **Idempotencia** | Precisa tratar manualmente (verificar se existe antes de criar) | Nativo — re-deploy atualiza sem duplicar |
+| **Ordem de recursos** | Voce controla a sequencia | O Azure resolve dependencias automaticamente (`dependsOn`) |
+| **Versionamento** | Script versionado no Git | Template JSON versionado no Git |
+| **Complexidade** | Mais simples para 1-2 recursos | Mais adequado para 10+ recursos interligados |
+| **Prova** | Questoes pedem comandos especificos e parametros | Questoes pedem identificar tipo de recurso, propriedades, ou erros no JSON |
 
 ---
 

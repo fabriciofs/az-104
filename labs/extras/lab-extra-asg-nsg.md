@@ -69,6 +69,8 @@ echo "VNet e subnets criadas"
 
 ### Task 1.2: Criar os ASGs
 
+#### Metodo 1: Azure CLI
+
 ```bash
 # Criar ASG para web servers
 az asg create \
@@ -83,6 +85,39 @@ az asg create \
   --location $LOCATION
 
 echo "ASGs criados: asg-web, asg-db"
+```
+
+#### Metodo 2: Portal
+
+1. Portal > **Application security groups** > **+ Create**
+2. Preencha:
+   - **Resource group:** rg-lab-asg
+   - **Name:** asg-web
+   - **Region:** East US
+3. Clique **Review + Create** > **Create**
+4. Repita para **asg-db**
+
+> **Dica Portal:** Voce pode pesquisar "Application security groups" na barra de busca do portal. O recurso fica em **Networking**, nao em **Security**.
+
+#### Metodo 3: PowerShell
+
+```powershell
+$RG = "rg-lab-asg"
+$Location = "eastus"
+
+# Criar ASG para web servers
+New-AzApplicationSecurityGroup `
+  -ResourceGroupName $RG `
+  -Name "asg-web" `
+  -Location $Location
+
+# Criar ASG para database servers
+New-AzApplicationSecurityGroup `
+  -ResourceGroupName $RG `
+  -Name "asg-db" `
+  -Location $Location
+
+Write-Host "ASGs criados: asg-web, asg-db"
 ```
 
 > **Conceito:** O ASG sozinho nao faz nada — e apenas um "rotulo logico". Voce o associa a NICs de VMs e depois referencia nas regras do NSG. A vantagem: quando adicionar uma nova VM web, basta associar ao asg-web e todas as regras se aplicam automaticamente.
@@ -184,6 +219,8 @@ az vm list-ip-addresses \
 
 ### Task 2.1: Criar NSG para subnet web
 
+#### Metodo 1: Azure CLI
+
 ```bash
 # Criar NSG
 az network nsg create \
@@ -226,9 +263,90 @@ az network vnet subnet update \
 echo "NSG criado e associado a snet-web"
 ```
 
+#### Metodo 2: Portal
+
+1. Portal > **Network security groups** > **+ Create**
+2. Preencha:
+   - **Resource group:** rg-lab-asg
+   - **Name:** nsg-snet-web
+   - **Region:** East US
+3. **Review + Create** > **Create**
+4. Abra **nsg-snet-web** > **Inbound security rules** > **+ Add**
+5. Para a regra AllowHTTP-Internet-to-Web:
+   - **Source:** Service Tag
+   - **Source service tag:** Internet
+   - **Source port ranges:** *
+   - **Destination:** Application security group
+   - **Destination ASG:** asg-web
+   - **Destination port ranges:** 80,443
+   - **Protocol:** TCP
+   - **Action:** Allow
+   - **Priority:** 100
+   - **Name:** AllowHTTP-Internet-to-Web
+6. Clique **Add**
+7. Repita para regra AllowSSH-VNet (Source = Service Tag "VirtualNetwork", Port = 22, Priority = 110)
+8. Para associar a subnet: **nsg-snet-web** > **Subnets** > **+ Associate** > Selecione **vnet-asg-lab / snet-web**
+
+> **Dica Portal:** Na tela de criacao de regra, ao mudar **Destination** de "Any" para "Application security group", aparece o dropdown para selecionar o ASG. Isso e o que conecta ASG + NSG.
+
+#### Metodo 3: PowerShell
+
+```powershell
+$RG = "rg-lab-asg"
+$Location = "eastus"
+
+# Criar NSG
+$nsgWeb = New-AzNetworkSecurityGroup `
+  -ResourceGroupName $RG `
+  -Name "nsg-snet-web" `
+  -Location $Location
+
+# Obter referencia do ASG para usar nas regras
+$asgWeb = Get-AzApplicationSecurityGroup -ResourceGroupName $RG -Name "asg-web"
+
+# Regra 1: Permitir HTTP/HTTPS da Internet para asg-web
+$nsgWeb | Add-AzNetworkSecurityRuleConfig `
+  -Name "AllowHTTP-Internet-to-Web" `
+  -Priority 100 `
+  -Direction Inbound `
+  -Access Allow `
+  -Protocol Tcp `
+  -SourceAddressPrefix Internet `
+  -SourcePortRange "*" `
+  -DestinationApplicationSecurityGroupId $asgWeb.Id `
+  -DestinationPortRange 80,443
+
+# Regra 2: Permitir SSH da VNet
+$nsgWeb | Add-AzNetworkSecurityRuleConfig `
+  -Name "AllowSSH-VNet" `
+  -Priority 110 `
+  -Direction Inbound `
+  -Access Allow `
+  -Protocol Tcp `
+  -SourceAddressPrefix VirtualNetwork `
+  -SourcePortRange "*" `
+  -DestinationAddressPrefix "*" `
+  -DestinationPortRange 22
+
+# Salvar as regras no NSG
+$nsgWeb | Set-AzNetworkSecurityGroup
+
+# Associar NSG a subnet web
+$vnet = Get-AzVirtualNetwork -ResourceGroupName $RG -Name "vnet-asg-lab"
+$subnetWeb = $vnet.Subnets | Where-Object { $_.Name -eq "snet-web" }
+$subnetWeb.NetworkSecurityGroup = $nsgWeb
+$vnet | Set-AzVirtualNetwork
+
+Write-Host "NSG criado e associado a snet-web"
+```
+
+> **Atencao PowerShell:** No PowerShell, as regras sao adicionadas ao objeto em memoria com `Add-AzNetworkSecurityRuleConfig` e so sao persistidas no Azure quando voce executa `Set-AzNetworkSecurityGroup`. No CLI, cada `az network nsg rule create` ja persiste imediatamente.
+
 > **Lendo a regra AllowHTTP:** "Permite TCP nas portas 80/443 vindo da Internet (Service Tag) com destino a qualquer VM que pertenca ao asg-web." Note que usamos **Service Tag** (Internet) como source e **ASG** (asg-web) como destination — ambos na mesma regra.
 
 ### Task 2.2: Criar NSG para subnet db
+
+#### Metodo 1: Azure CLI
 
 ```bash
 # Criar NSG
@@ -284,6 +402,106 @@ az network vnet subnet update \
 echo "NSG criado e associado a snet-db"
 ```
 
+#### Metodo 2: Portal
+
+1. Portal > **Network security groups** > **+ Create**
+2. Preencha:
+   - **Resource group:** rg-lab-asg
+   - **Name:** nsg-snet-db
+   - **Region:** East US
+3. **Review + Create** > **Create**
+4. Abra **nsg-snet-db** > **Inbound security rules** > **+ Add**
+5. Para a regra AllowMySQL-Web-to-DB:
+   - **Source:** Application security group
+   - **Source ASG:** asg-web
+   - **Source port ranges:** *
+   - **Destination:** Application security group
+   - **Destination ASG:** asg-db
+   - **Destination port ranges:** 3306
+   - **Protocol:** TCP
+   - **Action:** Allow
+   - **Priority:** 100
+   - **Name:** AllowMySQL-Web-to-DB
+6. Clique **Add**
+7. Para a regra DenyInternet-Inbound:
+   - **Source:** Service Tag > **Internet**
+   - **Destination:** Any
+   - **Destination port ranges:** *
+   - **Protocol:** Any
+   - **Action:** Deny
+   - **Priority:** 200
+   - **Name:** DenyInternet-Inbound
+8. Adicione tambem AllowSSH-VNet (Source = Service Tag "VirtualNetwork", Port = 22, Priority = 110)
+9. Associar: **nsg-snet-db** > **Subnets** > **+ Associate** > Selecione **vnet-asg-lab / snet-db**
+
+> **Ponto visual no Portal:** Na regra AllowMySQL-Web-to-DB, tanto Source quanto Destination mostram o nome do ASG. Essa e a regra "ASG-to-ASG" — o tipo mais granular de controle que voce pode ter no NSG.
+
+#### Metodo 3: PowerShell
+
+```powershell
+$RG = "rg-lab-asg"
+$Location = "eastus"
+
+# Obter referencias dos ASGs
+$asgWeb = Get-AzApplicationSecurityGroup -ResourceGroupName $RG -Name "asg-web"
+$asgDb  = Get-AzApplicationSecurityGroup -ResourceGroupName $RG -Name "asg-db"
+
+# Criar NSG
+$nsgDb = New-AzNetworkSecurityGroup `
+  -ResourceGroupName $RG `
+  -Name "nsg-snet-db" `
+  -Location $Location
+
+# Regra 1: Permitir MySQL APENAS de asg-web para asg-db
+$nsgDb | Add-AzNetworkSecurityRuleConfig `
+  -Name "AllowMySQL-Web-to-DB" `
+  -Priority 100 `
+  -Direction Inbound `
+  -Access Allow `
+  -Protocol Tcp `
+  -SourceApplicationSecurityGroupId $asgWeb.Id `
+  -SourcePortRange "*" `
+  -DestinationApplicationSecurityGroupId $asgDb.Id `
+  -DestinationPortRange 3306
+
+# Regra 2: BLOQUEAR todo o resto da Internet
+$nsgDb | Add-AzNetworkSecurityRuleConfig `
+  -Name "DenyInternet-Inbound" `
+  -Priority 200 `
+  -Direction Inbound `
+  -Access Deny `
+  -Protocol "*" `
+  -SourceAddressPrefix Internet `
+  -SourcePortRange "*" `
+  -DestinationAddressPrefix "*" `
+  -DestinationPortRange "*"
+
+# Regra 3: Permitir SSH da VNet
+$nsgDb | Add-AzNetworkSecurityRuleConfig `
+  -Name "AllowSSH-VNet" `
+  -Priority 110 `
+  -Direction Inbound `
+  -Access Allow `
+  -Protocol Tcp `
+  -SourceAddressPrefix VirtualNetwork `
+  -SourcePortRange "*" `
+  -DestinationAddressPrefix "*" `
+  -DestinationPortRange 22
+
+# Salvar todas as regras no Azure
+$nsgDb | Set-AzNetworkSecurityGroup
+
+# Associar NSG a subnet db
+$vnet = Get-AzVirtualNetwork -ResourceGroupName $RG -Name "vnet-asg-lab"
+$subnetDb = $vnet.Subnets | Where-Object { $_.Name -eq "snet-db" }
+$subnetDb.NetworkSecurityGroup = $nsgDb
+$vnet | Set-AzVirtualNetwork
+
+Write-Host "NSG criado e associado a snet-db"
+```
+
+> **PowerShell — ASG-to-ASG:** Note que no PowerShell voce precisa obter o objeto do ASG com `Get-AzApplicationSecurityGroup` e passar o `.Id` para os parametros `-SourceApplicationSecurityGroupId` e `-DestinationApplicationSecurityGroupId`. No CLI, basta passar o nome do ASG diretamente.
+
 > **Regra chave: AllowMySQL-Web-to-DB** — source = asg-web, destination = asg-db, port = 3306. Isso significa que APENAS VMs no asg-web podem acessar a porta 3306 das VMs no asg-db. Qualquer outra VM (mesmo na mesma VNet) e bloqueada.
 
 ### Task 2.3: Verificar regras pelo portal
@@ -293,6 +511,118 @@ echo "NSG criado e associado a snet-db"
 3. Compare com **nsg-snet-web** — source mostra "Internet" (Service Tag)
 
 > **Visual:** No portal, ASGs aparecem com o nome do grupo. Service Tags aparecem com o nome do servico (Internet, VirtualNetwork, AzureLoadBalancer). IPs aparecem como CIDR.
+
+### Task 2.4: Metodo ARM Template — NSG com regras ASG (referencia)
+
+> **Por que aprender ARM?** Na prova AZ-104, voce pode ver questoes com trechos de ARM Template pedindo para identificar o que a regra faz, ou qual propriedade esta errada. Entender a estrutura JSON e essencial.
+
+O template abaixo cria o NSG da subnet db com as mesmas regras que fizemos via CLI/Portal/PowerShell. Voce NAO precisa executar este template (os recursos ja foram criados) — ele serve como **referencia** para entender a estrutura.
+
+```json
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/applicationSecurityGroups",
+      "apiVersion": "2023-09-01",
+      "name": "asg-web",
+      "location": "[parameters('location')]"
+    },
+    {
+      "type": "Microsoft.Network/applicationSecurityGroups",
+      "apiVersion": "2023-09-01",
+      "name": "asg-db",
+      "location": "[parameters('location')]"
+    },
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2023-09-01",
+      "name": "nsg-snet-db",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/applicationSecurityGroups', 'asg-web')]",
+        "[resourceId('Microsoft.Network/applicationSecurityGroups', 'asg-db')]"
+      ],
+      "properties": {
+        "securityRules": [
+          {
+            "name": "AllowMySQL-Web-to-DB",
+            "properties": {
+              "priority": 100,
+              "direction": "Inbound",
+              "access": "Allow",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "3306",
+              "sourceApplicationSecurityGroups": [
+                {
+                  "id": "[resourceId('Microsoft.Network/applicationSecurityGroups', 'asg-web')]"
+                }
+              ],
+              "destinationApplicationSecurityGroups": [
+                {
+                  "id": "[resourceId('Microsoft.Network/applicationSecurityGroups', 'asg-db')]"
+                }
+              ]
+            }
+          },
+          {
+            "name": "AllowSSH-VNet",
+            "properties": {
+              "priority": 110,
+              "direction": "Inbound",
+              "access": "Allow",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "22",
+              "sourceAddressPrefix": "VirtualNetwork",
+              "destinationAddressPrefix": "VirtualNetwork"
+            }
+          },
+          {
+            "name": "DenyInternet-Inbound",
+            "properties": {
+              "priority": 200,
+              "direction": "Inbound",
+              "access": "Deny",
+              "protocol": "*",
+              "sourcePortRange": "*",
+              "destinationPortRange": "*",
+              "sourceAddressPrefix": "Internet",
+              "destinationAddressPrefix": "*"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
+```
+
+> **Anatomia do ARM Template — pontos importantes para a prova:**
+>
+> 1. **ASG como recurso separado:** O ASG (`Microsoft.Network/applicationSecurityGroups`) e um recurso independente. Ele precisa ser criado ANTES do NSG — por isso o `dependsOn`.
+>
+> 2. **Referencia ao ASG na regra:** Usa-se `sourceApplicationSecurityGroups` e `destinationApplicationSecurityGroups` (arrays de objetos com `id`). NAO e `sourceAddressPrefix` — esse e para IPs e Service Tags.
+>
+> 3. **Nao misture na mesma regra:** Voce NAO pode usar `sourceAddressPrefix` e `sourceApplicationSecurityGroups` ao mesmo tempo na mesma regra. Escolha um ou outro. O mesmo vale para destination.
+>
+> 4. **Service Tag no ARM:** Para Service Tags (como "Internet" ou "VirtualNetwork"), use `sourceAddressPrefix` ou `destinationAddressPrefix` com o nome do Service Tag como string.
+
+Para implantar o template (caso queira testar em outro momento):
+
+```bash
+az deployment group create \
+  --resource-group $RG \
+  --template-file nsg-asg-template.json
+```
 
 ---
 
@@ -607,6 +937,91 @@ Faca sem olhar os comandos acima:
 - [ ] Associar ASG via `az network nic update` e provar que agora funciona
 - [ ] Ver effective security rules via CLI e portal
 - [ ] Cleanup
+
+---
+
+## Comparacao de Metodos
+
+> **Contexto de prova:** A AZ-104 pode perguntar qual metodo usar em cada cenario, ou pedir para interpretar um trecho de ARM/PowerShell/CLI. A tabela abaixo resume as diferencas praticas.
+
+### Tabela comparativa: CLI vs Portal vs PowerShell vs ARM
+
+```
+┌──────────────────┬───────────────────┬───────────────────┬───────────────────┬──────────────────────┐
+│ Aspecto          │ Azure CLI         │ Portal            │ PowerShell        │ ARM Template         │
+├──────────────────┼───────────────────┼───────────────────┼───────────────────┼──────────────────────┤
+│ Tipo             │ Imperativo        │ Visual/Interativo │ Imperativo        │ Declarativo          │
+│                  │                   │                   │                   │                      │
+│ Criar ASG        │ az asg create     │ Menu + formulario │ New-AzApplication │ Recurso no JSON      │
+│                  │                   │                   │ SecurityGroup     │                      │
+│                  │                   │                   │                   │                      │
+│ Criar NSG        │ az network nsg    │ Menu + formulario │ New-AzNetwork     │ Recurso no JSON      │
+│                  │ create            │                   │ SecurityGroup     │                      │
+│                  │                   │                   │                   │                      │
+│ Adicionar regra  │ az network nsg    │ + Add (formulario │ Add-AzNetwork     │ Array securityRules  │
+│                  │ rule create       │ visual)           │ SecurityRuleConfig│ dentro do NSG        │
+│                  │                   │                   │ + Set-AzNetwork   │                      │
+│                  │                   │                   │ SecurityGroup     │                      │
+│                  │                   │                   │                   │                      │
+│ Referencia ASG   │ --source-asgs     │ Dropdown visual   │ -SourceApplication│ sourceApplication    │
+│ na regra         │ --destination-asgs│ (seleciona ASG)   │ SecurityGroupId   │ SecurityGroups[]     │
+│                  │                   │                   │ (precisa do .Id)  │ (precisa resourceId) │
+│                  │                   │                   │                   │                      │
+│ Persistencia     │ Imediata (cada    │ Imediata (ao      │ Batch — precisa   │ Imediata (deploy     │
+│                  │ comando persiste) │ clicar Add/Save)  │ Set-Az* no final  │ atomico)             │
+│                  │                   │                   │                   │                      │
+│ Idempotente?     │ Parcial (create   │ Nao               │ Parcial           │ SIM (principal       │
+│                  │ falha se existe)  │                   │                   │ vantagem!)           │
+│                  │                   │                   │                   │                      │
+│ Melhor para      │ Scripts rapidos,  │ Explorar, validar │ Automacao Windows │ IaC, deploy          │
+│                  │ automacao Linux   │ visualmente,      │ logica complexa   │ repetivel,           │
+│                  │                   │ aprender          │ com condicionais  │ versionamento        │
+└──────────────────┴───────────────────┴───────────────────┴───────────────────┴──────────────────────┘
+```
+
+### Quando usar cada metodo?
+
+| Cenario | Metodo recomendado | Por que? |
+|---|---|---|
+| Aprendendo ou explorando | **Portal** | Visual, feedback imediato, facil de entender |
+| Script de setup rapido | **CLI** | Menos verboso, integracao natural com Bash |
+| Automacao em ambiente Windows | **PowerShell** | Objetos tipados, pipeline nativo do Windows |
+| Infraestrutura como Codigo (IaC) | **ARM Template** | Declarativo, idempotente, versionavel no Git |
+| Prova AZ-104 | **Todos!** | A prova cobra CLI, PowerShell, ARM e Portal |
+
+### Diferencas sutis que caem na prova
+
+**1. Referencia ao ASG em cada metodo:**
+
+```
+CLI:         --source-asgs asg-web        ← passa o NOME direto
+PowerShell:  -SourceApplicationSecurityGroupId $asgWeb.Id  ← precisa do ID completo
+ARM:         "sourceApplicationSecurityGroups": [{"id": "[resourceId(...)]"}]  ← resourceId()
+Portal:      Dropdown com nome do ASG     ← seleciona visualmente
+```
+
+> **Pegadinha:** No CLI voce passa o NOME do ASG. No PowerShell e ARM, voce precisa do RESOURCE ID completo. Se a prova mostrar um script PowerShell com `-SourceApplicationSecurityGroupId "asg-web"` (passando o nome em vez do ID), a resposta e que esta **errado**.
+
+**2. Persistencia das regras:**
+
+```
+CLI:        Cada "az network nsg rule create" salva IMEDIATAMENTE no Azure
+PowerShell: "Add-AzNetworkSecurityRuleConfig" so modifica o OBJETO EM MEMORIA
+            → Precisa de "Set-AzNetworkSecurityGroup" para persistir!
+ARM:        Deploy e ATOMICO — todas as regras sao aplicadas de uma vez
+```
+
+> **Pegadinha:** Se um script PowerShell tem `Add-AzNetworkSecurityRuleConfig` mas NAO tem `Set-AzNetworkSecurityGroup`, as regras NAO foram salvas no Azure. Isso pode aparecer na prova como "por que a regra nao esta funcionando?"
+
+**3. Idempotencia:**
+
+```
+CLI:        "az network nsg create" FALHA se o NSG ja existe (sem --force)
+PowerShell: "New-AzNetworkSecurityGroup" FALHA se ja existe
+ARM:        Deploy ATUALIZA se ja existe — nao falha! (comportamento declarativo)
+```
+
+> **Na prova:** Se perguntarem "qual metodo garante o mesmo resultado independente de quantas vezes for executado?", a resposta e **ARM Template** (ou Bicep), por ser declarativo e idempotente.
 
 ---
 

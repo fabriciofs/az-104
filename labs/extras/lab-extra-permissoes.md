@@ -177,6 +177,8 @@ echo "Guest Inviter atribuido ao user-web"
 
 ### Task 3.1: Atribuir Virtual Machine Contributor ao user-web
 
+**Metodo 1 — Azure CLI:**
+
 ```bash
 USER_WEB_ID=$(az ad user show --id "user-web@${DOMAIN}" --query id -o tsv)
 
@@ -189,7 +191,31 @@ az role assignment create \
 echo "VM Contributor atribuido ao user-web no $RG"
 ```
 
+**Metodo 2 — PowerShell (Az module):**
+
+```powershell
+# Obter o usuario
+$user = Get-AzADUser -UserPrincipalName "user-web@$Domain"
+
+# Atribuir VM Contributor no RG
+New-AzRoleAssignment `
+  -ObjectId $user.Id `
+  -RoleDefinitionName "Virtual Machine Contributor" `
+  -ResourceGroupName "rg-lab-perms"
+```
+
+**Metodo 3 — Portal:**
+
+1. **rg-lab-perms** > **Access control (IAM)** > **+ Add role assignment**
+2. Role: **Virtual Machine Contributor** > **Next**
+3. Members: **+ Select members** > selecione **User Web** > **Select**
+4. **Review + assign**
+
+> **Dica:** Os tres metodos produzem exatamente o mesmo resultado — uma role assignment no Azure Resource Manager. A escolha depende da situacao: CLI para scripts rapidos, PowerShell para automacao em Windows, Portal para validacao visual.
+
 ### Task 3.2: Atribuir Reader ao user-db
+
+**Metodo 1 — Azure CLI:**
 
 ```bash
 USER_DB_ID=$(az ad user show --id "user-db@${DOMAIN}" --query id -o tsv)
@@ -202,6 +228,24 @@ az role assignment create \
 
 echo "Reader atribuido ao user-db no $RG"
 ```
+
+**Metodo 2 — PowerShell (Az module):**
+
+```powershell
+$user = Get-AzADUser -UserPrincipalName "user-db@$Domain"
+
+New-AzRoleAssignment `
+  -ObjectId $user.Id `
+  -RoleDefinitionName "Reader" `
+  -ResourceGroupName "rg-lab-perms"
+```
+
+**Metodo 3 — Portal:**
+
+1. **rg-lab-perms** > **Access control (IAM)** > **+ Add role assignment**
+2. Role: **Reader** > **Next**
+3. Members: **+ Select members** > selecione **User DB** > **Select**
+4. **Review + assign**
 
 ### Task 3.3: Testar as permissoes RBAC
 
@@ -223,6 +267,8 @@ echo "Reader atribuido ao user-db no $RG"
 
 ### Task 3.4: Atribuir Tag Contributor ao user-web
 
+**Metodo 1 — Azure CLI:**
+
 ```bash
 # Tag Contributor: pode gerenciar tags SEM acessar recursos
 az role assignment create \
@@ -233,6 +279,22 @@ az role assignment create \
 echo "Tag Contributor atribuido ao user-web"
 ```
 
+**Metodo 2 — PowerShell (Az module):**
+
+```powershell
+New-AzRoleAssignment `
+  -ObjectId $user.Id `
+  -RoleDefinitionName "Tag Contributor" `
+  -ResourceGroupName "rg-lab-perms"
+```
+
+**Metodo 3 — Portal:**
+
+1. **rg-lab-perms** > **Access control (IAM)** > **+ Add role assignment**
+2. Role: **Tag Contributor** > **Next**
+3. Members: **+ Select members** > selecione **User Web** > **Select**
+4. **Review + assign**
+
 **Testar como user-web:**
 
 1. Navegue para **vm-perms-test** > **Tags**
@@ -241,7 +303,9 @@ echo "Tag Contributor atribuido ao user-web"
 
 > **Dica prova:** Tag Contributor permite gerenciar tags **sem dar acesso** ao recurso em si. E a resposta para "privilegio minimo para tags".
 
-### Task 3.5: Verificar role assignments pelo portal e CLI
+### Task 3.5: Verificar role assignments pelo portal, CLI e PowerShell
+
+**Azure CLI:**
 
 ```bash
 # Listar todas as atribuicoes no RG
@@ -251,6 +315,15 @@ az role assignment list \
   -o table
 ```
 
+**PowerShell:**
+
+```powershell
+# Listar todas as atribuicoes no RG
+Get-AzRoleAssignment -ResourceGroupName "rg-lab-perms" |
+  Select-Object DisplayName, RoleDefinitionName, Scope |
+  Format-Table
+```
+
 **Pelo portal:**
 
 1. **rg-lab-perms** > **Access control (IAM)** > **Role assignments**
@@ -258,6 +331,8 @@ az role assignment list \
 3. Clique em **Check access** > digite `user-web` > veja as roles atribuidas
 
 ### Task 3.6: Entender heranca de escopo
+
+**Metodo 1 — Azure CLI:**
 
 ```bash
 # Atribuir Reader ao user-db no nivel da SUBSCRIPTION
@@ -271,6 +346,19 @@ az role assignment create \
 echo "Reader atribuido ao user-db na subscription inteira"
 ```
 
+**Metodo 2 — PowerShell (Az module):**
+
+```powershell
+$subId = (Get-AzContext).Subscription.Id
+
+New-AzRoleAssignment `
+  -ObjectId $user.Id `
+  -RoleDefinitionName "Reader" `
+  -Scope "/subscriptions/$subId"
+```
+
+> **Observe:** No CLI usamos `--scope`, no PowerShell usamos `-Scope`. Ambos aceitam o resource ID completo do escopo.
+
 > **Heranca:** Reader na subscription → user-db ve TODOS os RGs e recursos. Reader no RG → ve apenas aquele RG. Permissoes fluem de cima para baixo:
 > ```
 > Management Group → Subscription → Resource Group → Resource
@@ -278,6 +366,8 @@ echo "Reader atribuido ao user-db na subscription inteira"
 >     Herda para      Herda para      Herda para     Escopo final
 >     todas subs      todos RGs       todos recursos
 > ```
+
+**Remover a atribuicao (CLI):**
 
 ```bash
 # Remover o Reader da subscription (manter apenas no RG)
@@ -288,6 +378,124 @@ az role assignment delete \
 
 echo "Reader removido da subscription"
 ```
+
+**Remover a atribuicao (PowerShell):**
+
+```powershell
+Remove-AzRoleAssignment `
+  -ObjectId $user.Id `
+  -RoleDefinitionName "Reader" `
+  -Scope "/subscriptions/$subId"
+```
+
+### Task 3.7: Role Assignment via ARM Template
+
+> **Por que aprender ARM Template para RBAC?** Na prova, questoes podem pedir que voce identifique ou complete um template JSON para atribuir roles. Alem disso, ARM Templates permitem **deployments declarativos e reprodutiveis** — ideal para IaC (Infrastructure as Code).
+
+O recurso `Microsoft.Authorization/roleAssignments` e o tipo ARM que cria role assignments. Veja o template completo abaixo.
+
+**Template ARM — `role-assignment.json`:**
+
+```json
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "principalId": {
+      "type": "string",
+      "metadata": {
+        "description": "Object ID do usuario, grupo ou service principal que recebera a role."
+      }
+    },
+    "roleDefinitionId": {
+      "type": "string",
+      "metadata": {
+        "description": "ID da role definition. Ex: acdd72a7-3385-48ef-bd42-f606fba81ae7 = Reader"
+      }
+    },
+    "principalType": {
+      "type": "string",
+      "defaultValue": "User",
+      "allowedValues": ["User", "Group", "ServicePrincipal"],
+      "metadata": {
+        "description": "Tipo do principal."
+      }
+    }
+  },
+  "variables": {
+    "roleAssignmentName": "[guid(resourceGroup().id, parameters('principalId'), parameters('roleDefinitionId'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[variables('roleAssignmentName')]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', parameters('roleDefinitionId'))]",
+        "principalId": "[parameters('principalId')]",
+        "principalType": "[parameters('principalType')]"
+      }
+    }
+  ],
+  "outputs": {
+    "roleAssignmentId": {
+      "type": "string",
+      "value": "[variables('roleAssignmentName')]"
+    }
+  }
+}
+```
+
+> **Pontos-chave do template:**
+>
+> | Elemento | Explicacao |
+> |----------|-----------|
+> | `name` | Precisa ser um **GUID**. Usamos `guid()` para gerar deterministicamente |
+> | `roleDefinitionId` | Usa `subscriptionResourceId()` — NAO e o ID curto, e o resource ID completo |
+> | `principalId` | E o **Object ID** do usuario (nao o UPN/email) |
+> | `principalType` | `User`, `Group` ou `ServicePrincipal` |
+
+**Deploy do template (CLI):**
+
+```bash
+# Obter IDs necessarios
+USER_DB_ID=$(az ad user show --id "user-db@${DOMAIN}" --query id -o tsv)
+# Reader role definition ID (fixo em todo Azure):
+READER_ROLE="acdd72a7-3385-48ef-bd42-f606fba81ae7"
+
+az deployment group create \
+  --resource-group $RG \
+  --template-file role-assignment.json \
+  --parameters principalId=$USER_DB_ID \
+               roleDefinitionId=$READER_ROLE \
+               principalType=User
+```
+
+**Deploy do template (PowerShell):**
+
+```powershell
+$userDbId = (Get-AzADUser -UserPrincipalName "user-db@$Domain").Id
+$readerRole = "acdd72a7-3385-48ef-bd42-f606fba81ae7"
+
+New-AzResourceGroupDeployment `
+  -ResourceGroupName "rg-lab-perms" `
+  -TemplateFile "role-assignment.json" `
+  -principalId $userDbId `
+  -roleDefinitionId $readerRole `
+  -principalType "User"
+```
+
+> **IDs de roles built-in mais comuns (fixos em todo Azure):**
+>
+> | Role | Role Definition ID |
+> |------|--------------------|
+> | Owner | `8e3af657-a8ff-443c-a75c-2fe8c4bcb635` |
+> | Contributor | `b24988ac-6180-42a0-ab88-20f7382dd24c` |
+> | Reader | `acdd72a7-3385-48ef-bd42-f606fba81ae7` |
+> | User Access Administrator | `18d7d88d-d35e-4fb5-a5c3-7773c20a72d9` |
+> | Virtual Machine Contributor | `9980e02c-c2be-4d73-94e8-173b1dc7cf3c` |
+> | Storage Blob Data Reader | `2a2b9908-6ea1-4ae2-8e65-a410df84e7d1` |
+> | Tag Contributor | `4a9ae827-6dc8-4573-8ac7-8239d42aa03f` |
 
 ---
 
@@ -416,6 +624,8 @@ Custos e budgets                   → RBAC (Cost Management Contributor)
 
 ### Task 6.1: Verificar acesso efetivo de um usuario
 
+**Azure CLI:**
+
 ```bash
 # Ver TODAS as roles do user-web neste RG
 az role assignment list \
@@ -423,6 +633,17 @@ az role assignment list \
   --assignee $USER_WEB_ID \
   --query "[].{role:roleDefinitionName, scope:scope}" \
   -o table
+```
+
+**PowerShell:**
+
+```powershell
+# Ver TODAS as roles do user-web neste RG
+Get-AzRoleAssignment `
+  -ResourceGroupName "rg-lab-perms" `
+  -ObjectId $user.Id |
+  Select-Object RoleDefinitionName, Scope |
+  Format-Table
 ```
 
 **Pelo portal:**
@@ -443,12 +664,20 @@ az role assignment list \
 
 **Cenario:** user-db tenta criar uma VM no rg-lab-perms e recebe erro de permissao.
 
+**Azure CLI:**
+
 ```bash
 # Verificar roles do user-db
 az role assignment list \
   --resource-group $RG \
   --assignee $USER_DB_ID \
   --query "[].roleDefinitionName" -o tsv
+```
+
+**PowerShell:**
+
+```powershell
+(Get-AzRoleAssignment -ResourceGroupName "rg-lab-perms" -ObjectId $userDb.Id).RoleDefinitionName
 ```
 
 > **Resultado:** Reader. Reader e somente leitura — nao permite criar recursos. Para resolver: atribuir **Contributor** ou **Virtual Machine Contributor** no RG.
@@ -471,6 +700,8 @@ Data plane: "quem pode ler/escrever os blobs dentro do storage"
 
 ## Cleanup
 
+**Azure CLI:**
+
 ```bash
 # Remover role assignments
 az role assignment delete --assignee $USER_WEB_ID --resource-group $RG
@@ -486,20 +717,263 @@ az group delete --name rg-lab-perms --yes --no-wait
 echo "Cleanup completo"
 ```
 
+**PowerShell:**
+
+```powershell
+# Remover role assignments
+Get-AzRoleAssignment -ResourceGroupName "rg-lab-perms" -ObjectId $user.Id |
+  Remove-AzRoleAssignment
+Get-AzRoleAssignment -ResourceGroupName "rg-lab-perms" -ObjectId $userDb.Id |
+  Remove-AzRoleAssignment
+
+# Deletar usuarios de teste
+Remove-AzADUser -UserPrincipalName "user-web@$Domain" -Force
+Remove-AzADUser -UserPrincipalName "user-db@$Domain" -Force
+
+# Deletar recursos
+Remove-AzResourceGroup -Name "rg-lab-perms" -Force -AsJob
+```
+
 ---
 
 ## Modo Desafio
 
 - [ ] Criar 2 usuarios de teste no Entra ID
 - [ ] Atribuir Guest Inviter (Entra ID Role) e testar que NAO da acesso a recursos
-- [ ] Atribuir VM Contributor (RBAC) e testar que gerencia VMs mas nao storage
+- [ ] Atribuir VM Contributor (RBAC) via CLI e testar que gerencia VMs mas nao storage
+- [ ] Repetir atribuicao de VM Contributor via PowerShell (remover antes e reatribuir)
 - [ ] Atribuir Tag Contributor e testar que marca recursos sem acessa-los
-- [ ] Atribuir Reader e testar que ve tudo mas nao modifica nada
+- [ ] Atribuir Reader via ARM Template e verificar que funciona
 - [ ] Configurar ABAC: Storage Blob Data Reader com condicao de container
 - [ ] Testar: acessa public-data mas nao finance-data
-- [ ] Verificar effective access via portal e CLI
+- [ ] Verificar effective access via portal, CLI e PowerShell
+- [ ] Listar role assignments usando os 3 metodos (Portal, CLI, PowerShell)
 - [ ] Resolver os 7 cenarios de decisao sem consultar
-- [ ] Cleanup
+- [ ] Cleanup usando CLI ou PowerShell
+
+---
+
+## Parte 4 — Governança: Azure Policy e Key Vault
+
+### Task 4.1 — Azure Policy: Escopos Válidos
+
+**Conceito crítico (errado em 2 simulados!):**
+
+Azure Policy pode ser atribuída em **3 escopos apenas**:
+
+| Escopo | Exemplo | Válido? |
+|--------|---------|---------|
+| Management Group | Tenant Root Group | ✅ SIM |
+| Subscription | Sub-Produção | ✅ SIM |
+| Resource Group | RG-WebApps | ✅ SIM |
+| Recurso individual | VM1 | ❌ NÃO |
+| Região | East US | ❌ NÃO |
+
+Para filtrar recurso específico dentro de um escopo, use **condições na policy definition** (ex: `"field": "type", "equals": "Microsoft.Compute/virtualMachines"`), NÃO tente atribuir ao recurso.
+
+**Exemplo — Atribuir Policy via CLI:**
+```bash
+# Atribuir a policy "Allowed locations" a um Resource Group
+az policy assignment create \
+  --name "restrict-locations" \
+  --policy "e56962a6-4747-49cd-b67b-bf8b01975c4c" \
+  --scope "/subscriptions/{sub-id}/resourceGroups/RG-WebApps" \
+  --params '{"listOfAllowedLocations": {"value": ["eastus", "westus"]}}'
+```
+
+**Exemplo — Atribuir Policy via PowerShell:**
+```powershell
+$definition = Get-AzPolicyDefinition -Id "/providers/Microsoft.Authorization/policyDefinitions/e56962a6-4747-49cd-b67b-bf8b01975c4c"
+New-AzPolicyAssignment `
+  -Name "restrict-locations" `
+  -PolicyDefinition $definition `
+  -Scope "/subscriptions/{sub-id}/resourceGroups/RG-WebApps" `
+  -PolicyParameterObject @{listOfAllowedLocations=@("eastus","westus")}
+```
+
+> **DICA PROVA:** "Em quais escopos Azure Policy pode ser atribuída?" → MG, Subscription, RG. NUNCA recurso individual. NUNCA região.
+
+### Task 4.2 — Key Vault: Acesso para ARM Templates
+
+**Conceito crítico (errado em simulado!):**
+
+Para usar segredos do Key Vault como parâmetros em ARM Templates, é preciso habilitar uma **Access Policy específica** no Key Vault:
+
+```
+Key Vault → Properties → Azure Resource Manager for template deployment → Enable
+```
+
+| Configuração | O que faz | Quando usar |
+|-------------|-----------|-------------|
+| **Enable access to ARM for template deployment** | Permite que ARM leia segredos durante deploy | Senhas de VM em ARM templates |
+| Enable access to Azure Disk Encryption | Permite criptografia de discos | Disk Encryption com CMK |
+| Enable access to VMs for deployment | Permite VMs acessarem segredos | Certificados em VMs |
+
+**Exemplo — Habilitar via CLI:**
+```bash
+az keyvault update \
+  --name MyKeyVault \
+  --resource-group RG1 \
+  --enabled-for-template-deployment true
+```
+
+**Exemplo — Habilitar via PowerShell:**
+```powershell
+Set-AzKeyVaultAccessPolicy `
+  -VaultName "MyKeyVault" `
+  -EnabledForTemplateDeployment
+```
+
+**Referência no ARM Template (arquivo de parâmetros):**
+```json
+{
+  "adminPassword": {
+    "reference": {
+      "keyVault": {
+        "id": "/subscriptions/{sub-id}/resourceGroups/RG1/providers/Microsoft.KeyVault/vaults/MyKeyVault"
+      },
+      "secretName": "vmAdminPassword"
+    }
+  }
+}
+```
+
+> **DICA PROVA:** "Segredos como parâmetros ARM sem texto simples" → Key Vault + "Enable access to ARM for template deployment". NÃO confundir com Access Keys (conceito de Storage Account).
+
+### Task 4.3 — Conditional Access: Grant Control vs Session Control
+
+**Conceito crítico (errado em simulado!):**
+
+| Tipo de Controle | O que configura | Exemplos |
+|-----------------|-----------------|----------|
+| **Grant Control** | **Quem pode acessar** (autenticação) | MFA obrigatório, dispositivo em conformidade, dispositivo ingressado no Entra ID, app aprovado |
+| **Session Control** | **Como a sessão se comporta** (pós-autenticação) | Duração da sessão, persistência de browser, app-enforced restrictions, Conditional Access App Control (MCAS) |
+
+**Regra de ouro:**
+- "Exigir MFA" → **Grant Control** ✅
+- "Exigir dispositivo ingressado" → **Grant Control** ✅
+- "Limitar duração da sessão" → **Session Control**
+- "Bloquear download de arquivos" → **Session Control** (via MCAS)
+
+> **DICA PROVA:** MFA, dispositivo, app aprovado = GRANT Control. Duração, persistência, restrições de app = SESSION Control. A prova tenta confundir esses dois!
+
+---
+
+## Comparacao de Metodos para Role Assignments
+
+> **Por que isso importa?** Na prova AZ-104, voce pode encontrar questoes que pedem para escolher o metodo correto de atribuir roles, completar um script, ou identificar erros em templates. Entender os 4 metodos ajuda a responder com confianca.
+
+### Tabela Comparativa
+
+| Aspecto | Portal | Azure CLI | PowerShell | ARM Template |
+|---------|--------|-----------|------------|--------------|
+| **Tipo** | Interface grafica | Linha de comando | Linha de comando | Declarativo (JSON) |
+| **Idempotente** | N/A (manual) | Nao (erro se ja existe) | Nao (erro se ja existe) | **Sim** (deploy sem erro) |
+| **Automacao** | Nao | Sim (scripts .sh) | Sim (scripts .ps1) | Sim (deploy pipeline) |
+| **IaC** | Nao | Parcial | Parcial | **Sim** (Infrastructure as Code) |
+| **Melhor para** | Validacao visual, troubleshoot | Scripts rapidos, Linux/macOS | Automacao Windows, pipelines | Deploy reprodutivel, governanca |
+| **Curva de aprendizado** | Baixa | Media | Media | Alta |
+| **Escopo do deploy** | Qualquer (interativo) | Qualquer (`--scope`) | Qualquer (`-Scope`) | Definido no deployment |
+
+### Sintaxe Lado a Lado — Atribuir Reader no RG
+
+**Portal:**
+> IAM > Add role assignment > Reader > Selecionar usuario > Review + assign
+
+**CLI:**
+```bash
+az role assignment create --assignee <OBJECT_ID> --role "Reader" --resource-group <RG>
+```
+
+**PowerShell:**
+```powershell
+New-AzRoleAssignment -ObjectId <OBJECT_ID> -RoleDefinitionName "Reader" -ResourceGroupName <RG>
+```
+
+**ARM Template (recurso):**
+```json
+{
+  "type": "Microsoft.Authorization/roleAssignments",
+  "apiVersion": "2022-04-01",
+  "name": "[guid(resourceGroup().id, parameters('principalId'), 'acdd72a7-3385-48ef-bd42-f606fba81ae7')]",
+  "properties": {
+    "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'acdd72a7-3385-48ef-bd42-f606fba81ae7')]",
+    "principalId": "[parameters('principalId')]",
+    "principalType": "User"
+  }
+}
+```
+
+### Sintaxe Lado a Lado — Listar Role Assignments
+
+**CLI:**
+```bash
+az role assignment list --resource-group <RG> -o table
+```
+
+**PowerShell:**
+```powershell
+Get-AzRoleAssignment -ResourceGroupName <RG> | Format-Table
+```
+
+### Sintaxe Lado a Lado — Remover Role Assignment
+
+**CLI:**
+```bash
+az role assignment delete --assignee <OBJECT_ID> --role "Reader" --resource-group <RG>
+```
+
+**PowerShell:**
+```powershell
+Remove-AzRoleAssignment -ObjectId <OBJECT_ID> -RoleDefinitionName "Reader" -ResourceGroupName <RG>
+```
+
+### Mapeamento de Parametros CLI ↔ PowerShell
+
+> Essa tabela e muito util na prova, pois questoes podem trocar os parametros entre CLI e PowerShell para confundir.
+
+| Funcao | CLI (`az role assignment`) | PowerShell (`*-AzRoleAssignment`) |
+|--------|---------------------------|-----------------------------------|
+| Quem recebe | `--assignee` (aceita Object ID ou UPN) | `-ObjectId` (apenas Object ID) |
+| Qual role | `--role` (nome ou ID) | `-RoleDefinitionName` (nome) ou `-RoleDefinitionId` (ID) |
+| Escopo RG | `--resource-group` | `-ResourceGroupName` |
+| Escopo livre | `--scope` (resource ID) | `-Scope` (resource ID) |
+| Criar | `az role assignment create` | `New-AzRoleAssignment` |
+| Listar | `az role assignment list` | `Get-AzRoleAssignment` |
+| Remover | `az role assignment delete` | `Remove-AzRoleAssignment` |
+
+### Quando Usar Cada Metodo — Guia de Decisao
+
+```
+Preciso atribuir UMA role rapidamente?
+├── Sim → CLI ou PowerShell (depende do seu ambiente)
+│         ├── Linux/macOS/Cloud Shell bash → CLI
+│         └── Windows/Cloud Shell PS → PowerShell
+└── Nao, preciso de automacao/reproducao
+    ├── Preciso versionar e rastrear mudancas? → ARM Template (ou Bicep)
+    ├── Preciso atribuir em massa via script? → CLI ou PowerShell com loop
+    └── Preciso validar visualmente? → Portal
+```
+
+### PONTO CRITICO PARA PROVA
+
+```
+PERGUNTA: "Qual metodo garante deployment idempotente?"
+RESPOSTA: ARM Template. Se o role assignment ja existe, o deploy NAO falha.
+          CLI e PowerShell retornam ERRO se o assignment ja existir.
+
+PERGUNTA: "Qual parametro identifica o usuario no ARM Template?"
+RESPOSTA: principalId (Object ID do usuario, NAO o UPN/email).
+
+PERGUNTA: "Como atribuir role a um grupo via CLI?"
+RESPOSTA: Igual ao usuario: --assignee <GROUP_OBJECT_ID>.
+          A mesma sintaxe serve para User, Group e Service Principal.
+
+PERGUNTA: "roleDefinitionId no ARM Template e o nome da role?"
+RESPOSTA: NAO. E o resource ID completo:
+          /subscriptions/{sub}/providers/Microsoft.Authorization/roleDefinitions/{guid}
+          Usar subscriptionResourceId() para montar automaticamente.
+```
 
 ---
 

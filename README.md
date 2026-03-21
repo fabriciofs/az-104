@@ -167,3 +167,4 @@ Bloco 3: 3-backup-monitoring (Dominios 2 e 5)
 ## Contribuindo
 
 Quer adicionar conteudo, corrigir erros ou melhorar os labs? Veja o [Guia de Contribuicao](CONTRIBUTING.md).
+

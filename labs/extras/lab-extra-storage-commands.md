@@ -22,12 +22,14 @@
 │  └──────────────────────────┘      └──────────────────────────────┘  │
 │                                                                      │
 │  Ferramentas praticadas:                                             │
+│  • Portal (criar SA, containers, Object Replication)                 │
 │  • AzCopy copy / sync                                                │
 │  • Set-AzStorageBlobContent (PowerShell)                             │
 │  • Get-ChildItem | Set-AzStorageBlobContent (upload em massa)        │
 │  • az storage blob upload / upload-batch (CLI)                       │
 │  • Start-AzStorageBlobCopy (server-to-server PowerShell)             │
 │  • az storage blob copy start-batch (server-to-server CLI)           │
+│  • Bicep (deploy declarativo de SA + container)                      │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -73,6 +75,31 @@ echo "ORIGEM: $SRC | DESTINO: $DEST"
 
 > **Anote os nomes das contas** — voce vai usa-los em todas as tasks.
 
+### Task 1.1b: Criar Resource Group e Storage Accounts (Portal)
+
+> **Alternativa via Portal** — para quem prefere interface grafica ou quer praticar os dois metodos.
+
+1. Acesse o **Azure Portal** (https://portal.azure.com)
+2. Na barra de pesquisa, digite **"Resource groups"** e clique no resultado
+3. Clique em **+ Create**
+   - **Subscription:** selecione sua assinatura
+   - **Resource group:** `rg-lab-storage-cmds`
+   - **Region:** `East US`
+   - Clique em **Review + create** → **Create**
+4. Na barra de pesquisa, digite **"Storage accounts"** e clique no resultado
+5. Clique em **+ Create** para criar a conta de **ORIGEM**:
+   - **Resource group:** `rg-lab-storage-cmds`
+   - **Storage account name:** `stlabcmdssrc<sufixo-unico>` (ex: `stlabcmdssrc4821`)
+   - **Region:** `East US`
+   - **Performance:** `Standard`
+   - **Redundancy:** `LRS`
+   - Clique em **Review + create** → **Create**
+6. Repita o passo 5 para criar a conta de **DESTINO**:
+   - **Storage account name:** `stlabcmdsdest<sufixo-unico>` (ex: `stlabcmdsdest4821`)
+   - Demais configuracoes identicas
+
+> **Dica:** Na aba **Advanced**, deixe as opcoes padrao. O campo **Hierarchical namespace** deve estar **desabilitado** — caso contrario, Object Replication nao funcionara (Parte 5).
+
 ### Task 1.2: Criar containers e arquivos de teste
 
 ```bash
@@ -103,6 +130,24 @@ echo "Arquivos criados:"
 ls -la ~/labfiles/images/
 ls -la ~/labfiles/logs/
 ```
+
+### Task 1.2b: Criar containers pelo Portal
+
+> **Alternativa via Portal** — util para visualizar a estrutura dos containers.
+
+1. No **Azure Portal**, navegue ate a storage account de **ORIGEM** (ex: `stlabcmdssrc4821`)
+2. No menu lateral, em **Data storage**, clique em **Containers**
+3. Clique em **+ Container**:
+   - **Name:** `images`
+   - **Public access level:** `Private (no anonymous access)`
+   - Clique em **Create**
+4. Repita para criar o container `logs`
+5. Navegue ate a storage account de **DESTINO** (ex: `stlabcmdsdest4821`)
+6. Repita os passos 2-4 para criar:
+   - Container `images-replica`
+   - Container `logs-backup`
+
+> **Observe:** No Portal, voce tambem pode fazer upload de arquivos diretamente clicando no container e depois em **Upload**. Isso equivale ao `az storage blob upload` ou `Set-AzStorageBlobContent`, mas para poucos arquivos (nao e viavel para upload em massa).
 
 ### Task 1.3: Criar File Share na origem
 
@@ -416,6 +461,40 @@ az storage account or-policy create \
 
 echo "Object Replication configurada com sucesso!"
 ```
+
+### Task 5.5b: Configurar Object Replication pelo Portal (passo a passo)
+
+> **Alternativa via Portal** — importante conhecer porque a prova pode mostrar screenshots do Portal.
+
+**Passo 1: Habilitar pre-requisitos nas duas contas**
+
+1. Navegue ate a storage account de **ORIGEM** > menu lateral **Data management** > **Data protection**
+2. Marque as opcoes:
+   - **Enable versioning for blobs** → ativado
+   - **Enable blob change feed** → ativado
+3. Clique em **Save**
+4. Repita para a storage account de **DESTINO**, mas habilite **apenas Blob Versioning**
+   - Change feed no destino e opcional (NAO e pre-requisito)
+
+**Passo 2: Criar a politica de replicacao**
+
+5. Navegue ate a storage account de **DESTINO** > menu lateral **Data management** > **Object replication**
+6. Clique em **Set up replication rules**
+7. Configure:
+   - **Source account:** selecione a conta de ORIGEM (ex: `stlabcmdssrc4821`)
+   - **Source container:** `images`
+   - **Destination container:** `images-replica`
+8. (Opcional) Em **Filters**, voce pode definir:
+   - **Prefix match:** para replicar apenas blobs com determinado prefixo
+   - **Created after:** para replicar apenas blobs criados apos uma data
+9. Clique em **Save**
+
+**Passo 3: Verificar**
+
+10. Na storage account de **DESTINO**, em **Object replication**, voce vera a regra criada com status
+11. Na storage account de **ORIGEM**, a mesma regra aparece automaticamente (espelhada)
+
+> **Cuidado no Portal:** A configuracao e feita a partir da conta de **DESTINO**, nao da origem. Isso confunde muita gente. A logica e: "o destino define DE ONDE quer receber dados".
 
 ### Task 5.6: Testar a replicacao
 
@@ -800,6 +879,114 @@ Salvo no Azure (Template Spec) → -TemplateSpecId
 -Tag                         →  NAO EXISTE para deploy (distrator!)
 ```
 
+### Task 7.7: Deploy com Bicep (alternativa moderna ao ARM JSON)
+
+> **Contexto de prova:** Bicep e a linguagem declarativa da Microsoft que compila para ARM JSON. E mais legivel e concisa. A prova pode mostrar trechos Bicep para interpretar. Voce vai criar e deployar um template Bicep equivalente ao ARM JSON da Task 7.1.
+
+**Troque para Bash:**
+
+```bash
+# Criar o arquivo Bicep
+cat > ~/labfiles/deploy-storage.bicep << 'BICEPEOF'
+// Bicep: Criar Storage Account com Blob Container
+// Equivalente ao ARM JSON de deploy.json, mas MUITO mais legivel
+
+@description('Nome da storage account (deve ser globalmente unico)')
+param storageName string = 'stbicep${uniqueString(resourceGroup().id)}'
+
+@description('Regiao onde o recurso sera criado')
+param location string = resourceGroup().location
+
+@allowed([
+  'Standard_LRS'
+  'Standard_GRS'
+  'Standard_ZRS'
+])
+@description('SKU de redundancia')
+param skuName string = 'Standard_LRS'
+
+@description('Nome do blob container')
+param containerName string = 'data'
+
+// Recurso: Storage Account
+resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
+  name: storageName
+  location: location
+  sku: {
+    name: skuName
+  }
+  kind: 'StorageV2'
+  properties: {
+    accessTier: 'Hot'
+    supportsHttpsTrafficOnly: true
+    minimumTlsVersion: 'TLS1_2'
+  }
+}
+
+// Recurso: Blob Service (necessario para criar containers)
+resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01' = {
+  parent: storageAccount
+  name: 'default'
+}
+
+// Recurso: Blob Container (filho do Blob Service)
+resource container 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
+  parent: blobService
+  name: containerName
+  properties: {
+    publicAccess: 'None'
+  }
+}
+
+// Outputs — valores que o deploy retorna
+output storageId string = storageAccount.id
+output storageName string = storageAccount.name
+output containerName string = container.name
+output blobEndpoint string = storageAccount.properties.primaryEndpoints.blob
+BICEPEOF
+
+echo "Arquivo Bicep criado: ~/labfiles/deploy-storage.bicep"
+```
+
+```bash
+# Deploy do Bicep (o Azure compila automaticamente para ARM JSON)
+az deployment group create \
+  --resource-group $RG \
+  --template-file ~/labfiles/deploy-storage.bicep \
+  --parameters storageName="stbicep${SUFFIX}" containerName="documentos"
+
+echo "Deploy Bicep concluido!"
+```
+
+```bash
+# Verificar que a storage account e o container foram criados
+az storage account show --name "stbicep${SUFFIX}" --resource-group $RG --query "{name:name, kind:kind, sku:sku.name}" -o table
+
+az storage container list \
+  --account-name "stbicep${SUFFIX}" \
+  --auth-mode login \
+  --query "[].name" -o tsv
+```
+
+> **ARM JSON vs Bicep — comparacao direta:**
+>
+> | Aspecto | ARM JSON | Bicep |
+> |---------|----------|-------|
+> | **Sintaxe** | JSON verboso (~30 linhas por recurso) | Declarativa e concisa (~10 linhas) |
+> | **Tipo de arquivo** | `.json` | `.bicep` |
+> | **Parametro de deploy** | `--template-file` / `--template-uri` | `--template-file` (mesmo!) |
+> | **Compilacao** | Nenhuma (JSON nativo) | Compila para ARM JSON automaticamente |
+> | **Referencia entre recursos** | `[resourceId(...)]` (funcoes complexas) | `storageAccount.id` (referencia direta) |
+> | **Recurso filho** | Array separado com `dependsOn` | `parent:` com hierarquia clara |
+> | **Suporte na prova** | Muito cobrado | Aparece em questoes mais recentes |
+>
+> **Dica prova:** Para deployar Bicep, voce usa o **mesmo comando** `az deployment group create --template-file`. A unica diferenca e a extensao do arquivo (`.bicep` em vez de `.json`). O Azure CLI detecta automaticamente e compila.
+
+```bash
+# Cleanup do recurso Bicep
+az storage account delete --name "stbicep${SUFFIX}" --resource-group $RG --yes 2>/dev/null
+```
+
 ---
 
 ## Parte 8: ARM --parameters inline (arrays, objetos, tipos)
@@ -1068,8 +1255,213 @@ Faca sem olhar os comandos acima:
 - [ ] Deploy com `--template-file` (local) e verificar que funciona
 - [ ] Deploy com `--template-uri` (URL do blob) e verificar
 - [ ] Testar `--template-uri` com container privado (falha) e depois com SAS (funciona)
+- [ ] Criar storage account e container via Portal (Tasks 1.1b e 1.2b)
+- [ ] Configurar Object Replication via Portal (Task 5.5b)
+- [ ] Criar e deployar template Bicep com storage account + container (Task 7.7)
 - [ ] Upload para File Share com CLI e PowerShell
 - [ ] Cleanup: deletar resource group
+
+---
+
+## Parte 11 — Reforços de Prova (Erros Recorrentes)
+
+### Task 11.1 — GPv1 → GPv2: Pré-requisito para ZRS
+
+**Conceito crítico (errado em simulado!):**
+
+GPv1 **NÃO suporta ZRS**. Para migrar para ZRS:
+
+```
+Passo 1: Upgrade GPv1 → GPv2 (sem downtime, sem custo extra)
+Passo 2: Solicitar migração ao vivo para ZRS (live migration)
+```
+
+| Ação | Downtime? | Custo? |
+|------|-----------|--------|
+| GPv1 → GPv2 | ❌ Sem downtime | ❌ Sem custo adicional |
+| LRS → ZRS (live migration) | ❌ Sem downtime | Suporte Azure necessário |
+| LRS → GRS | ❌ Sem downtime | Pode ser feito pelo portal |
+
+**Exemplo — Upgrade via CLI:**
+```bash
+az storage account update \
+  --name mystorageaccount \
+  --resource-group RG1 \
+  --set kind=StorageV2
+```
+
+**Exemplo — Upgrade via PowerShell:**
+```powershell
+Set-AzStorageAccount `
+  -ResourceGroupName "RG1" `
+  -Name "mystorageaccount" `
+  -UpgradeToStorageV2
+```
+
+> **DICA PROVA:** "Proteger contra falha de zona com GPv1" → PRIMEIRO atualizar para GPv2, DEPOIS solicitar migração para ZRS. A palavra "primeiro" é chave na questão.
+
+### Task 11.2 — Import/Export Service: dataset.csv vs driveset.csv
+
+**Conceito crítico (errado em simulado!):**
+
+O Azure Import/Export Service usa **dois tipos de arquivo CSV**:
+
+| Arquivo | O que descreve | Conteúdo |
+|---------|---------------|----------|
+| **dataset.csv** | **Dados/arquivos** a serem transferidos | Caminhos de diretórios/arquivos, contêineres de blob de destino, tipo de blob |
+| **driveset.csv** | **Discos físicos** usados no job | Letra do drive, caminho do BitLocker key, criptografia |
+
+**Exemplo — dataset.csv:**
+```csv
+BasePath,DstBlobPathOrPrefix,BlobType,Disposition
+"C:\data\logs\",container1/logs/,BlockBlob,rename
+"C:\data\images\",container1/images/,BlockBlob,rename
+```
+
+**Exemplo — driveset.csv:**
+```csv
+DriveLetter,FormatOption,SilentOrPromptOnFormat,Encryption,ExistingBitLockerKey
+G:,AlreadyFormatted,SilentMode,AlreadyEncrypted,xxx-xxx-xxx
+H:,Format,SilentMode,Encrypt,
+```
+
+> **DICA PROVA:** "Qual formato de arquivo para mapear dados para blobs?" → **dataset.csv**. "Descrever discos físicos?" → **driveset.csv**. Não confundir!
+
+### Task 11.3 — Access Keys vs SAS vs Azure AD: Quando Usar Cada Um
+
+**Conceito crítico (errado em simulado!):**
+
+| Método | Expiração | Escopo | Quando usar |
+|--------|-----------|--------|-------------|
+| **Access Keys** | ❌ Não expira (até rotação) | Full access a TODA a conta | Apps que precisam acesso completo com mínimo gerenciamento de segredos |
+| **SAS** | ✅ Expira (configurável) | Granular (contêiner, blob, permissões específicas) | Acesso temporário com prazo definido |
+| **Azure AD (Entra ID)** | N/A (baseado em token) | RBAC granular | Melhor prática para identidades gerenciadas, zero segredos |
+
+**Árvore de decisão:**
+```
+Precisa de acesso temporário com prazo?
+  └─ SIM → SAS (com data de expiração)
+  └─ NÃO → O app tem identidade gerenciada?
+              └─ SIM → Azure AD/RBAC (melhor prática)
+              └─ NÃO → Minimizar segredos? → Access Keys (2 chaves, rotação manual)
+```
+
+> **DICA PROVA:** "Minimizar número de segredos" → **Access Keys** (são apenas 2, sem expiração). "Acesso por X dias" → **SAS** (permite definir validade). NÃO invertê-los!
+
+### Task 11.4 — Web App Backup: Storage Account (NÃO RSV!)
+
+**Conceito crítico (errado em simulado!):**
+
+Backup de **Web Apps** do Azure App Service usa **Storage Account**, NÃO Recovery Services Vault:
+
+| Recurso | Backup Storage | Método |
+|---------|---------------|--------|
+| VMs | Recovery Services Vault (RSV) | Azure Backup |
+| Web Apps | **Storage Account** | App Service built-in backup |
+| SQL Database | Storage Account (automated) | Automated backups |
+| Azure Files | Recovery Services Vault (RSV) | Azure Backup |
+
+**Requisitos para Web App backup:**
+1. App Service Plan **Standard** ou superior (Basic não suporta backup)
+2. Storage Account na mesma assinatura
+3. Contêiner de blob na storage account
+
+**Sequência correta:**
+```
+1. Criar Storage Account → 2. Configurar backup no App Service → 3. Definir agendamento
+```
+
+> **DICA PROVA:** "Primeiro passo para backup de Web App?" → **Criar Storage Account**. Diferente de VMs que usam RSV!
+
+---
+
+## Comparacao de Metodos
+
+Esta secao consolida **todos os metodos** praticados neste lab (Portal, CLI, PowerShell, AzCopy, Bicep) em tabelas comparativas. Use como referencia rapida para a prova.
+
+### Criar Storage Account
+
+| Metodo | Comando / Caminho | Observacoes |
+|--------|-------------------|-------------|
+| **Portal** | Storage accounts > + Create > preencher formulario | Mais visual, bom para quem esta comecando. Nao e escalavel. |
+| **CLI** | `az storage account create --name X --sku Standard_LRS --kind StorageV2` | Rapido, scriptavel. Ideal para automacao simples. |
+| **PowerShell** | `New-AzStorageAccount -Name X -SkuName Standard_LRS -Kind StorageV2` | Equivalente ao CLI. Preferido em ambientes Windows/corporativos. |
+| **Bicep** | `resource sa 'Microsoft.Storage/storageAccounts@2023-01-01' = { ... }` | Declarativo, versionavel. Compila para ARM JSON. |
+| **ARM JSON** | Template JSON com `Microsoft.Storage/storageAccounts` | Verboso, mas e o formato nativo do Azure. Muitas questoes usam. |
+
+### Criar Blob Container
+
+| Metodo | Comando / Caminho | Observacoes |
+|--------|-------------------|-------------|
+| **Portal** | Storage account > Containers > + Container | Interface simples. Upload manual de arquivos tambem disponivel. |
+| **CLI** | `az storage container create --name X --connection-string "..."` | Requer connection string ou account key. |
+| **PowerShell** | `New-AzStorageContainer -Name X -Context $ctx` | Usa contexto da storage account (objeto `$ctx`). |
+| **Bicep** | Recurso filho: `resource container 'Microsoft.Storage/.../containers@...' = { parent: blobService }` | Hierarquia: SA → blobServices/default → containers/nome. |
+
+### Upload de Arquivos para Blob
+
+| Metodo | Um arquivo | Varios arquivos (massa) |
+|--------|-----------|------------------------|
+| **Portal** | Container > Upload > selecionar arquivo | Container > Upload > selecionar multiplos (limitado) |
+| **CLI** | `az storage blob upload --file X --name Y` | `az storage blob upload-batch --source pasta --destination container` |
+| **PowerShell** | `Set-AzStorageBlobContent -File X -Blob Y` | `Get-ChildItem -Recurse \| Set-AzStorageBlobContent` |
+| **AzCopy** | `azcopy copy "arquivo" "url-destino"` | `azcopy copy "pasta/*" "url-destino" --recursive` |
+
+### Copia Server-to-Server (entre Storage Accounts)
+
+| Metodo | Comando | Passa pelo local? |
+|--------|---------|:-----------------:|
+| **AzCopy** | `azcopy copy "url-src" "url-dest" --recursive` | Nao (backbone Azure) |
+| **PowerShell** | `Start-AzStorageBlobCopy -SrcContainer X -DestContainer Y` | Nao (server-side) |
+| **CLI** | `az storage blob copy start --source-uri "url"` | Nao (server-side) |
+| **CLI batch** | `az storage blob copy start-batch --source-container X` | Nao (server-side) |
+| **Portal** | Nao disponivel nativamente (use AzCopy ou Storage Explorer) | N/A |
+
+> **Dica prova:** Se a questao menciona "sem baixar localmente" ou "server-to-server", as respostas corretas sao AzCopy (URL→URL) ou `Start-AzStorageBlobCopy`. NUNCA `Get-AzStorageBlobContent` seguido de `Set-AzStorageBlobContent` (isso baixa e re-faz upload).
+
+### Object Replication — Pre-requisitos por metodo
+
+| Metodo | Habilitar versioning | Habilitar change feed | Criar politica |
+|--------|---------------------|----------------------|----------------|
+| **Portal** | SA > Data protection > Enable versioning | SA > Data protection > Enable change feed | SA destino > Object replication > Set up rules |
+| **CLI** | `az storage account blob-service-properties update --enable-versioning true` | `...update --enable-change-feed true` | `az storage account or-policy create` |
+| **PowerShell** | `Update-AzStorageBlobServiceProperty -IsVersioningEnabled $true` | `...  -EnableChangeFeed $true` | `Set-AzStorageObjectReplicationPolicy` |
+
+### Deploy de Templates
+
+| Metodo | CLI | PowerShell |
+|--------|-----|------------|
+| **Arquivo local (.json)** | `--template-file deploy.json` | `-TemplateFile deploy.json` |
+| **Arquivo local (.bicep)** | `--template-file deploy.bicep` | `-TemplateFile deploy.bicep` |
+| **URL (blob, GitHub)** | `--template-uri "https://..."` | `-TemplateUri "https://..."` |
+| **Template Spec** | `--template-spec <id>` | `-TemplateSpecId <id>` |
+| **Portal** | N/A (use "Deploy a custom template" na barra de pesquisa) | N/A |
+
+### Quando usar cada metodo?
+
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│                    ARVORE DE DECISAO — METODO                             │
+│                                                                           │
+│  Preciso de...                                                            │
+│  │                                                                        │
+│  ├── Aprender/explorar? ─────────────► Portal                             │
+│  │                                                                        │
+│  ├── Automacao rapida (script)? ─────► CLI ou PowerShell                  │
+│  │   ├── Linux/Mac/Cloud Shell Bash → CLI (az)                            │
+│  │   └── Windows/corporativo ───────► PowerShell (Az module)              │
+│  │                                                                        │
+│  ├── Infraestrutura como Codigo? ───► Bicep (moderno) ou ARM JSON         │
+│  │   ├── Projeto novo ──────────────► Bicep (mais legivel)                │
+│  │   └── Manutencao de existente ──► ARM JSON (se ja existe)              │
+│  │                                                                        │
+│  └── Migracao de dados em massa? ──► AzCopy                              │
+│      ├── < 10 TB ──────────────────► AzCopy pela rede                    │
+│      └── > 10 TB / offline ────────► Azure Data Box                      │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+> **Na prova:** A questao geralmente fixa o metodo (ex: "usando PowerShell, qual cmdlet...") ou pede para escolher o metodo mais adequado. Conhecer as equivalencias entre CLI, PowerShell, Portal e Bicep e fundamental.
 
 ---
 

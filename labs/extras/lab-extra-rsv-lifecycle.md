@@ -59,6 +59,18 @@ echo "VM criada"
 
 ### Task 1.2: Criar Recovery Services Vault
 
+#### Metodo 1 — Portal
+
+1. Portal > **Recovery Services vaults** > **+ Create**
+2. Preencha:
+   - **Resource group:** rg-lab-rsv
+   - **Vault name:** rsv-lab-test
+   - **Region:** East US
+3. Clique em **Review + create** > **Create**
+4. Aguarde o deploy concluir
+
+#### Metodo 2 — CLI
+
 ```bash
 # Criar o vault
 az backup vault create \
@@ -68,6 +80,23 @@ az backup vault create \
 
 echo "Recovery Services Vault criado: $VAULT"
 ```
+
+#### Metodo 3 — PowerShell
+
+```powershell
+# Criar o vault
+$vault = New-AzRecoveryServicesVault `
+  -ResourceGroupName $RG `
+  -Name "rsv-lab-test" `
+  -Location "eastus"
+
+# Definir o contexto do vault (necessario para comandos subsequentes)
+Set-AzRecoveryServicesVaultContext -Vault $vault
+
+Write-Host "Recovery Services Vault criado: $($vault.Name)"
+```
+
+> **Nota PowerShell:** O cmdlet `Set-AzRecoveryServicesVaultContext` define o vault como contexto padrao para os proximos comandos de backup. Na CLI isso nao e necessario — voce passa `--vault-name` em cada comando.
 
 ### Task 1.3: Verificar que Soft Delete esta habilitado por padrao
 
@@ -84,6 +113,16 @@ az backup vault backup-properties show \
 
 ### Task 1.4: Criar backup policy simples
 
+#### Metodo 1 — Portal
+
+1. Portal > **rsv-lab-test** > **Backup policies**
+2. Observe a **DefaultPolicy** ja listada (backup diario as 19:00 UTC, retencao 30 dias)
+3. Para criar uma policy customizada: **+ Add** > selecione **Azure Virtual Machine**
+4. Configure schedule e retencao conforme desejado
+5. Neste lab, vamos usar a DefaultPolicy que ja existe
+
+#### Metodo 2 — CLI
+
 ```bash
 # Listar a policy padrao
 az backup policy list \
@@ -92,9 +131,45 @@ az backup policy list \
   --query "[].{name:name, type:properties.backupManagementType}" -o table
 ```
 
+#### Metodo 3 — PowerShell
+
+```powershell
+# Listar policies existentes no vault
+Get-AzRecoveryServicesBackupProtectionPolicy -VaultId $vault.ID |
+  Select-Object Name, WorkloadType
+
+# Para criar uma policy customizada (exemplo — nao obrigatorio neste lab):
+$schedPol = Get-AzRecoveryServicesBackupSchedulePolicyObject -WorkloadType "AzureVM"
+$retPol   = Get-AzRecoveryServicesBackupRetentionPolicyObject -WorkloadType "AzureVM"
+
+# Alterar retencao para 7 dias
+$retPol.DailySchedule.DurationCountInDays = 7
+
+New-AzRecoveryServicesBackupProtectionPolicy `
+  -Name "daily-7d" `
+  -WorkloadType "AzureVM" `
+  -SchedulePolicy $schedPol `
+  -RetentionPolicy $retPol `
+  -VaultId $vault.ID
+```
+
+> **Dica PowerShell:** Para criar uma policy customizada, voce primeiro obtem os objetos "template" de schedule e retencao com `Get-AzRecoveryServicesBackupSchedulePolicyObject` e `Get-AzRecoveryServicesBackupRetentionPolicyObject`, modifica as propriedades desejadas e depois passa para `New-AzRecoveryServicesBackupProtectionPolicy`.
+
 > A policy padrao **DefaultPolicy** ja existe — backup diario as 19:00 UTC com retencao de 30 dias. Vamos usa-la.
 
 ### Task 1.5: Habilitar backup da VM
+
+#### Metodo 1 — Portal
+
+1. Portal > **rsv-lab-test** > **+ Backup**
+2. Em **Where is your workload running?**, selecione **Azure**
+3. Em **What do you want to back up?**, selecione **Virtual machine**
+4. Clique em **Backup**
+5. Em **Backup policy**, mantenha **DefaultPolicy**
+6. Clique em **Add** > selecione **vm-rsv-test** > **OK**
+7. Clique em **Enable backup**
+
+#### Metodo 2 — CLI
 
 ```bash
 # Proteger a VM com a DefaultPolicy
@@ -105,6 +180,24 @@ az backup protection enable-for-vm \
   --policy-name DefaultPolicy
 
 echo "Backup habilitado para vm-rsv-test"
+```
+
+#### Metodo 3 — PowerShell
+
+```powershell
+# Obter a policy padrao
+$policy = Get-AzRecoveryServicesBackupProtectionPolicy `
+  -Name "DefaultPolicy" `
+  -VaultId $vault.ID
+
+# Habilitar backup da VM
+Enable-AzRecoveryServicesBackupProtection `
+  -ResourceGroupName $RG `
+  -Name "vm-rsv-test" `
+  -Policy $policy `
+  -VaultId $vault.ID
+
+Write-Host "Backup habilitado para vm-rsv-test"
 ```
 
 ### Task 1.6: Executar backup manual (ad-hoc)
@@ -169,6 +262,16 @@ echo "ESPERADO: falha acima — vault tem backup items"
 
 ### Task 3.1: Interromper backup da VM
 
+#### Metodo 1 — Portal
+
+1. Portal > **rsv-lab-test** > **Backup items** > **Azure Virtual Machine**
+2. Clique em **vm-rsv-test**
+3. Clique em **Stop backup**
+4. Selecione **Delete Backup Data**
+5. Digite o nome do item para confirmar > **Stop backup**
+
+#### Metodo 2 — CLI
+
 ```bash
 # Obter o nome do container e item
 CONTAINER=$(az backup container list \
@@ -193,6 +296,27 @@ az backup protection disable \
 
 echo "Backup interrompido e dados marcados para exclusao"
 ```
+
+#### Metodo 3 — PowerShell
+
+```powershell
+# Obter o item de backup
+$backupItem = Get-AzRecoveryServicesBackupItem `
+  -BackupManagementType "AzureVM" `
+  -WorkloadType "AzureVM" `
+  -VaultId $vault.ID
+
+# Stop backup e deletar dados
+Disable-AzRecoveryServicesBackupProtection `
+  -Item $backupItem `
+  -RemoveRecoveryPoints `
+  -VaultId $vault.ID `
+  -Force
+
+Write-Host "Backup interrompido e dados marcados para exclusao"
+```
+
+> **CLI vs PowerShell:** Na CLI voce precisa identificar o `--container-name` e `--item-name` manualmente. No PowerShell, o cmdlet `Get-AzRecoveryServicesBackupItem` retorna o objeto completo, simplificando o fluxo.
 
 > **Dois modos de Stop Backup:**
 > | Modo | O que faz | Quando usar |
@@ -235,6 +359,15 @@ az backup item list \
 
 ### Task 4.2: Desabilitar Soft Delete no vault
 
+#### Metodo 1 — Portal
+
+1. Portal > **rsv-lab-test** > **Properties** (menu lateral)
+2. Em **Security Settings**, clique em **Update**
+3. Desmarque **Enable soft delete for cloud workloads**
+4. Clique em **Save**
+
+#### Metodo 2 — CLI
+
 ```bash
 # Desabilitar soft delete
 az backup vault backup-properties set \
@@ -243,6 +376,17 @@ az backup vault backup-properties set \
   --soft-delete-feature-state Disable
 
 echo "Soft delete desabilitado"
+```
+
+#### Metodo 3 — PowerShell
+
+```powershell
+# Desabilitar soft delete
+Set-AzRecoveryServicesVaultProperty `
+  -VaultId $vault.ID `
+  -SoftDeleteFeatureState "Disable"
+
+Write-Host "Soft delete desabilitado"
 ```
 
 > **Conceito:** Desabilitar soft delete nao deleta os itens que ja estao em soft-deleted state. Voce ainda precisa purga-los manualmente. Desabilitar apenas permite que a proxima exclusao seja permanente.
@@ -306,6 +450,14 @@ echo "Se vazio, vault pode ser deletado"
 
 ### Task 5.1: Deletar o vault
 
+#### Metodo 1 — Portal
+
+1. Portal > **rsv-lab-test** > **Overview** > **Delete**
+2. Digite o nome do vault para confirmar
+3. Clique em **Delete**
+
+#### Metodo 2 — CLI
+
 ```bash
 # Agora SIM — vault vazio, sem soft delete
 az backup vault delete \
@@ -316,17 +468,20 @@ az backup vault delete \
 echo "Vault deletado com sucesso!"
 ```
 
+#### Metodo 3 — PowerShell
+
+```powershell
+# Deletar o vault
+Remove-AzRecoveryServicesVault -Vault $vault
+
+Write-Host "Vault deletado com sucesso!"
+```
+
 > **Se ainda falhar**, verifique:
 > - Backup items restantes: `az backup item list --resource-group $RG --vault-name $VAULT`
 > - Containers registrados: `az backup container list --resource-group $RG --vault-name $VAULT --backup-management-type AzureIaasVM`
 > - Private endpoints associados ao vault
 > - Resource locks no vault
-
-### Task 5.2: Deletar pelo portal (alternativa)
-
-1. Portal > **rsv-lab-test** > **Overview** > **Delete**
-2. Digite o nome do vault para confirmar
-3. **Delete**
 
 ---
 
@@ -395,6 +550,139 @@ echo "Resource group sendo deletado"
 
 ---
 
+## ARM Template — Criar Vault + Backup Policy (IaC)
+
+> **Por que aprender ARM?** O AZ-104 cobra interpretacao de ARM Templates. Saber criar um vault com policy via template demonstra dominio de Infrastructure as Code.
+
+O template abaixo cria um Recovery Services Vault com uma backup policy customizada (backup diario com retencao de 7 dias):
+
+```json
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "vaultName": {
+      "type": "string",
+      "defaultValue": "rsv-lab-test",
+      "metadata": {
+        "description": "Nome do Recovery Services Vault"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Regiao do vault"
+      }
+    },
+    "policyName": {
+      "type": "string",
+      "defaultValue": "daily-7d",
+      "metadata": {
+        "description": "Nome da backup policy"
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.RecoveryServices/vaults",
+      "apiVersion": "2023-01-01",
+      "name": "[parameters('vaultName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "RS0",
+        "tier": "Standard"
+      },
+      "properties": {
+        "publicNetworkAccess": "Enabled"
+      }
+    },
+    {
+      "type": "Microsoft.RecoveryServices/vaults/backupPolicies",
+      "apiVersion": "2023-01-01",
+      "name": "[concat(parameters('vaultName'), '/', parameters('policyName'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.RecoveryServices/vaults', parameters('vaultName'))]"
+      ],
+      "properties": {
+        "backupManagementType": "AzureIaasVM",
+        "schedulePolicy": {
+          "schedulePolicyType": "SimpleSchedulePolicy",
+          "scheduleRunFrequency": "Daily",
+          "scheduleRunTimes": [
+            "2024-01-01T19:00:00Z"
+          ]
+        },
+        "retentionPolicy": {
+          "retentionPolicyType": "LongTermRetentionPolicy",
+          "dailySchedule": {
+            "retentionTimes": [
+              "2024-01-01T19:00:00Z"
+            ],
+            "retentionDuration": {
+              "count": 7,
+              "durationType": "Days"
+            }
+          }
+        },
+        "instantRpRetentionRangeInDays": 2,
+        "timeZone": "E. South America Standard Time"
+      }
+    }
+  ],
+  "outputs": {
+    "vaultId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.RecoveryServices/vaults', parameters('vaultName'))]"
+    },
+    "policyId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.RecoveryServices/vaults/backupPolicies', parameters('vaultName'), parameters('policyName'))]"
+    }
+  }
+}
+```
+
+### Como fazer deploy do template
+
+**Via CLI:**
+
+```bash
+az deployment group create \
+  --resource-group $RG \
+  --template-file rsv-template.json \
+  --parameters vaultName="rsv-lab-test" policyName="daily-7d"
+```
+
+**Via PowerShell:**
+
+```powershell
+New-AzResourceGroupDeployment `
+  -ResourceGroupName $RG `
+  -TemplateFile "rsv-template.json" `
+  -vaultName "rsv-lab-test" `
+  -policyName "daily-7d"
+```
+
+**Via Portal:**
+
+1. Portal > **Deploy a custom template** > **Build your own template in the editor**
+2. Cole o JSON acima > **Save**
+3. Preencha os parametros > **Review + create** > **Create**
+
+### Pontos importantes do template para a prova
+
+| Elemento | Detalhe |
+|---|---|
+| `dependsOn` | A policy depende do vault — sem isso o deploy falha |
+| `sku.name` = `RS0` | SKU padrao para Recovery Services Vault (sempre RS0) |
+| `scheduleRunFrequency` | Pode ser `Daily` ou `Weekly` |
+| `instantRpRetentionRangeInDays` | Retencao de snapshots locais (1-5 dias) — recovery mais rapido |
+| `timeZone` | Define o fuso horario do schedule (importante para horario do backup) |
+| `retentionDuration.durationType` | Valores: `Days`, `Weeks`, `Months`, `Years` |
+
+---
+
 ## Modo Desafio
 
 Faca sem olhar os comandos acima:
@@ -408,6 +696,94 @@ Faca sem olhar os comandos acima:
 - [ ] Undelete + deletar permanentemente
 - [ ] Deletar vault (provar que agora funciona)
 - [ ] Cleanup
+
+---
+
+### Task 5.1 — Trocar VM de Vault (Errado em Simulado!)
+
+**Cenário:** VM2 está protegida pelo RSV1. Você precisa mover a proteção para RSV2.
+
+**Sequência OBRIGATÓRIA:**
+```
+1. Parar backup da VM2 no RSV1 (Stop backup)
+2. [Opcional] Deletar dados de backup no RSV1
+3. Configurar backup da VM2 no RSV2
+```
+
+**Por quê?** Uma VM só pode ter backup ativo em **1 vault por vez**. Não é possível ter proteção simultânea em dois vaults.
+
+**Exemplo — Parar backup via CLI:**
+```bash
+# Passo 1: Parar backup no vault atual
+az backup protection disable \
+  --vault-name RSV1 \
+  --resource-group RG1 \
+  --container-name "IaaSVMContainerV2;RG1;VM2" \
+  --item-name "VM2" \
+  --delete-backup-data true
+```
+
+**Exemplo — Parar backup via PowerShell:**
+```powershell
+# Passo 1: Parar backup no vault atual
+$vault = Get-AzRecoveryServicesVault -Name "RSV1" -ResourceGroupName "RG1"
+Set-AzRecoveryServicesVaultContext -Vault $vault
+$item = Get-AzRecoveryServicesBackupItem -BackupManagementType AzureVM -WorkloadType AzureVM -Name "VM2"
+Disable-AzRecoveryServicesBackupProtection -Item $item -RemoveRecoveryPoints -Force
+```
+
+> **DICA PROVA:** "Trocar vault de uma VM" → **PRIMEIRO** parar backup no vault atual. NÃO é possível mover dados entre vaults. A pergunta geralmente é "qual o primeiro passo?"
+
+---
+
+## Comparacao de Metodos
+
+> **Para a prova:** O AZ-104 pode pedir o metodo correto para uma tarefa especifica. Entenda as diferencas entre cada abordagem.
+
+### Tabela comparativa
+
+| Operacao | Portal | CLI (`az backup`) | PowerShell (`Az.RecoveryServices`) | ARM Template |
+|---|---|---|---|---|
+| **Criar vault** | Recovery Services vaults > + Create | `az backup vault create` | `New-AzRecoveryServicesVault` | `Microsoft.RecoveryServices/vaults` |
+| **Criar policy** | Vault > Backup policies > + Add | `az backup policy create` | `New-AzRecoveryServicesBackupProtectionPolicy` | `.../vaults/backupPolicies` |
+| **Habilitar backup** | Vault > + Backup > selecionar VM | `az backup protection enable-for-vm` | `Enable-AzRecoveryServicesBackupProtection` | N/A (requer script) |
+| **Stop backup** | Backup items > Stop backup | `az backup protection disable` | `Disable-AzRecoveryServicesBackupProtection` | N/A |
+| **Desabilitar soft delete** | Vault > Properties > Security Settings | `az backup vault backup-properties set` | `Set-AzRecoveryServicesVaultProperty` | N/A |
+| **Undelete** | Backup items > Undelete | `az backup protection undelete` | `Undo-AzRecoveryServicesBackupItemDeletion` | N/A |
+| **Deletar vault** | Vault > Overview > Delete | `az backup vault delete` | `Remove-AzRecoveryServicesVault` | N/A |
+
+### Quando usar cada metodo
+
+| Metodo | Melhor para | Limitacoes |
+|---|---|---|
+| **Portal** | Aprendizado, tarefas ad-hoc, verificacao visual de estados | Nao escalavel, sem automacao |
+| **CLI** | Scripts Bash, pipelines CI/CD, automacao em Linux/macOS | Nomes de container/item podem ser confusos |
+| **PowerShell** | Scripts Windows, automacao corporativa, Azure Automation Runbooks | Requer `Set-AzRecoveryServicesVaultContext` ou `-VaultId` |
+| **ARM Template** | Provisionamento declarativo, IaC, deploys repetiveis | Nao serve para operacoes do dia-a-dia (stop, delete, undelete) |
+
+### Diferencas-chave que caem na prova
+
+```
+PowerShell vs CLI — contexto do vault:
+  PowerShell: Set-AzRecoveryServicesVaultContext -Vault $vault
+              OU passar -VaultId $vault.ID em cada cmdlet
+  CLI:        --vault-name $VAULT em cada comando (sem contexto global)
+
+PowerShell vs CLI — stop backup com delete data:
+  PowerShell: Disable-AzRecoveryServicesBackupProtection -RemoveRecoveryPoints
+  CLI:        az backup protection disable --delete-backup-data true
+
+PowerShell vs CLI — undelete:
+  PowerShell: Undo-AzRecoveryServicesBackupItemDeletion
+  CLI:        az backup protection undelete
+
+ARM Template — limitacoes:
+  - Bom para CRIAR vault + policy (infraestrutura)
+  - NAO serve para habilitar backup de VM, stop backup, ou deletar
+  - Essas operacoes sao IMPERATIVAS (requerem CLI/PowerShell/Portal)
+```
+
+> **Dica de prova:** Se a questao mencionar "Azure Automation Runbook" ou "automatizar", a resposta provavelmente envolve **PowerShell**. Se mencionar "Bash script" ou "pipeline Linux", e **CLI**. Se mencionar "Infrastructure as Code" ou "deploy consistente", e **ARM Template**.
 
 ---
 
