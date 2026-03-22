@@ -714,6 +714,12 @@ az role assignment delete --assignee $USER_DB_ID --resource-group $RG
 az ad user delete --id "user-web@${DOMAIN}"
 az ad user delete --id "user-db@${DOMAIN}"
 
+# Reabilitar Security Defaults (IMPORTANTE!)
+az rest --method PATCH \
+  --uri "https://graph.microsoft.com/v1.0/policies/identitySecurityDefaultsEnforcementPolicy" \
+  --body '{"isEnabled": true}'
+echo "Security Defaults reabilitado!"
+
 # Deletar recursos
 az group delete --name rg-lab-perms --yes --no-wait
 
