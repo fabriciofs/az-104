@@ -65,17 +65,67 @@
 
 ## KQL (Kusto Query Language)
 
+### Operadores principais
+
 | Operador | Traducao na prova | O que faz | SQL equivalente |
 | --- | --- | --- | --- |
 | **where** | onde | Filtra linhas | WHERE |
 | **summarize** | resumir | Agrupa/agrega | GROUP BY |
 | **project** | projeto | Seleciona/renomeia colunas | SELECT |
 | **extend** | estender | Adiciona coluna calculada | SELECT *, nova_col |
+| **search in** | buscar em | Busca texto em tabela especifica | LIKE em toda a tabela |
+| **top** | topo | Retorna N primeiros ordenados | ORDER BY + LIMIT |
+| **count** | contar | Conta registros | COUNT(*) |
+| **distinct** | distintos | Valores unicos | DISTINCT |
+| **order by** / **sort by** | ordenar | Ordena resultado | ORDER BY |
 
 - "Agregar resultados por coluna" → **summarize** (NAO where, NAO project)
 - "Filtrar linhas" → **where**
 - "Selecionar colunas" → **project**
 - "Adicionar coluna nova" → **extend**
+- "Buscar texto em tabela" → **search in (Tabela) "texto"**
+
+### 5 queries que caem na prova (memorize!)
+
+```kql
+-- 1. Buscar texto em tabela (caiu no simulado!)
+search in (Event) "error"
+
+-- 2. Filtrar por campo + tempo
+Event | where EventLevelName == "Error" | where TimeGenerated > ago(1h)
+
+-- 3. Contar por categoria
+Event | summarize count() by Source
+
+-- 4. Top N resultados
+Perf | where CounterName == "% Processor Time"
+     | top 10 by CounterValue desc
+
+-- 5. Selecionar colunas especificas
+Event | where Level == 1
+      | project TimeGenerated, Source, RenderedDescription
+```
+
+### Erros comuns na prova
+
+| Armadilha | Realidade |
+| --- | --- |
+| Usar SQL (`SELECT * FROM Event`) | KQL nao e SQL! Use `Event \| where ...` |
+| Usar PowerShell (`Get-Event`) | KQL roda no Log Analytics, nao no terminal |
+| `search "error"` sem `in (Tabela)` | Funciona mas busca em TODAS as tabelas (lento) |
+| `Event \| where Level == "Error"` | Level e numerico (1=Error, 2=Warning). Use `EventLevelName` para string |
+
+### Tabelas mais cobradas
+
+| Tabela | O que contem |
+| --- | --- |
+| **Event** | Windows Event Log (System, Application, Security) |
+| **Syslog** | Logs do Linux |
+| **Perf** | Metricas de performance (CPU, memoria, disco) |
+| **Heartbeat** | Status de conectividade dos agentes |
+| **AzureActivity** | Activity Log (operacoes de controle) |
+| **SigninLogs** | Logs de login do Entra ID |
+
 - Outros operadores uteis: `render` (visualizacao), `ago()` (tempo relativo), `bin()` (agrupamento temporal)
 
 ### Funcoes de tempo no KQL

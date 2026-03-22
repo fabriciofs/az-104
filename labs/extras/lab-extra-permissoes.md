@@ -9,8 +9,8 @@
 ## Diagrama
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                                                                        │
+┌───────────────────────────────────────────────────────────────────────┐
+│                                                                       │
 │  ┌─────────────────────────┐    ┌──────────────────────────────────┐  │
 │  │ ENTRA ID (Diretorio)    │    │ AZURE (Recursos)                 │  │
 │  │                         │    │                                  │  │
@@ -29,70 +29,72 @@
 │  3. Azure ABAC (condicoes)      │ ABAC:                            │  │
 │  4. Comparar e diagnosticar     │ • Blob Reader + condicao tag     │  │
 │                                 └──────────────────────────────────┘  │
-└────────────────────────────────────────────────────────────────────────┘
+└───────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Parte 1: Setup
 
-### Task 1.1: Criar Resource Group e recursos
+### Task 1.1: Criar Resource Group e recursos (via Bicep)
+
+> **Usando Bicep para acelerar:** Os pre-requisitos (Storage Account, containers, VM) sao criados de uma vez com um template Bicep. Isso permite focar no que importa: RBAC, Policy e Key Vault.
 
 ```bash
 RG="rg-lab-perms"
 LOCATION="eastus"
-SUFFIX=$RANDOM
-ST="stpermstest${SUFFIX}"
 
 # Criar RG com tags
 az group create --name $RG --location $LOCATION --tags dept=IT env=lab
 
-# Criar Storage Account
-az storage account create \
-  --name $ST \
+# Deploy dos pre-requisitos via Bicep (Storage + containers + VM)
+az deployment group create \
   --resource-group $RG \
-  --location $LOCATION \
-  --sku Standard_LRS \
-  --kind StorageV2
+  --template-file labs/extras/templates/lab-perms-prereqs.bicep \
+  --parameters adminPassword="Lab@Perms2026!" \
+  --query "properties.outputs" -o table
 
-# Criar containers
-CONN=$(az storage account show-connection-string --name $ST --resource-group $RG --query connectionString -o tsv)
-az storage container create --name public-data --connection-string "$CONN"
-az storage container create --name finance-data --connection-string "$CONN"
+# Capturar nome da storage account criada
+ST=$(az deployment group show --resource-group $RG --name lab-perms-prereqs --query "properties.outputs.storageName.value" -o tsv)
 
-# Upload de blobs de teste com tags (index tags)
+# Upload de blobs de teste com tags (index tags) — precisa ser manual (Bicep nao faz upload de dados)
 echo "dados publicos" > /tmp/public.txt
 echo "dados financeiros confidenciais" > /tmp/finance.txt
 
-az storage blob upload --container-name public-data --name info.txt --file /tmp/public.txt --connection-string "$CONN" --tags "dept=IT"
-az storage blob upload --container-name finance-data --name report.txt --file /tmp/finance.txt --connection-string "$CONN" --tags "dept=Finance"
+az storage blob upload --container-name public-data --name info.txt --file /tmp/public.txt --account-name $ST --auth-mode login --tags "dept=IT"
+az storage blob upload --container-name finance-data --name report.txt --file /tmp/finance.txt --account-name $ST --auth-mode login --tags "dept=Finance"
 
-# Criar VM simples
-az vm create \
-  --resource-group $RG \
-  --name vm-perms-test \
-  --image Ubuntu2404 \
-  --size Standard_B1s \
-  --admin-username azureuser \
-  --generate-ssh-keys \
-  --public-ip-address "" \
-  --nsg "" \
-  --no-wait
-
-echo "Recursos criados: RG=$RG, Storage=$ST"
+echo "Recursos criados: RG=$RG, Storage=$ST, VM=vm-perms-test"
 ```
 
-### Task 1.2: Criar usuarios de teste no Entra ID
+> **O que o Bicep criou:** Storage Account (Standard_LRS) + 2 containers (public-data, finance-data) + VNet + VM Ubuntu B1s (sem IP publico). Os uploads de blob sao feitos via CLI porque Bicep nao gerencia dados dentro dos containers.
+
+### Task 1.2: Desabilitar Security Defaults (evitar MFA nos usuarios de teste)
+
+> **Por que?** Security Defaults forca MFA para todos os usuarios. Sem desabilitar, os usuarios de teste vao pedir MFA no primeiro login, poluindo seu Authenticator app e gastando tempo. **Reabilite apos o lab!**
+
+**Portal → Entra ID → Properties → Manage security defaults → Disabled → Save**
+
+Ou via CLI:
+```bash
+az rest --method PATCH \
+  --uri "https://graph.microsoft.com/v1.0/policies/identitySecurityDefaultsEnforcementPolicy" \
+  --body '{"isEnabled": false}'
+```
+
+> **LEMBRETE:** No cleanup do lab (final), reabilitar Security Defaults!
+
+### Task 1.3: Criar usuarios de teste no Entra ID
 
 **Pelo portal:**
 
 1. Portal > **Microsoft Entra ID** > **Users** > **+ New user** > **Create new user**
 
-   | Setting | User 1 | User 2 |
-   | --- | --- | --- |
-   | Display name | `User Web` | `User DB` |
+   | Setting             | User 1                  | User 2                 |
+   | ------------------- | ----------------------- | ---------------------- |
+   | Display name        | `User Web`              | `User DB`              |
    | User principal name | `user-web@<seu-tenant>` | `user-db@<seu-tenant>` |
-   | Password | Auto-generate | Auto-generate |
+   | Password            | Auto-generate           | Auto-generate          |
 
 2. **Create** para cada usuario
 
@@ -118,7 +120,8 @@ az ad user create \
 echo "Usuarios criados: user-web@${DOMAIN}, user-db@${DOMAIN}"
 ```
 
-> **Anote as senhas** — voce vai precisar para testar logins.
+> **Anote as senhas** — voce vai precisar para testar logins em aba anonima.
+> **Teste de login:** Abra aba anonima → portal.azure.com → login com user-web@domain / Lab@Perms2026!
 
 ---
 
@@ -513,9 +516,9 @@ New-AzResourceGroupDeployment `
 4. Aba **Conditions** > **+ Add condition**
 5. Configure:
 
-   | Setting | Value |
-   | --- | --- |
-   | Action | Read a blob |
+   | Setting    | Value                                           |
+   | ---------- | ----------------------------------------------- |
+   | Action     | Read a blob                                     |
    | Expression | **Container name** StringEquals **public-data** |
 
 6. **Save** > **Review + assign**
@@ -761,13 +764,13 @@ Remove-AzResourceGroup -Name "rg-lab-perms" -Force -AsJob
 
 Azure Policy pode ser atribuída em **3 escopos apenas**:
 
-| Escopo | Exemplo | Válido? |
-|--------|---------|---------|
-| Management Group | Tenant Root Group | ✅ SIM |
-| Subscription | Sub-Produção | ✅ SIM |
-| Resource Group | RG-WebApps | ✅ SIM |
-| Recurso individual | VM1 | ❌ NÃO |
-| Região | East US | ❌ NÃO |
+| Escopo             | Exemplo           | Válido? |
+| ------------------ | ----------------- | ------- |
+| Management Group   | Tenant Root Group | ✅ SIM   |
+| Subscription       | Sub-Produção      | ✅ SIM   |
+| Resource Group     | RG-WebApps        | ✅ SIM   |
+| Recurso individual | VM1               | ❌ NÃO   |
+| Região             | East US           | ❌ NÃO   |
 
 Para filtrar recurso específico dentro de um escopo, use **condições na policy definition** (ex: `"field": "type", "equals": "Microsoft.Compute/virtualMachines"`), NÃO tente atribuir ao recurso.
 
@@ -803,11 +806,11 @@ Para usar segredos do Key Vault como parâmetros em ARM Templates, é preciso ha
 Key Vault → Properties → Azure Resource Manager for template deployment → Enable
 ```
 
-| Configuração | O que faz | Quando usar |
-|-------------|-----------|-------------|
+| Configuração                                     | O que faz                                    | Quando usar                   |
+| ------------------------------------------------ | -------------------------------------------- | ----------------------------- |
 | **Enable access to ARM for template deployment** | Permite que ARM leia segredos durante deploy | Senhas de VM em ARM templates |
-| Enable access to Azure Disk Encryption | Permite criptografia de discos | Disk Encryption com CMK |
-| Enable access to VMs for deployment | Permite VMs acessarem segredos | Certificados em VMs |
+| Enable access to Azure Disk Encryption           | Permite criptografia de discos               | Disk Encryption com CMK       |
+| Enable access to VMs for deployment              | Permite VMs acessarem segredos               | Certificados em VMs           |
 
 **Exemplo — Habilitar via CLI:**
 ```bash
@@ -844,9 +847,9 @@ Set-AzKeyVaultAccessPolicy `
 
 **Conceito crítico (errado em simulado!):**
 
-| Tipo de Controle | O que configura | Exemplos |
-|-----------------|-----------------|----------|
-| **Grant Control** | **Quem pode acessar** (autenticação) | MFA obrigatório, dispositivo em conformidade, dispositivo ingressado no Entra ID, app aprovado |
+| Tipo de Controle    | O que configura                                  | Exemplos                                                                                                     |
+| ------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| **Grant Control**   | **Quem pode acessar** (autenticação)             | MFA obrigatório, dispositivo em conformidade, dispositivo ingressado no Entra ID, app aprovado               |
 | **Session Control** | **Como a sessão se comporta** (pós-autenticação) | Duração da sessão, persistência de browser, app-enforced restrictions, Conditional Access App Control (MCAS) |
 
 **Regra de ouro:**
@@ -865,15 +868,15 @@ Set-AzKeyVaultAccessPolicy `
 
 ### Tabela Comparativa
 
-| Aspecto | Portal | Azure CLI | PowerShell | ARM Template |
-|---------|--------|-----------|------------|--------------|
-| **Tipo** | Interface grafica | Linha de comando | Linha de comando | Declarativo (JSON) |
-| **Idempotente** | N/A (manual) | Nao (erro se ja existe) | Nao (erro se ja existe) | **Sim** (deploy sem erro) |
-| **Automacao** | Nao | Sim (scripts .sh) | Sim (scripts .ps1) | Sim (deploy pipeline) |
-| **IaC** | Nao | Parcial | Parcial | **Sim** (Infrastructure as Code) |
-| **Melhor para** | Validacao visual, troubleshoot | Scripts rapidos, Linux/macOS | Automacao Windows, pipelines | Deploy reprodutivel, governanca |
-| **Curva de aprendizado** | Baixa | Media | Media | Alta |
-| **Escopo do deploy** | Qualquer (interativo) | Qualquer (`--scope`) | Qualquer (`-Scope`) | Definido no deployment |
+| Aspecto                  | Portal                         | Azure CLI                    | PowerShell                   | ARM Template                     |
+| ------------------------ | ------------------------------ | ---------------------------- | ---------------------------- | -------------------------------- |
+| **Tipo**                 | Interface grafica              | Linha de comando             | Linha de comando             | Declarativo (JSON)               |
+| **Idempotente**          | N/A (manual)                   | Nao (erro se ja existe)      | Nao (erro se ja existe)      | **Sim** (deploy sem erro)        |
+| **Automacao**            | Nao                            | Sim (scripts .sh)            | Sim (scripts .ps1)           | Sim (deploy pipeline)            |
+| **IaC**                  | Nao                            | Parcial                      | Parcial                      | **Sim** (Infrastructure as Code) |
+| **Melhor para**          | Validacao visual, troubleshoot | Scripts rapidos, Linux/macOS | Automacao Windows, pipelines | Deploy reprodutivel, governanca  |
+| **Curva de aprendizado** | Baixa                          | Media                        | Media                        | Alta                             |
+| **Escopo do deploy**     | Qualquer (interativo)          | Qualquer (`--scope`)         | Qualquer (`-Scope`)          | Definido no deployment           |
 
 ### Sintaxe Lado a Lado — Atribuir Reader no RG
 
@@ -932,15 +935,15 @@ Remove-AzRoleAssignment -ObjectId <OBJECT_ID> -RoleDefinitionName "Reader" -Reso
 
 > Essa tabela e muito util na prova, pois questoes podem trocar os parametros entre CLI e PowerShell para confundir.
 
-| Funcao | CLI (`az role assignment`) | PowerShell (`*-AzRoleAssignment`) |
-|--------|---------------------------|-----------------------------------|
-| Quem recebe | `--assignee` (aceita Object ID ou UPN) | `-ObjectId` (apenas Object ID) |
-| Qual role | `--role` (nome ou ID) | `-RoleDefinitionName` (nome) ou `-RoleDefinitionId` (ID) |
-| Escopo RG | `--resource-group` | `-ResourceGroupName` |
-| Escopo livre | `--scope` (resource ID) | `-Scope` (resource ID) |
-| Criar | `az role assignment create` | `New-AzRoleAssignment` |
-| Listar | `az role assignment list` | `Get-AzRoleAssignment` |
-| Remover | `az role assignment delete` | `Remove-AzRoleAssignment` |
+| Funcao       | CLI (`az role assignment`)             | PowerShell (`*-AzRoleAssignment`)                        |
+| ------------ | -------------------------------------- | -------------------------------------------------------- |
+| Quem recebe  | `--assignee` (aceita Object ID ou UPN) | `-ObjectId` (apenas Object ID)                           |
+| Qual role    | `--role` (nome ou ID)                  | `-RoleDefinitionName` (nome) ou `-RoleDefinitionId` (ID) |
+| Escopo RG    | `--resource-group`                     | `-ResourceGroupName`                                     |
+| Escopo livre | `--scope` (resource ID)                | `-Scope` (resource ID)                                   |
+| Criar        | `az role assignment create`            | `New-AzRoleAssignment`                                   |
+| Listar       | `az role assignment list`              | `Get-AzRoleAssignment`                                   |
+| Remover      | `az role assignment delete`            | `Remove-AzRoleAssignment`                                |
 
 ### Quando Usar Cada Metodo — Guia de Decisao
 
@@ -1074,24 +1077,24 @@ RBAC herda de cima para baixo. Reader na subscription se propaga para todos os R
 
 Decidem **SE** o acesso e concedido. Executados ANTES de entrar.
 
-| Controle | O que faz |
-|----------|-----------|
-| **Require MFA** | Exige autenticacao multifator |
-| **Require device compliant** | Exige dispositivo marcado como compliant no Intune |
-| **Require Hybrid Azure AD joined** | Exige dispositivo ingressado no AD + Azure AD |
-| **Require approved client app** | Exige app aprovado (ex: Outlook, Teams) |
-| **Block access** | Bloqueia completamente |
+| Controle                           | O que faz                                          |
+| ---------------------------------- | -------------------------------------------------- |
+| **Require MFA**                    | Exige autenticacao multifator                      |
+| **Require device compliant**       | Exige dispositivo marcado como compliant no Intune |
+| **Require Hybrid Azure AD joined** | Exige dispositivo ingressado no AD + Azure AD      |
+| **Require approved client app**    | Exige app aprovado (ex: Outlook, Teams)            |
+| **Block access**                   | Bloqueia completamente                             |
 
 ### Controles de Sessao (Session Controls)
 
 Decidem **COMO** a sessao se comporta DEPOIS de concedida.
 
-| Controle | O que faz |
-|----------|-----------|
-| **App enforced restrictions** | Restricoes do app (ex: bloquear download no SharePoint) |
-| **Conditional Access App Control** | Proxy via Defender for Cloud Apps |
-| **Sign-in frequency** | Forca re-autenticacao a cada X horas |
-| **Persistent browser session** | Controla se o browser lembra a sessao |
+| Controle                           | O que faz                                               |
+| ---------------------------------- | ------------------------------------------------------- |
+| **App enforced restrictions**      | Restricoes do app (ex: bloquear download no SharePoint) |
+| **Conditional Access App Control** | Proxy via Defender for Cloud Apps                       |
+| **Sign-in frequency**              | Forca re-autenticacao a cada X horas                    |
+| **Persistent browser session**     | Controla se o browser lembra a sessao                   |
 
 ### PONTO CRITICO PARA PROVA
 
@@ -1121,13 +1124,13 @@ REGRA GERAL:
 
 ### Onde o Azure Policy pode ser atribuido?
 
-| Escopo | Pode? | Heranca |
-|--------|:-----:|---------|
-| Management Group | **Sim** | Propaga para todas as subscriptions abaixo |
-| Subscription | **Sim** | Propaga para todos os RGs abaixo |
-| Resource Group | **Sim** | Propaga para todos os recursos abaixo |
-| Recurso individual | **Nao** | — |
-| Regiao | **Nao** | — |
+| Escopo             |  Pode?  | Heranca                                    |
+| ------------------ | :-----: | ------------------------------------------ |
+| Management Group   | **Sim** | Propaga para todas as subscriptions abaixo |
+| Subscription       | **Sim** | Propaga para todos os RGs abaixo           |
+| Resource Group     | **Sim** | Propaga para todos os recursos abaixo      |
+| Recurso individual | **Nao** | —                                          |
+| Regiao             | **Nao** | —                                          |
 
 ### PONTO CRITICO PARA PROVA
 
