@@ -79,6 +79,8 @@ V V C  (e so isso!)
 - Se vir **"restauracao"** como opcao em Object Replication → **DESCARTE**
 - Change feed so e necessario na **origem**, nao no destino
 - "Versionamento desabilitado" → **habilitar versionamento** (nao change feed, nao namespace)
+- **Change Feed ANTES da policy:** Sem change feed, a policy e criada mas a replicacao **nao funciona** (blobs nao replicam). Habilitar change feed e recriar a policy resolve.
+- **CLI pode nao propagar policy para SRC:** `az storage account or-policy create` cria no DEST mas pode nao espelhar no SRC. Verificar com `az storage account or-policy list --account-name $SRC`. Se vazio, criar manualmente no SRC com mesmo `--policy-id` e `--rule-id`. Pelo Portal esse problema nao ocorre.
 
 ## Redundancia - Leitura na regiao secundaria
 
@@ -98,7 +100,14 @@ V V C  (e so isso!)
 - **GRS/GZRS** = replicacao sincrona gerenciada (redundancia)
 - **Object Replication** = replicacao assincrona configuravel (flexibilidade, qualquer regiao)
 - **AzCopy copy** = copia arquivos (uso com `--recursive` para diretorios inteiros)
+- **AzCopy filtros:** `--exclude-pattern ".DS_Store;*.tmp"` | `--exclude-path "node_modules"` | `--include-pattern "*.jpg;*.png"`
 - **AzCopy sync** = sincroniza (similar, mas compara timestamps)
+- **AzCopy auth:** 3 formas → (1) `azcopy login` (Entra ID), (2) SAS token na URL, (3) `AZCOPY_AUTO_LOGIN_TYPE=AZCLI` (reutiliza `az login`)
+- **AzCopy entre storage accounts (Entra ID):** precisa de **Storage Blob Data Contributor em AMBAS** as contas (origem + destino). Erro 403 `AuthorizationPermissionMismatch` = falta role no destino
+- **AzCopy login em loop?** Conditional Access bloqueia device code flow. Solucao: `export AZCOPY_AUTO_LOGIN_TYPE=AZCLI` ([GitHub #2904](https://github.com/Azure/azure-storage-azcopy/issues/2904))
+- `azcopy upload` NAO existe no v10 — usar `azcopy copy`
+- **`az storage blob copy start`:** autentica apenas o DESTINO (connection-string). ORIGEM precisa de SAS na URL ou acesso publico. Erro `CannotVerifyCopySource` = falta auth na origem
+- **`Start-AzStorageBlobCopy`** = equivalente PowerShell (server-to-server). Pipe com `Get-AzStorageBlob` para copiar todos
 - **Get-ChildItem -Recurse | Set-AzStorageBlobContent** = alternativa PowerShell para upload em massa
 - **Set-AzStorageBlobContent** sozinho = upload de **um unico arquivo** (nao recursivo)
 - Storage Explorer usa AzCopy internamente

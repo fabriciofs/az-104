@@ -55,20 +55,10 @@ DEST="stlabcmdsdest${SUFFIX}"
 az group create --name $RG --location $LOCATION
 
 # Criar storage account de ORIGEM
-az storage account create \
-  --name $SRC \
-  --resource-group $RG \
-  --location $LOCATION \
-  --sku Standard_LRS \
-  --kind StorageV2
+az storage account create --name $SRC --resource-group $RG --location $LOCATION --sku Standard_LRS --kind StorageV2
 
 # Criar storage account de DESTINO
-az storage account create \
-  --name $DEST \
-  --resource-group $RG \
-  --location $LOCATION \
-  --sku Standard_LRS \
-  --kind StorageV2
+az storage account create --name $DEST --resource-group $RG --location $LOCATION --sku Standard_LRS --kind StorageV2
 
 echo "ORIGEM: $SRC | DESTINO: $DEST"
 ```
@@ -152,11 +142,7 @@ ls -la ~/labfiles/logs/
 ### Task 1.3: Criar File Share na origem
 
 ```bash
-az storage share-rm create \
-  --name docs \
-  --storage-account $SRC \
-  --resource-group $RG \
-  --quota 1
+az storage share-rm create --name docs --storage-account $SRC --resource-group $RG --quota 1
 ```
 
 ---
@@ -232,29 +218,44 @@ Get-AzStorageBlob -Container "logs" -Context $ctx | Select-Object Name, Length
 # Opcao 1: Login com Entra ID (recomendado)
 azcopy login
 
-# Opcao 2: Usar SAS token (gere pelo portal se preferir)
+# Opcao 2: Login especificando tenant (multiplos tenants)
+azcopy login --tenant-id "$(az account show --query tenantId -o tsv)"
+
+# Opcao 3: Reutilizar credenciais do az login (RECOMENDADO se azcopy login falhar)
+export AZCOPY_AUTO_LOGIN_TYPE=AZCLI
+
+# Opcao 4: Usar SAS token (gere pelo portal se preferir)
 # Navegue para a Storage Account > Shared access signature > Generate
 ```
 
 > **Na prova:** AzCopy aceita 3 formas de autenticacao: (1) Entra ID (`azcopy login`), (2) SAS token na URL, (3) Variavel de ambiente com connection string. SAS e a forma mais cobrada em questoes.
+
+> **PROBLEMA CONHECIDO:** `azcopy login` pode entrar em loop infinito (pede codigo → login → pede codigo novamente). Isso acontece quando o tenant tem **Conditional Access policies** que bloqueiam o device code flow silenciosamente ([GitHub #2904](https://github.com/Azure/azure-storage-azcopy/issues/2904)). O `az login` funciona porque lida com compliance de dispositivo de forma diferente do AzCopy.
+>
+> **Solucao:** Use `export AZCOPY_AUTO_LOGIN_TYPE=AZCLI` para reutilizar as credenciais do `az login`. NAO combine com `--tenant-id` nem `AZCOPY_TENANT_ID` (causa outro bug). Para tornar permanente: `echo 'export AZCOPY_AUTO_LOGIN_TYPE=AZCLI' >> ~/.zshrc`
 
 ### Task 3.2: AzCopy copy — upload recursivo (resposta classica!)
 
 ```bash
 # Upload de pasta local inteira para container
 # Esta e a OUTRA resposta classica de prova
-azcopy copy \
-  "$HOME/labfiles/images/*" \
-  "https://${SRC}.blob.core.windows.net/images" \
-  --recursive
+azcopy copy "$HOME/labfiles/images/*" "https://${SRC}.blob.core.windows.net/images" --recursive
+
+# Excluir arquivos indesejados (ex: .DS_Store do macOS, Thumbs.db do Windows)
+azcopy copy "$HOME/labfiles/*" "https://${SRC}.blob.core.windows.net/images" --recursive --exclude-pattern ".DS_Store;Thumbs.db"
 ```
+
+> **Filtros uteis do AzCopy:**
+> | Flag | O que faz | Exemplo |
+> |------|-----------|---------|
+> | `--exclude-pattern` | Exclui por nome/extensao (como .gitignore) | `".DS_Store;*.tmp;*.log"` |
+> | `--exclude-path` | Exclui por caminho relativo | `"node_modules;.git"` |
+> | `--include-pattern` | Inclui APENAS esses padroes | `"*.jpg;*.png;*.gif"` |
+> | `--recursive` | Copia subpastas | Obrigatorio para diretorios |
 
 > **Se nao fez azcopy login**, use SAS token:
 > ```bash
-> azcopy copy \
->   "$HOME/labfiles/images/*" \
->   "https://${SRC}.blob.core.windows.net/images?<SAS-TOKEN>" \
->   --recursive
+> azcopy copy "$HOME/labfiles/images/*" "https://${SRC}.blob.core.windows.net/images?<SAS-TOKEN>" --recursive
 > ```
 
 > **O que --recursive faz:** Copia todos os arquivos incluindo subpastas. Sem `--recursive`, copia apenas arquivos no nivel raiz da pasta.
@@ -266,10 +267,7 @@ azcopy copy \
 rm ~/labfiles/images/foto3.txt
 
 # SYNC: sincroniza origem → destino (apenas adiciona/atualiza, NAO deleta no destino)
-azcopy sync \
-  "$HOME/labfiles/images" \
-  "https://${SRC}.blob.core.windows.net/images" \
-  --recursive
+azcopy sync "$HOME/labfiles/images" "https://${SRC}.blob.core.windows.net/images" --recursive
 
 # Verifique: foto3.txt AINDA existe no blob (sync nao deleta por padrao)
 az storage blob list --container-name images --connection-string "$SRC_CONN" --query "[].name" -o tsv
@@ -277,11 +275,7 @@ az storage blob list --container-name images --connection-string "$SRC_CONN" --q
 
 ```bash
 # SYNC com --delete-destination: agora SIM remove blobs que nao existem na origem
-azcopy sync \
-  "$HOME/labfiles/images" \
-  "https://${SRC}.blob.core.windows.net/images" \
-  --recursive \
-  --delete-destination true
+azcopy sync "$HOME/labfiles/images" "https://${SRC}.blob.core.windows.net/images" --recursive --delete-destination true
 
 # Verifique: foto3.txt FOI removida do blob
 az storage blob list --container-name images --connection-string "$SRC_CONN" --query "[].name" -o tsv
@@ -302,16 +296,28 @@ az storage blob list --container-name images --connection-string "$SRC_CONN" --q
 
 ### Task 4.1: AzCopy copy entre storage accounts (server-to-server)
 
+> **PRE-REQUISITO:** Ao usar Entra ID (`azcopy login` ou `AZCOPY_AUTO_LOGIN_TYPE=AZCLI`), voce precisa da role **Storage Blob Data Contributor** em **AMBAS** as storage accounts — leitura na origem + escrita no destino. Sem isso, o erro `AuthorizationPermissionMismatch` (403) aparece no destino.
+
 ```bash
+# Garantir RBAC em ambas as contas (se usando Entra ID)
+az role assignment create \
+  --assignee $(az ad signed-in-user show --query id -o tsv) \
+  --role "Storage Blob Data Contributor" \
+  --scope $(az storage account show --name $SRC --query id -o tsv)
+
+az role assignment create \
+  --assignee $(az ad signed-in-user show --query id -o tsv) \
+  --role "Storage Blob Data Contributor" \
+  --scope $(az storage account show --name $DEST --query id -o tsv)
+
+# Aguardar ~30s para propagacao RBAC
+
 # Recriar foto3 para ter dados completos
 echo "imagem-corporativa-3 conteudo $(date)" > ~/labfiles/images/foto3.txt
 azcopy copy "$HOME/labfiles/images/foto3.txt" "https://${SRC}.blob.core.windows.net/images"
 
 # Copiar container inteiro: origem → destino (server-to-server!)
-azcopy copy \
-  "https://${SRC}.blob.core.windows.net/images" \
-  "https://${DEST}.blob.core.windows.net/images-replica" \
-  --recursive
+azcopy copy "https://${SRC}.blob.core.windows.net/images" "https://${DEST}.blob.core.windows.net/images-replica" --recursive
 ```
 
 > **O que aconteceu:** Os dados foram de storage account para storage account pelo backbone Azure. Nada passou pelo Cloud Shell. Isso e **server-to-server copy** — muito mais rapido para volumes grandes.
@@ -349,15 +355,31 @@ Get-AzStorageBlob -Container "logs-backup" -Context $destCtx | Select-Object Nam
 
 **Troque para Bash:**
 
+> **ATENCAO:** `az storage blob copy start` autentica apenas o **DESTINO** (via `--connection-string` ou `--account-name`). A URL de **ORIGEM** precisa de autenticacao separada — SAS token na URL ou container com acesso publico. Sem isso, o erro `CannotVerifyCopySource` / `NoAuthenticationInformation` aparece.
+
 ```bash
-# Copia server-to-server via CLI (um blob especifico)
+# ERRADO — source-uri sem autenticacao (vai dar erro 401):
+# az storage blob copy start --destination-blob "foto1.txt" --destination-container "images-replica" \
+#   --connection-string "$DEST_CONN" --source-uri "https://${SRC}.blob.core.windows.net/images/foto1.txt"
+
+# CERTO — gerar SAS para a origem primeiro:
+SRC_SAS=$(az storage blob generate-sas \
+  --account-name $SRC \
+  --container-name images \
+  --name foto1.txt \
+  --permissions r \
+  --expiry $(date -u -v+1H '+%Y-%m-%dT%H:%MZ') \
+  --auth-mode key \
+  -o tsv)
+
+# Copiar com SAS na source-uri
 az storage blob copy start \
   --destination-blob "foto1.txt" \
   --destination-container "images-replica" \
   --connection-string "$DEST_CONN" \
-  --source-uri "https://${SRC}.blob.core.windows.net/images/foto1.txt"
+  --source-uri "https://${SRC}.blob.core.windows.net/images/foto1.txt?${SRC_SAS}"
 
-# Copia em batch (todos os blobs de um container)
+# Copia em batch (todos os blobs — usa account-key para autenticar origem)
 az storage blob copy start-batch \
   --destination-container "logs-backup" \
   --connection-string "$DEST_CONN" \
@@ -365,6 +387,8 @@ az storage blob copy start-batch \
   --source-account-name $SRC \
   --source-account-key $(az storage account keys list --account-name $SRC --resource-group $RG --query "[0].value" -o tsv)
 ```
+
+> **Regra para a prova:** `az storage blob copy start` = connection string autentica DESTINO; origem precisa SAS ou acesso publico. `start-batch` aceita `--source-account-key` para autenticar origem diretamente.
 
 ---
 
@@ -376,14 +400,7 @@ az storage blob copy start-batch \
 
 ```bash
 # Tentar configurar replicacao sem habilitar nada — observe o ERRO
-az storage account or-policy create \
-  --account-name $DEST \
-  --resource-group $RG \
-  --source-account $SRC \
-  --destination-account $DEST \
-  --source-container "images" \
-  --destination-container "images-replica" \
-  --min-creation-time "2020-01-01T00:00:00Z" 2>&1 || true
+az storage account or-policy create --account-name $DEST --resource-group $RG --source-account $SRC --destination-account $DEST --source-container "images" --destination-container "images-replica" --min-creation-time "2020-01-01T00:00:00Z" 2>&1 || true
 ```
 
 > **Resultado esperado:** ERRO. O Azure rejeita porque faltam os pre-requisitos. Leia a mensagem de erro — ela indica exatamente o que esta faltando.
@@ -392,16 +409,10 @@ az storage account or-policy create \
 
 ```bash
 # Habilitar versioning na ORIGEM (obrigatorio)
-az storage account blob-service-properties update \
-  --account-name $SRC \
-  --resource-group $RG \
-  --enable-versioning true
+az storage account blob-service-properties update --account-name $SRC --resource-group $RG --enable-versioning true
 
 # Habilitar versioning no DESTINO (obrigatorio)
-az storage account blob-service-properties update \
-  --account-name $DEST \
-  --resource-group $RG \
-  --enable-versioning true
+az storage account blob-service-properties update --account-name $DEST --resource-group $RG --enable-versioning true
 
 echo "Versioning habilitado em ambas as contas"
 ```
@@ -412,10 +423,7 @@ echo "Versioning habilitado em ambas as contas"
 
 ```bash
 # Habilitar change feed APENAS na origem (obrigatorio)
-az storage account blob-service-properties update \
-  --account-name $SRC \
-  --resource-group $RG \
-  --enable-change-feed true
+az storage account blob-service-properties update --account-name $SRC --resource-group $RG --enable-change-feed true
 
 echo "Change feed habilitado na origem"
 ```
@@ -428,16 +436,10 @@ echo "Change feed habilitado na origem"
 
 ```bash
 echo "=== ORIGEM ($SRC) ==="
-az storage account blob-service-properties show \
-  --account-name $SRC \
-  --resource-group $RG \
-  --query "{versioning: isVersioningEnabled, changeFeed: changeFeed.enabled}" -o table
+az storage account blob-service-properties show --account-name $SRC --resource-group $RG --query "{versioning: isVersioningEnabled, changeFeed: changeFeed.enabled}" -o table
 
 echo "=== DESTINO ($DEST) ==="
-az storage account blob-service-properties show \
-  --account-name $DEST \
-  --resource-group $RG \
-  --query "{versioning: isVersioningEnabled, changeFeed: changeFeed.enabled}" -o table
+az storage account blob-service-properties show --account-name $DEST --resource-group $RG --query "{versioning: isVersioningEnabled, changeFeed: changeFeed.enabled}" -o table
 ```
 
 > **Resultado esperado:**
@@ -449,18 +451,42 @@ az storage account blob-service-properties show \
 ### Task 5.5: Agora SIM criar Object Replication (vai funcionar!)
 
 ```bash
-# Criar a politica de replicacao
-az storage account or-policy create \
-  --account-name $DEST \
-  --resource-group $RG \
-  --source-account $SRC \
-  --destination-account $DEST \
-  --source-container "images" \
-  --destination-container "images-replica" \
-  --min-creation-time "2020-01-01T00:00:00Z"
+# Criar a politica de replicacao (no DESTINO)
+az storage account or-policy create --account-name $DEST --resource-group $RG --source-account $SRC --destination-account $DEST --source-container "images" --destination-container "images-replica" --min-creation-time "2020-01-01T00:00:00Z"
 
 echo "Object Replication configurada com sucesso!"
 ```
+
+> **PROBLEMA CONHECIDO (CLI):** O comando `az storage account or-policy create` cria a policy no DESTINO mas **nem sempre propaga automaticamente** para a ORIGEM. Verifique:
+>
+> ```bash
+> # Verificar se a policy existe no SRC
+> az storage account or-policy list --account-name $SRC -o json
+> ```
+>
+> Se retornar `[]` (vazio), crie manualmente no SRC usando o **policy-id** e **rule-id** do DEST:
+>
+> ```bash
+> # Obter IDs da policy do DEST
+> POLICY_ID=$(az storage account or-policy list --account-name $DEST --query "[0].policyId" -o tsv)
+> RULE_ID=$(az storage account or-policy list --account-name $DEST --query "[0].rules[0].ruleId" -o tsv)
+>
+> # Criar policy espelhada no SRC
+> az storage account or-policy create \
+>   --account-name $SRC \
+>   --resource-group $RG \
+>   --policy-id "$POLICY_ID" \
+>   --rule-id "$RULE_ID" \
+>   --source-account $SRC \
+>   --destination-account $DEST \
+>   --source-container "images" \
+>   --destination-container "images-replica" \
+>   --min-creation-time "2020-01-01T00:00:00Z"
+> ```
+>
+> **Confirmacao:** A policy esta ativa quando `enabledTime` aparece no output e `objectReplicationSourceProperties` mostra status `complete` nos blobs do SRC.
+>
+> **Pelo Portal** esse problema NAO ocorre — o Portal configura ambas as contas automaticamente.
 
 ### Task 5.5b: Configurar Object Replication pelo Portal (passo a passo)
 
@@ -502,25 +528,14 @@ echo "Object Replication configurada com sucesso!"
 # Criar um novo arquivo e fazer upload na origem
 echo "arquivo-novo-para-replicacao $(date)" > ~/labfiles/images/repl-test.txt
 
-az storage blob upload \
-  --account-name $SRC \
-  --container-name images \
-  --name "repl-test.txt" \
-  --file ~/labfiles/images/repl-test.txt \
-  --auth-mode key \
-  --account-key $(az storage account keys list --account-name $SRC --resource-group $RG --query "[0].value" -o tsv)
+az storage blob upload --account-name $SRC --container-name images --name "repl-test.txt" --file ~/labfiles/images/repl-test.txt --auth-mode key --account-key $(az storage account keys list --account-name $SRC --resource-group $RG --query "[0].value" -o tsv)
 
 echo "Blob uploaded na origem. Aguarde 1-2 minutos para replicacao..."
 ```
 
 ```bash
 # Apos 1-2 minutos, verificar se apareceu no destino
-az storage blob list \
-  --account-name $DEST \
-  --container-name images-replica \
-  --auth-mode key \
-  --account-key $(az storage account keys list --account-name $DEST --resource-group $RG --query "[0].value" -o tsv) \
-  --query "[].name" -o tsv
+az storage blob list --account-name $DEST --container-name images-replica --auth-mode key --account-key $(az storage account keys list --account-name $DEST --resource-group $RG --query "[0].value" -o tsv) --query "[].name" -o tsv
 ```
 
 > **Nota:** Object Replication e **assincrona** — pode levar de segundos a minutos. Se o blob nao aparecer imediatamente, aguarde e tente novamente.
@@ -538,17 +553,17 @@ az storage blob list \
 │              Object Replication: PRE-REQUISITOS                     │
 │                                                                     │
 │   ORIGEM (source)              DESTINO (destination)                │
-│   ┌─────────────────────┐     ┌─────────────────────┐              │
-│   │ ✅ Blob Versioning  │     │ ✅ Blob Versioning  │              │
-│   │ ✅ Change Feed      │     │ ❌ Change Feed      │ ← opcional  │
-│   └─────────────────────┘     │    (nao obrigatorio) │              │
-│                               └─────────────────────┘              │
+│   ┌─────────────────────┐     ┌─────────────────────┐               │
+│   │ ✅ Blob Versioning  │     │ ✅ Blob Versioning  │               │
+│   │ ✅ Change Feed      │     │ ❌ Change Feed      │ ← opcional    │
+│   └─────────────────────┘     │   (nao obrigatorio) │               │
+│                               └─────────────────────┘               │
 │                                                                     │
-│   ❌ Point-in-time restore NAO e pre-requisito                     │
-│   ❌ Imutability NAO e pre-requisito                               │
-│   ❌ HNS (Data Lake) NAO pode estar habilitado                     │
+│   ❌ Point-in-time restore NAO e pre-requisito                      │
+│   ❌ Imutability NAO e pre-requisito                                │
+│   ❌ HNS (Data Lake) NAO pode estar habilitado                      │
 │                                                                     │
-│   REGRA: Versioning = ambas | Change Feed = so origem              │
+│   REGRA: Versioning = ambas | Change Feed = so origem               │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -568,23 +583,15 @@ az storage blob list \
 
 ```bash
 # Criar um container dedicado para testar imutabilidade
-az storage container create \
-  --name "confidencial" \
-  --connection-string "$SRC_CONN"
+az storage container create --name "confidencial" --account-name $SRC
 
 # Upload de arquivo de teste
 echo "dados-sensiveis-$(date)" > ~/labfiles/confidencial.txt
-az storage blob upload \
-  --container-name "confidencial" \
-  --name "relatorio.txt" \
-  --file ~/labfiles/confidencial.txt \
-  --connection-string "$SRC_CONN"
+az storage blob upload --container-name "confidencial" --name "relatorio.txt" --file ~/labfiles/confidencial.txt --account-name $SRC --auth-mode login
 
 # Criar politica de imutabilidade: 180 dias (6 meses) — exatamente como na questao
-az storage container immutability-policy create \
-  --container-name "confidencial" \
-  --connection-string "$SRC_CONN" \
-  --period 180
+# NOTA: --connection-string NAO funciona para immutability-policy (bug do CLI). Usar --account-name.
+az storage container immutability-policy create --container-name "confidencial" --account-name $SRC --period 180
 
 echo "Immutability policy criada: 180 dias"
 ```
@@ -598,7 +605,7 @@ echo "Immutability policy criada: 180 dias"
 az storage blob delete \
   --container-name "confidencial" \
   --name "relatorio.txt" \
-  --connection-string "$SRC_CONN" 2>&1 || true
+  --account-name $SRC --auth-mode login 2>&1 || true
 ```
 
 > **Resultado esperado:** Erro indicando que o blob esta protegido pela politica de imutabilidade. Voce nao consegue deletar nem sobrescrever o blob ate a policy expirar ou ser removida (enquanto estiver unlocked).
@@ -609,7 +616,7 @@ az storage blob delete \
 # Ver o estado atual da policy
 az storage container immutability-policy show \
   --container-name "confidencial" \
-  --connection-string "$SRC_CONN" \
+  --account-name $SRC \
   --query "{period: immutabilityPeriodSinceCreationInDays, state: state}" -o table
 ```
 
@@ -628,7 +635,7 @@ az storage container immutability-policy show \
 # Criar outro container para legal hold
 az storage container create \
   --name "legal-docs" \
-  --connection-string "$SRC_CONN"
+  --account-name $SRC
 
 # Upload de arquivo
 echo "documento-legal-$(date)" > ~/labfiles/legal.txt
@@ -636,13 +643,13 @@ az storage blob upload \
   --container-name "legal-docs" \
   --name "contrato.txt" \
   --file ~/labfiles/legal.txt \
-  --connection-string "$SRC_CONN"
+  --account-name $SRC --auth-mode login
 
 # Aplicar Legal Hold (bloqueio indefinido — nao tem prazo!)
 az storage container legal-hold set \
   --container-name "legal-docs" \
-  --connection-string "$SRC_CONN" \
-  --tags "investigacao-2026"
+  --account-name $SRC \
+  --tags investigacao2026
 
 echo "Legal Hold aplicado!"
 ```
@@ -652,13 +659,13 @@ echo "Legal Hold aplicado!"
 az storage blob delete \
   --container-name "legal-docs" \
   --name "contrato.txt" \
-  --connection-string "$SRC_CONN" 2>&1 || true
+  --account-name $SRC --auth-mode login 2>&1 || true
 
 # Remover o legal hold (para cleanup posterior)
 az storage container legal-hold clear \
   --container-name "legal-docs" \
-  --connection-string "$SRC_CONN" \
-  --tags "investigacao-2026"
+  --account-name $SRC \
+  --tags investigacao2026
 
 echo "Legal Hold removido"
 ```
@@ -677,12 +684,12 @@ echo "Legal Hold removido"
 # Remover a policy (so funciona porque esta UNLOCKED)
 ETAG=$(az storage container immutability-policy show \
   --container-name "confidencial" \
-  --connection-string "$SRC_CONN" \
+  --account-name $SRC \
   --query "etag" -o tsv)
 
 az storage container immutability-policy delete \
   --container-name "confidencial" \
-  --connection-string "$SRC_CONN" \
+  --account-name $SRC \
   --if-match "$ETAG"
 
 echo "Immutability policy removida"
@@ -739,27 +746,36 @@ echo "ARM template criado: ~/labfiles/deploy.json"
 ```
 
 ```bash
-# Criar container publico para hospedar o template
-az storage container create \
-  --name "templates" \
-  --connection-string "$SRC_CONN" \
-  --public-access blob
+# Criar container privado para hospedar o template
+az storage container create --name "templates" --account-name $SRC
 
 # Upload do template para blob storage
 az storage blob upload \
   --container-name "templates" \
   --name "deploy.json" \
   --file ~/labfiles/deploy.json \
-  --connection-string "$SRC_CONN"
+  --account-name $SRC --auth-mode login
 
-# Obter a URL publica do blob
+# Obter a URL base do blob
 TEMPLATE_URL=$(az storage blob url \
   --container-name "templates" \
   --name "deploy.json" \
-  --connection-string "$SRC_CONN" -o tsv)
+  --account-name $SRC --auth-mode login -o tsv)
 
-echo "URL do template: $TEMPLATE_URL"
+# Gerar SAS token (container privado precisa de SAS para TemplateUri)
+TEMPLATE_SAS=$(az storage blob generate-sas \
+  --account-name $SRC \
+  --container-name templates \
+  --name deploy.json \
+  --permissions r \
+  --expiry $(date -u -v+1H '+%Y-%m-%dT%H:%MZ') \
+  --auth-mode key \
+  -o tsv)
+
+echo "URL do template: ${TEMPLATE_URL}?${TEMPLATE_SAS}"
 ```
+
+> **Nota:** O container e privado (mais seguro). Usamos SAS token para dar acesso temporario ao ARM durante o deploy. `-TemplateUri` aceita qualquer URL acessivel — publica, com SAS, ou de GitHub.
 
 ### Task 7.2: Deploy com -TemplateFile (arquivo local)
 
@@ -778,10 +794,10 @@ echo "Deploy via --template-file concluido!"
 ### Task 7.3: Deploy com -TemplateUri (URL — resposta da questao!)
 
 ```bash
-# Deploy usando URL do blob — parametro --template-uri
+# Deploy usando URL do blob + SAS — parametro --template-uri
 az deployment group create \
   --resource-group $RG \
-  --template-uri "$TEMPLATE_URL" \
+  --template-uri "${TEMPLATE_URL}?${TEMPLATE_SAS}" \
   --parameters storageName="sturi${SUFFIX}"
 
 echo "Deploy via --template-uri concluido!"
@@ -789,44 +805,19 @@ echo "Deploy via --template-uri concluido!"
 
 > **`--template-uri`** (CLI) / **`-TemplateUri`** (PowerShell): aponta para uma URL — pode ser blob storage, GitHub, qualquer endpoint HTTP acessivel. **Este e o parametro da questao** quando o template esta em um blob container.
 
-### Task 7.4: Deploy com -TemplateUri usando SAS (container privado)
+### Task 7.4: Testar sem SAS (vai falhar — container e privado!)
 
 ```bash
-# Alterar container para privado
-az storage container set-permission \
-  --name "templates" \
-  --connection-string "$SRC_CONN" \
-  --public-access off
-
-# Agora a URL publica NAO funciona mais — teste:
+# Tentar deploy SEM SAS token — vai FALHAR porque container e privado
 az deployment group create \
   --resource-group $RG \
   --template-uri "$TEMPLATE_URL" \
   --parameters storageName="stfail${SUFFIX}" 2>&1 || true
 
-echo "ESPERADO: falha acima — container agora e privado"
+echo "ESPERADO: falha acima — container e privado e URL nao tem SAS"
 ```
 
-```bash
-# Gerar SAS token para o blob
-SAS_TOKEN=$(az storage blob generate-sas \
-  --container-name "templates" \
-  --name "deploy.json" \
-  --connection-string "$SRC_CONN" \
-  --permissions r \
-  --expiry $(date -u -v+1d '+%Y-%m-%dT%H:%MZ' 2>/dev/null || date -u -d '+1 day' '+%Y-%m-%dT%H:%MZ') \
-  -o tsv)
-
-# Deploy com URL + SAS token (funciona mesmo com container privado!)
-az deployment group create \
-  --resource-group $RG \
-  --template-uri "${TEMPLATE_URL}?${SAS_TOKEN}" \
-  --parameters storageName="stsas${SUFFIX}"
-
-echo "Deploy via --template-uri + SAS concluido!"
-```
-
-> **Dica prova:** Quando o template esta em um container **privado**, voce usa `--template-uri` com a URL + SAS token concatenados. O Azure faz um GET na URL para baixar o template antes de executar o deploy.
+> **Dica prova:** Quando o template esta em um container **privado**, voce usa `--template-uri` com a URL + SAS token concatenados (`${URL}?${SAS}`). Sem SAS, o Azure nao consegue fazer GET no template. O Azure faz um GET na URL para baixar o template antes de executar o deploy.
 
 ### Task 7.5: Mesmo deploy via PowerShell (comparacao)
 
@@ -1276,11 +1267,11 @@ Passo 1: Upgrade GPv1 → GPv2 (sem downtime, sem custo extra)
 Passo 2: Solicitar migração ao vivo para ZRS (live migration)
 ```
 
-| Ação | Downtime? | Custo? |
-|------|-----------|--------|
-| GPv1 → GPv2 | ❌ Sem downtime | ❌ Sem custo adicional |
-| LRS → ZRS (live migration) | ❌ Sem downtime | Suporte Azure necessário |
-| LRS → GRS | ❌ Sem downtime | Pode ser feito pelo portal |
+| Ação                       | Downtime?      | Custo?                     |
+| -------------------------- | -------------- | -------------------------- |
+| GPv1 → GPv2                | ❌ Sem downtime | ❌ Sem custo adicional      |
+| LRS → ZRS (live migration) | ❌ Sem downtime | Suporte Azure necessário   |
+| LRS → GRS                  | ❌ Sem downtime | Pode ser feito pelo portal |
 
 **Exemplo — Upgrade via CLI:**
 ```bash
@@ -1306,10 +1297,10 @@ Set-AzStorageAccount `
 
 O Azure Import/Export Service usa **dois tipos de arquivo CSV**:
 
-| Arquivo | O que descreve | Conteúdo |
-|---------|---------------|----------|
-| **dataset.csv** | **Dados/arquivos** a serem transferidos | Caminhos de diretórios/arquivos, contêineres de blob de destino, tipo de blob |
-| **driveset.csv** | **Discos físicos** usados no job | Letra do drive, caminho do BitLocker key, criptografia |
+| Arquivo          | O que descreve                          | Conteúdo                                                                      |
+| ---------------- | --------------------------------------- | ----------------------------------------------------------------------------- |
+| **dataset.csv**  | **Dados/arquivos** a serem transferidos | Caminhos de diretórios/arquivos, contêineres de blob de destino, tipo de blob |
+| **driveset.csv** | **Discos físicos** usados no job        | Letra do drive, caminho do BitLocker key, criptografia                        |
 
 **Exemplo — dataset.csv:**
 ```csv
@@ -1331,11 +1322,11 @@ H:,Format,SilentMode,Encrypt,
 
 **Conceito crítico (errado em simulado!):**
 
-| Método | Expiração | Escopo | Quando usar |
-|--------|-----------|--------|-------------|
-| **Access Keys** | ❌ Não expira (até rotação) | Full access a TODA a conta | Apps que precisam acesso completo com mínimo gerenciamento de segredos |
-| **SAS** | ✅ Expira (configurável) | Granular (contêiner, blob, permissões específicas) | Acesso temporário com prazo definido |
-| **Azure AD (Entra ID)** | N/A (baseado em token) | RBAC granular | Melhor prática para identidades gerenciadas, zero segredos |
+| Método                  | Expiração                  | Escopo                                             | Quando usar                                                            |
+| ----------------------- | -------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------- |
+| **Access Keys**         | ❌ Não expira (até rotação) | Full access a TODA a conta                         | Apps que precisam acesso completo com mínimo gerenciamento de segredos |
+| **SAS**                 | ✅ Expira (configurável)    | Granular (contêiner, blob, permissões específicas) | Acesso temporário com prazo definido                                   |
+| **Azure AD (Entra ID)** | N/A (baseado em token)     | RBAC granular                                      | Melhor prática para identidades gerenciadas, zero segredos             |
 
 **Árvore de decisão:**
 ```
@@ -1354,12 +1345,12 @@ Precisa de acesso temporário com prazo?
 
 Backup de **Web Apps** do Azure App Service usa **Storage Account**, NÃO Recovery Services Vault:
 
-| Recurso | Backup Storage | Método |
-|---------|---------------|--------|
-| VMs | Recovery Services Vault (RSV) | Azure Backup |
-| Web Apps | **Storage Account** | App Service built-in backup |
-| SQL Database | Storage Account (automated) | Automated backups |
-| Azure Files | Recovery Services Vault (RSV) | Azure Backup |
+| Recurso      | Backup Storage                | Método                      |
+| ------------ | ----------------------------- | --------------------------- |
+| VMs          | Recovery Services Vault (RSV) | Azure Backup                |
+| Web Apps     | **Storage Account**           | App Service built-in backup |
+| SQL Database | Storage Account (automated)   | Automated backups           |
+| Azure Files  | Recovery Services Vault (RSV) | Azure Backup                |
 
 **Requisitos para Web App backup:**
 1. App Service Plan **Standard** ou superior (Basic não suporta backup)
@@ -1381,61 +1372,61 @@ Esta secao consolida **todos os metodos** praticados neste lab (Portal, CLI, Pow
 
 ### Criar Storage Account
 
-| Metodo | Comando / Caminho | Observacoes |
-|--------|-------------------|-------------|
-| **Portal** | Storage accounts > + Create > preencher formulario | Mais visual, bom para quem esta comecando. Nao e escalavel. |
-| **CLI** | `az storage account create --name X --sku Standard_LRS --kind StorageV2` | Rapido, scriptavel. Ideal para automacao simples. |
-| **PowerShell** | `New-AzStorageAccount -Name X -SkuName Standard_LRS -Kind StorageV2` | Equivalente ao CLI. Preferido em ambientes Windows/corporativos. |
-| **Bicep** | `resource sa 'Microsoft.Storage/storageAccounts@2023-01-01' = { ... }` | Declarativo, versionavel. Compila para ARM JSON. |
-| **ARM JSON** | Template JSON com `Microsoft.Storage/storageAccounts` | Verboso, mas e o formato nativo do Azure. Muitas questoes usam. |
+| Metodo         | Comando / Caminho                                                        | Observacoes                                                      |
+| -------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| **Portal**     | Storage accounts > + Create > preencher formulario                       | Mais visual, bom para quem esta comecando. Nao e escalavel.      |
+| **CLI**        | `az storage account create --name X --sku Standard_LRS --kind StorageV2` | Rapido, scriptavel. Ideal para automacao simples.                |
+| **PowerShell** | `New-AzStorageAccount -Name X -SkuName Standard_LRS -Kind StorageV2`     | Equivalente ao CLI. Preferido em ambientes Windows/corporativos. |
+| **Bicep**      | `resource sa 'Microsoft.Storage/storageAccounts@2023-01-01' = { ... }`   | Declarativo, versionavel. Compila para ARM JSON.                 |
+| **ARM JSON**   | Template JSON com `Microsoft.Storage/storageAccounts`                    | Verboso, mas e o formato nativo do Azure. Muitas questoes usam.  |
 
 ### Criar Blob Container
 
-| Metodo | Comando / Caminho | Observacoes |
-|--------|-------------------|-------------|
-| **Portal** | Storage account > Containers > + Container | Interface simples. Upload manual de arquivos tambem disponivel. |
-| **CLI** | `az storage container create --name X --connection-string "..."` | Requer connection string ou account key. |
-| **PowerShell** | `New-AzStorageContainer -Name X -Context $ctx` | Usa contexto da storage account (objeto `$ctx`). |
-| **Bicep** | Recurso filho: `resource container 'Microsoft.Storage/.../containers@...' = { parent: blobService }` | Hierarquia: SA → blobServices/default → containers/nome. |
+| Metodo         | Comando / Caminho                                                                                    | Observacoes                                                     |
+| -------------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| **Portal**     | Storage account > Containers > + Container                                                           | Interface simples. Upload manual de arquivos tambem disponivel. |
+| **CLI**        | `az storage container create --name X --connection-string "..."`                                     | Requer connection string ou account key.                        |
+| **PowerShell** | `New-AzStorageContainer -Name X -Context $ctx`                                                       | Usa contexto da storage account (objeto `$ctx`).                |
+| **Bicep**      | Recurso filho: `resource container 'Microsoft.Storage/.../containers@...' = { parent: blobService }` | Hierarquia: SA → blobServices/default → containers/nome.        |
 
 ### Upload de Arquivos para Blob
 
-| Metodo | Um arquivo | Varios arquivos (massa) |
-|--------|-----------|------------------------|
-| **Portal** | Container > Upload > selecionar arquivo | Container > Upload > selecionar multiplos (limitado) |
-| **CLI** | `az storage blob upload --file X --name Y` | `az storage blob upload-batch --source pasta --destination container` |
-| **PowerShell** | `Set-AzStorageBlobContent -File X -Blob Y` | `Get-ChildItem -Recurse \| Set-AzStorageBlobContent` |
-| **AzCopy** | `azcopy copy "arquivo" "url-destino"` | `azcopy copy "pasta/*" "url-destino" --recursive` |
+| Metodo         | Um arquivo                                 | Varios arquivos (massa)                                               |
+| -------------- | ------------------------------------------ | --------------------------------------------------------------------- |
+| **Portal**     | Container > Upload > selecionar arquivo    | Container > Upload > selecionar multiplos (limitado)                  |
+| **CLI**        | `az storage blob upload --file X --name Y` | `az storage blob upload-batch --source pasta --destination container` |
+| **PowerShell** | `Set-AzStorageBlobContent -File X -Blob Y` | `Get-ChildItem -Recurse \| Set-AzStorageBlobContent`                  |
+| **AzCopy**     | `azcopy copy "arquivo" "url-destino"`      | `azcopy copy "pasta/*" "url-destino" --recursive`                     |
 
 ### Copia Server-to-Server (entre Storage Accounts)
 
-| Metodo | Comando | Passa pelo local? |
-|--------|---------|:-----------------:|
-| **AzCopy** | `azcopy copy "url-src" "url-dest" --recursive` | Nao (backbone Azure) |
-| **PowerShell** | `Start-AzStorageBlobCopy -SrcContainer X -DestContainer Y` | Nao (server-side) |
-| **CLI** | `az storage blob copy start --source-uri "url"` | Nao (server-side) |
-| **CLI batch** | `az storage blob copy start-batch --source-container X` | Nao (server-side) |
-| **Portal** | Nao disponivel nativamente (use AzCopy ou Storage Explorer) | N/A |
+| Metodo         | Comando                                                     |  Passa pelo local?   |
+| -------------- | ----------------------------------------------------------- | :------------------: |
+| **AzCopy**     | `azcopy copy "url-src" "url-dest" --recursive`              | Nao (backbone Azure) |
+| **PowerShell** | `Start-AzStorageBlobCopy -SrcContainer X -DestContainer Y`  |  Nao (server-side)   |
+| **CLI**        | `az storage blob copy start --source-uri "url"`             |  Nao (server-side)   |
+| **CLI batch**  | `az storage blob copy start-batch --source-container X`     |  Nao (server-side)   |
+| **Portal**     | Nao disponivel nativamente (use AzCopy ou Storage Explorer) |         N/A          |
 
 > **Dica prova:** Se a questao menciona "sem baixar localmente" ou "server-to-server", as respostas corretas sao AzCopy (URL→URL) ou `Start-AzStorageBlobCopy`. NUNCA `Get-AzStorageBlobContent` seguido de `Set-AzStorageBlobContent` (isso baixa e re-faz upload).
 
 ### Object Replication — Pre-requisitos por metodo
 
-| Metodo | Habilitar versioning | Habilitar change feed | Criar politica |
-|--------|---------------------|----------------------|----------------|
-| **Portal** | SA > Data protection > Enable versioning | SA > Data protection > Enable change feed | SA destino > Object replication > Set up rules |
-| **CLI** | `az storage account blob-service-properties update --enable-versioning true` | `...update --enable-change-feed true` | `az storage account or-policy create` |
-| **PowerShell** | `Update-AzStorageBlobServiceProperty -IsVersioningEnabled $true` | `...  -EnableChangeFeed $true` | `Set-AzStorageObjectReplicationPolicy` |
+| Metodo         | Habilitar versioning                                                         | Habilitar change feed                     | Criar politica                                 |
+| -------------- | ---------------------------------------------------------------------------- | ----------------------------------------- | ---------------------------------------------- |
+| **Portal**     | SA > Data protection > Enable versioning                                     | SA > Data protection > Enable change feed | SA destino > Object replication > Set up rules |
+| **CLI**        | `az storage account blob-service-properties update --enable-versioning true` | `...update --enable-change-feed true`     | `az storage account or-policy create`          |
+| **PowerShell** | `Update-AzStorageBlobServiceProperty -IsVersioningEnabled $true`             | `...  -EnableChangeFeed $true`            | `Set-AzStorageObjectReplicationPolicy`         |
 
 ### Deploy de Templates
 
-| Metodo | CLI | PowerShell |
-|--------|-----|------------|
-| **Arquivo local (.json)** | `--template-file deploy.json` | `-TemplateFile deploy.json` |
-| **Arquivo local (.bicep)** | `--template-file deploy.bicep` | `-TemplateFile deploy.bicep` |
-| **URL (blob, GitHub)** | `--template-uri "https://..."` | `-TemplateUri "https://..."` |
-| **Template Spec** | `--template-spec <id>` | `-TemplateSpecId <id>` |
-| **Portal** | N/A (use "Deploy a custom template" na barra de pesquisa) | N/A |
+| Metodo                     | CLI                                                       | PowerShell                   |
+| -------------------------- | --------------------------------------------------------- | ---------------------------- |
+| **Arquivo local (.json)**  | `--template-file deploy.json`                             | `-TemplateFile deploy.json`  |
+| **Arquivo local (.bicep)** | `--template-file deploy.bicep`                            | `-TemplateFile deploy.bicep` |
+| **URL (blob, GitHub)**     | `--template-uri "https://..."`                            | `-TemplateUri "https://..."` |
+| **Template Spec**          | `--template-spec <id>`                                    | `-TemplateSpecId <id>`       |
+| **Portal**                 | N/A (use "Deploy a custom template" na barra de pesquisa) | N/A                          |
 
 ### Quando usar cada metodo?
 
