@@ -11,6 +11,9 @@ param location string = resourceGroup().location
 @secure()
 param adminPassword string
 
+@description('Tamanho da VM (B1s pode nao estar disponivel em algumas regioes)')
+param vmSize string = 'Standard_D2s_v3'
+
 // ========== Storage Account ==========
 var storageName = 'stperms${suffix}'
 
@@ -87,7 +90,7 @@ resource vm 'Microsoft.Compute/virtualMachines@2023-07-01' = {
     env: 'lab'
   }
   properties: {
-    hardwareProfile: { vmSize: 'Standard_B1s' }
+    hardwareProfile: { vmSize: vmSize }
     osProfile: {
       computerName: vmName
       adminUsername: 'azureuser'

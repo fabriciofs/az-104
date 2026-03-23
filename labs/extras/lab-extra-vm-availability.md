@@ -569,13 +569,19 @@ Update-AzVM -ResourceGroupName $RG -VM $vm
 
 Este cenario e classico na prova: mover um disco de dados de VM1 para VM2 com **minimo downtime**.
 
-#### Sequencia correta (4 passos)
+> **NOTA TECNICA:** Azure suporta hot-detach de discos de dados (desanexar com VM ligada).
+> Porem, na prova a Microsoft espera que voce **pare a VM de origem** para garantir
+> consistencia de dados (nenhum processo escrevendo no disco durante o detach).
+> "Minimo downtime" na prova = parar **so a VM de origem**, nao ambas.
+
+#### Sequencia correta para a prova (4 passos)
 
 ```
 VM-ORIGEM                          VM-DESTINO
     |                                  |
     | 1. Parar VM-ORIGEM               |
     |    (deallocate)                  |
+    |    (consistencia de dados)       |
     |                                  |
     | 2. Desanexar disco               |
     |    da VM-ORIGEM                  |
@@ -647,9 +653,11 @@ ERRADO: Parar ambas as VMs, desanexar, anexar, iniciar ambas
 CERTO:  Parar VM1 → Desanexar → Anexar na VM2 (sem parar VM2) → Iniciar VM1
 
 REGRAS:
-- VM ORIGEM precisa ser PARADA para REMOVER disco (consistencia de dados)
+- Tecnicamente hot-detach funciona (disco de dados pode ser removido com VM ligada)
+- Mas na PROVA: parar VM ORIGEM antes de remover (garantia de consistencia de dados)
 - VM DESTINO NAO precisa ser parada para RECEBER disco (hot-attach)
-- Isso garante MINIMO downtime (so VM1 fica fora)
+- "Minimo downtime" = parar SO a VM1 (nao ambas!)
+- Se a prova perguntar "sem downtime" ou "sem parar nenhuma VM" → hot-detach + hot-attach
 ```
 
 ---
@@ -670,21 +678,46 @@ REGRAS:
 
 ### Calculo de impacto (como a prova pergunta)
 
+> **DICA DE PROVA:** Na Pearson VUE voce recebe um quadro branco com caneta apagavel.
+> Para questoes de FD/UD, **desenhe os racks** e distribua as VMs em round-robin.
+> Visualizar ajuda muito mais do que tentar calcular de cabeca.
+
 ```
-EXEMPLO: 5 VMs, 2 FDs, 5 UDs
+EXEMPLO: 5 VMs, 3 FDs, 5 UDs
 
-Manutencao planejada (UD):
-  UD0: VM1    ← manutencao atinge 1 UD por vez
-  UD1: VM2
-  UD2: VM3
-  UD3: VM4
-  UD4: VM5
-  Resultado: 1 VM indisponivel por vez (5 VMs / 5 UDs = 1 por UD)
+PASSO 1 — Desenhe os racks (FDs) e distribua as VMs (round-robin):
 
-Falha de hardware (FD):
-  FD0: VM1, VM2, VM3   ← se este rack falha, 3 VMs caem
-  FD1: VM4, VM5
-  Resultado: ate 3 VMs indisponiveis (ceil(5/2) = 3 no pior FD)
+  Rack 0 (FD0)    Rack 1 (FD1)    Rack 2 (FD2)
+  ┌──────────┐    ┌──────────┐    ┌──────────┐
+  │ VM1 (UD0)│    │ VM2 (UD1)│    │ VM3 (UD2)│
+  │ VM4 (UD3)│    │ VM5 (UD4)│    │          │
+  └──────────┘    └──────────┘    └──────────┘
+      2 VMs           2 VMs          1 VM
+            distribuicao: 2-2-1
+
+PASSO 2 — Responda a pergunta olhando o desenho:
+
+  "Falha de hardware?" → olhe os RACKS verticalmente
+    Pior caso: Rack 0 ou 1 cai → 2 VMs fora
+
+  "Manutencao planejada?" → olhe os UDs (cada UD reinicia sozinho)
+    Cada UD tem 1 VM → 1 VM fora por vez
+```
+
+```
+OUTRO EXEMPLO: 5 VMs, 2 FDs, 5 UDs
+
+  Rack 0 (FD0)    Rack 1 (FD1)
+  ┌──────────┐    ┌──────────┐
+  │ VM1 (UD0)│    │ VM2 (UD1)│
+  │ VM3 (UD2)│    │ VM4 (UD3)│
+  │ VM5 (UD4)│    │          │
+  └──────────┘    └──────────┘
+      3 VMs           2 VMs
+        distribuicao: 3-2
+
+  Pior caso hardware: Rack 0 cai → 3 VMs fora
+  Manutencao: 1 VM fora por vez
 ```
 
 ### Task 4.1 — Criar Availability Set + VM
@@ -990,22 +1023,22 @@ ERROS COMUNS NOS SIMULADOS (errou 3x!):
 
 ### Task 5.1 — Criar VM em Availability Zone
 
-#### Metodo 1: Portal
+#### Metodo 1: Portal (multiplas zonas de uma vez)
 
 1. Portal > **Virtual Machines** > **+ Create**
 2. Aba **Basics:**
    - Resource group: `rg-lab-vm-avail`
-   - Virtual machine name: `vm-zone-01`
+   - Virtual machine name: `vm-zone` (Portal gera nomes automaticos: vm-zone-1, vm-zone-2, vm-zone-3)
    - Region: **East US**
    - Availability options: **Availability zone**
-   - Availability zone: **Zone 1**
+   - Selecionar **Zone 1, Zone 2, Zone 3** (multiplas zonas de uma vez!)
    - Image: Ubuntu Server 22.04 LTS
    - Size: Standard_B1s
 3. Completar restante > **Review + Create** > **Create**
 
-Repetir para **Zone 2** com nome `vm-zone-02`.
-
-> **No Portal:** Ao selecionar "Availability zone", o dropdown mostra as zonas disponiveis (1, 2, 3). Availability Set e Availability Zone sao opcoes mutuamente exclusivas.
+> **No Portal:** Voce pode selecionar ate 3 zonas de uma vez. O Azure cria **1 VM por zona** automaticamente,
+> gerando nomes sequenciais (ex: vm-zone-1, vm-zone-2, vm-zone-3). Clique em "Editar Nomes" para personalizar.
+> Availability Set e Availability Zone sao opcoes mutuamente exclusivas.
 
 #### Metodo 2: Azure CLI
 

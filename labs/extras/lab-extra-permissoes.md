@@ -48,14 +48,19 @@ LOCATION="eastus"
 az group create --name $RG --location $LOCATION --tags dept=IT env=lab
 
 # Deploy dos pre-requisitos via Bicep (Storage + containers + VM)
-az deployment group create \
-  --resource-group $RG \
-  --template-file labs/extras/templates/lab-perms-prereqs.bicep \
-  --parameters adminPassword="Lab@Perms2026!" \
-  --query "properties.outputs" -o table
+az deployment group create --resource-group $RG --template-file labs/extras/templates/lab-perms-prereqs.bicep --parameters adminPassword="#Lab@Perms2026" --query "properties.outputs" -o table
 
 # Capturar nome da storage account criada
 ST=$(az deployment group show --resource-group $RG --name lab-perms-prereqs --query "properties.outputs.storageName.value" -o tsv)
+
+# Atribuir Storage Blob Data Contributor ao seu usuario (necessario para upload com --auth-mode login)
+az role assignment create \
+  --assignee $(az ad signed-in-user show --query id -o tsv) \
+  --role "Storage Blob Data Contributor" \
+  --scope $(az storage account show --name $ST --query id -o tsv)
+
+echo "Aguardando propagacao RBAC (30s)..."
+sleep 30
 
 # Upload de blobs de teste com tags (index tags) — precisa ser manual (Bicep nao faz upload de dados)
 echo "dados publicos" > /tmp/public.txt
@@ -67,22 +72,27 @@ az storage blob upload --container-name finance-data --name report.txt --file /t
 echo "Recursos criados: RG=$RG, Storage=$ST, VM=vm-perms-test"
 ```
 
-> **O que o Bicep criou:** Storage Account (Standard_LRS) + 2 containers (public-data, finance-data) + VNet + VM Ubuntu B1s (sem IP publico). Os uploads de blob sao feitos via CLI porque Bicep nao gerencia dados dentro dos containers.
+> **O que o Bicep criou:** Storage Account (Standard_LRS) + 2 containers (public-data, finance-data) + VNet + VM D2s_v3 (sem IP publico). Os uploads de blob sao feitos via CLI porque Bicep nao gerencia dados dentro dos containers.
+>
+> **Por que o role assignment?** O Bicep cria a storage account, mas seu usuario nao tem automaticamente permissao de **dados** (upload/download). Owner/Contributor dao permissao de **gerenciamento** (criar/deletar conta), mas para manipular blobs com `--auth-mode login` precisa de role de dados (Storage Blob Data Contributor). Alternativa: usar `--auth-mode key` (nao precisa de role de dados).
 
-### Task 1.2: Desabilitar Security Defaults (evitar MFA nos usuarios de teste)
+### Task 1.2: Sobre login com usuarios de teste
 
-> **Por que?** Security Defaults forca MFA para todos os usuarios. Sem desabilitar, os usuarios de teste vao pedir MFA no primeiro login, poluindo seu Authenticator app e gastando tempo. **Reabilite apos o lab!**
-
-**Portal → Entra ID → Properties → Manage security defaults → Disabled → Save**
-
-Ou via CLI:
-```bash
-az rest --method PATCH \
-  --uri "https://graph.microsoft.com/v1.0/policies/identitySecurityDefaultsEnforcementPolicy" \
-  --body '{"isEnabled": false}'
-```
-
-> **LEMBRETE:** No cleanup do lab (final), reabilitar Security Defaults!
+> **Nota sobre MFA:** Mesmo com Security Defaults desabilitado, o Entra ID forca novos usuarios a registrar informacoes de seguranca no primeiro login (registration campaign). Sem licenca P1, nao e possivel desabilitar isso.
+>
+> **Abordagem deste lab:** Em vez de logar como os usuarios de teste (que exigiria configurar MFA), vamos **verificar permissoes via CLI** com o usuario admin. Isso cobre 95% do aprendizado e e mais rapido.
+>
+> ```bash
+> # Verificar roles de um usuario (sem precisar logar como ele)
+> az role assignment list --assignee "user-web@${DOMAIN}" -o table
+>
+> # Verificar se usuario pode acessar recurso especifico
+> az role assignment list --assignee "user-web@${DOMAIN}" \
+>   --scope $(az storage account show --name $ST --query id -o tsv) \
+>   --query "[].{role:roleDefinitionName, scope:scope}" -o table
+> ```
+>
+> **Se quiser a experiencia completa (login visual):** Configure MFA temporariamente para os usuarios de teste, faca o lab, e delete os usuarios no cleanup.
 
 ### Task 1.3: Criar usuarios de teste no Entra ID
 
@@ -105,23 +115,14 @@ az rest --method PATCH \
 DOMAIN=$(az ad signed-in-user show --query "userPrincipalName" -o tsv | cut -d@ -f2)
 
 # Criar usuarios
-az ad user create \
-  --display-name "User Web" \
-  --user-principal-name "user-web@${DOMAIN}" \
-  --password "Lab@Perms2026!" \
-  --force-change-password-next-sign-in false
+az ad user create --display-name "User Web" --user-principal-name "user-web@${DOMAIN}" --password "#Lab@Perms2026" --force-change-password-next-sign-in false
 
-az ad user create \
-  --display-name "User DB" \
-  --user-principal-name "user-db@${DOMAIN}" \
-  --password "Lab@Perms2026!" \
-  --force-change-password-next-sign-in false
+az ad user create --display-name "User DB" --user-principal-name "user-db@${DOMAIN}" --password "#Lab@Perms2026" --force-change-password-next-sign-in false
 
 echo "Usuarios criados: user-web@${DOMAIN}, user-db@${DOMAIN}"
 ```
 
-> **Anote as senhas** — voce vai precisar para testar logins em aba anonima.
-> **Teste de login:** Abra aba anonima → portal.azure.com → login com user-web@domain / Lab@Perms2026!
+> **Nota:** Neste lab verificamos permissoes via CLI (sem login como usuario de teste). Se quiser testar login visual, configure MFA para os usuarios de teste.
 
 ---
 
@@ -136,10 +137,10 @@ echo "Usuarios criados: user-web@${DOMAIN}, user-db@${DOMAIN}"
 USER_WEB_ID=$(az ad user show --id "user-web@${DOMAIN}" --query id -o tsv)
 
 # Obter o role definition ID do Guest Inviter
-# Guest Inviter role ID e fixo: 95e79109-95c0-4d8e-aee3-d01accf2d47a
+# Guest Inviter role ID e fixo: 95e79109-95c0-4d8e-aee3-d01accf2d47b
 az rest --method POST \
   --url "https://graph.microsoft.com/v1.0/roleManagement/directory/roleAssignments" \
-  --body "{\"principalId\": \"${USER_WEB_ID}\", \"roleDefinitionId\": \"95e79109-95c0-4d8e-aee3-d01accf2d47a\", \"directoryScopeId\": \"/\"}"
+  --body "{\"principalId\": \"${USER_WEB_ID}\", \"roleDefinitionId\": \"95e79109-95c0-4d8e-aee3-d01accf2d47b\", \"directoryScopeId\": \"/\"}"
 
 echo "Guest Inviter atribuido ao user-web"
 ```
@@ -151,11 +152,20 @@ echo "Guest Inviter atribuido ao user-web"
 
 ### Task 2.2: Verificar que Guest Inviter NAO da acesso a recursos
 
-1. Abra uma janela **anonima/privada** do navegador
-2. Acesse **portal.azure.com** e faca login como `user-web@<tenant>`
-3. Navegue para **Resource groups** → user-web **NAO ve** rg-lab-perms (ou ve vazio)
-4. Navegue para **Entra ID** > **Users** > **+ New guest user** → user-web **CONSEGUE** convidar
+```bash
+# Verificar Entra ID Role atribuida ao user-web
+az rest --method GET \
+  --url "https://graph.microsoft.com/v1.0/roleManagement/directory/roleAssignments?\$filter=principalId eq '${USER_WEB_ID}'" \
+  --query "value[].roleDefinitionId" -o tsv
 
+# Verificar se user-web tem algum RBAC em recursos Azure
+az role assignment list --assignee "${USER_WEB_ID}" --all -o table
+```
+
+> **Resultado esperado:**
+> - Entra ID Role: Guest Inviter (95e79109...) → **SIM** (pode convidar externos)
+> - RBAC em recursos: **NENHUM** (nao ve RGs, VMs, storage)
+>
 > **Aprendizado:** Guest Inviter e uma Entra ID Role — permite convidar externos mas NAO da acesso a recursos Azure. Sao sistemas separados.
 
 ### Task 2.3: Comparar com User Administrator
@@ -250,22 +260,37 @@ New-AzRoleAssignment `
 3. Members: **+ Select members** > selecione **User DB** > **Select**
 4. **Review + assign**
 
-### Task 3.3: Testar as permissoes RBAC
+### Task 3.3: Verificar as permissoes RBAC
 
-**Como user-web (VM Contributor):**
+```bash
+# Ver TODAS as roles do user-web no RG
+az role assignment list \
+  --assignee "user-web@${DOMAIN}" \
+  --resource-group $RG \
+  --query "[].{role:roleDefinitionName, scope:scope}" -o table
 
-1. Login anonimo como user-web
-2. Navegue para **rg-lab-perms** > **vm-perms-test** → **consegue** ver e gerenciar
-3. Tente **parar** a VM → **funciona** (VM Contributor permite)
-4. Tente acessar **Storage Account** > **Containers** → **nao consegue** ver dados (VM Contributor nao da acesso a storage)
+# Ver TODAS as roles do user-db no RG
+az role assignment list \
+  --assignee "user-db@${DOMAIN}" \
+  --resource-group $RG \
+  --query "[].{role:roleDefinitionName, scope:scope}" -o table
 
-**Como user-db (Reader):**
+# Verificar permissoes especificas da role Virtual Machine Contributor
+az role definition list --name "Virtual Machine Contributor" \
+  --query "[0].permissions[0].actions[:10]" -o tsv
 
-1. Login anonimo como user-db
-2. Navegue para **rg-lab-perms** > **vm-perms-test** → **consegue** ver
-3. Tente **parar** a VM → **falha** (Reader e somente leitura)
-4. Tente **criar** qualquer recurso → **falha**
+# Verificar permissoes da role Reader
+az role definition list --name "Reader" \
+  --query "[0].permissions[0].{actions:actions[:5], notActions:notActions[:3]}" -o json
+```
 
+> **Resultado esperado:**
+>
+> | Usuario | Role | Pode ver VMs? | Pode parar VM? | Pode ver storage? | Pode criar recursos? |
+> |---------|------|:---:|:---:|:---:|:---:|
+> | user-web | VM Contributor | Sim | Sim | Nao (dados) | Nao (so VMs) |
+> | user-db | Reader | Sim | Nao | Sim (metadados) | Nao |
+>
 > **Aprendizado:** RBAC e granular por role. VM Contributor gerencia VMs mas nao storage. Reader ve tudo mas nao modifica nada. Cada role tem permissoes especificas.
 
 ### Task 3.4: Atribuir Tag Contributor ao user-web
